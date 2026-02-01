@@ -20,7 +20,7 @@ function formatCurrency(n: number, locale: string) {
 export default function ExpensesPage() {
   const { t, locale } = useTranslation();
   const [summary, setSummary] = useState<Awaited<ReturnType<typeof dashboard.summary>> | null>(null);
-  const [expenseCategories, setExpenseCategories] = useState<Array<{ id: string; name: string }>>([]);
+  const [expenseCategories, setExpenseCategories] = useState<Array<{ id: string; name: string; slug?: string }>>([]);
   const [accountsList, setAccountsList] = useState<Array<{ id: string; name: string }>>([]);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
