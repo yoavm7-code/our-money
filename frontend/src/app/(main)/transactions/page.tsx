@@ -36,7 +36,7 @@ export default function TransactionsPage() {
   const [items, setItems] = useState<Tx[]>([]);
   const [total, setTotal] = useState(0);
   const [accountsList, setAccountsList] = useState<Array<{ id: string; name: string }>>([]);
-  const [categoriesList, setCategoriesList] = useState<Array<{ id: string; name: string; slug: string; isIncome: boolean }>>([]);
+  const [categoriesList, setCategoriesList] = useState<Array<{ id: string; name: string; slug?: string; isIncome: boolean }>>([]);
   const [updatingCategoryId, setUpdatingCategoryId] = useState<string | null>(null);
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [addCategoryForTxId, setAddCategoryForTxId] = useState<string | null>(null);

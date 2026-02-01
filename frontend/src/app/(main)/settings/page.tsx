@@ -21,7 +21,7 @@ export default function SettingsPage() {
   const { t } = useTranslation();
   const [user, setUser] = useState<{ email: string; name: string | null } | null>(null);
   const [accountsList, setAccountsList] = useState<Array<{ id: string; name: string; type: string; balance: string | null }>>([]);
-  const [categoriesList, setCategoriesList] = useState<Array<{ id: string; name: string; slug: string; isIncome: boolean; isDefault?: boolean }>>([]);
+  const [categoriesList, setCategoriesList] = useState<Array<{ id: string; name: string; slug?: string; isIncome: boolean; isDefault?: boolean }>>([]);
   const [loading, setLoading] = useState(true);
   const [newAccount, setNewAccount] = useState({ name: '', type: 'BANK', balance: '', addBalance: false });
   const [adding, setAdding] = useState(false);
@@ -229,7 +229,7 @@ export default function SettingsPage() {
                   className="input w-full"
                   value={profileForm.name}
                   onChange={(e) => setProfileForm((f) => ({ ...f, name: e.target.value }))}
-                  placeholder={user?.name ?? user?.email}
+                  placeholder={user?.name ?? user?.email ?? ''}
                 />
               </div>
               <div>
