@@ -70,7 +70,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     [dict]
   );
 
-  const dir = locale === 'he' ? 'rtl' : 'ltr';
+  const dir: 'rtl' | 'ltr' = locale === 'he' ? 'rtl' : 'ltr';
   const isRtl = locale === 'he';
 
   const value = useMemo(
