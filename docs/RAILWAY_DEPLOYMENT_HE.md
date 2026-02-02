@@ -239,6 +239,9 @@ Railway יזהה את ה-push ויבצע deploy אוטומטי.
 
 **אם אין DATABASE_PUBLIC_URL ב-PostgreSQL** – היכנס ל-**PostgreSQL** → **Variables** והעתק ידנית את הערכים ליצירת URL: `postgresql://USER:PASSWORD@HOST:PORT/DATABASE` (מ-PGHOST, PGPORT וכו', או מהגדרות TCP Proxy)
 
+### P3009: migrate found failed migrations
+אם ה-Backend קורס עם migration שנכשל – **ראה [RAILWAY_FIX_P3009.md](./RAILWAY_FIX_P3009.md)** – פתרון מלא באמצעות Railway CLI (בלי להעתיק URLs).
+
 ### Frontend מציג שגיאות רשת
 - ודא ש-`NEXT_PUBLIC_API_URL` מכיל את כתובת ה-Backend (כולל `https://`)
 - ודא ש-`FRONTEND_URL` ב-Backend תואם את כתובת ה-Frontend (CORS)

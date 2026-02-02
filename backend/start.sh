@@ -11,8 +11,9 @@ fi
 sleep 5
 
 # Resolve failed migration (P3009) - mark as rolled-back so deploy can retry
-npx prisma migrate resolve --rolled-back 20260129000000_add_installment_fields 2>/dev/null || true
-npx prisma migrate resolve --rolled-back 20260129100000_fix_installment_amounts 2>/dev/null || true
+# Ignores errors if migration is not in failed state
+npx prisma migrate resolve --rolled-back 20260129000000_add_installment_fields || true
+npx prisma migrate resolve --rolled-back 20260129100000_fix_installment_amounts || true
 
 npx prisma migrate deploy
 exec npm run start
