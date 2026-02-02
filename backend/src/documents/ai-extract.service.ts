@@ -23,25 +23,33 @@ export interface SignHints {
 }
 
 // Hebrew keywords: income vs expense (substring match)
-// IMPORTANT: Be very selective about income – most bank transactions are expenses.
-// Only mark as INCOME if it's CLEARLY income (salary, refund, insurance payout).
+// ONLY use keywords that are UNAMBIGUOUS. Many terms can be either income or expense
+// depending on context (e.g., הוראת קבע can be money coming IN or going OUT).
+// 
+// CLEARLY INCOME (no ambiguity):
 const INCOME_KEYWORDS = [
-  'משכורת', 'שכר', 'זיכוי', 'הכנסה', 'החזר כספי', 'החזר מס', 
-  'קצבה', 'קצבת ילדים', 'קצבת זקנה', 
-  'ביטוח לאומי ג', 'ביטוח לאומי חד', 'בטוח לאומי ג', 'בטוח לאומי חד', // ג׳ימלה = payout
-  'מ.א.', 'מ.א ', 'אפרויה בע', // employer names for salary
+  'משכורת', 'שכר',           // salary - always income
+  'קצבת ילדים', 'קצבת זקנה', // government allowances
+  'ביטוח לאומי ג', 'בטוח לאומי ג', // ביטוח לאומי גמלה = payout (income)
+  'מ.א.', 'מ.א ', 'אפרויה בע', // known employer names for salary
 ];
-// Mark as EXPENSE: transfers out, standing orders, credit card charges, fees, etc.
+// CLEARLY EXPENSE (no ambiguity):
 const EXPENSE_KEYWORDS = [
-  'חיוב', 'חיובי', 'משיכה', 'תשלום', 
-  'העב\' לאחר', 'העברה לאחר', 'העב\' לאחר-נייד', 'לאחר-נייד', 'העברה-נייד',
-  'הוראת קבע', 'הוראת-קבע', 'הו"ק', 'הו״ק',
-  'עמ\'הקצאת אשראי', 'עם הקצאת אשראי', 'הקצאת אשראי', 
-  'כאל', 'מקס איט פיננסי', 'לאומי קארד', 'CAL', 'ישראכרט', 'אמריקן אקספרס',
-  'דמי ניהול', 'עמלה', 'עמלת',
-  'On איט פיננסי', 'שיק', 'מקס איט', 'איט פיננסי',
-  'פמי פרימיום', 'מיטב דש', 'גמל', // pension/savings contributions = expense
+  'חיוב', 'משיכה',           // charge, withdrawal - always expense
+  'העב\' לאחר', 'העברה לאחר', // transfer TO another = expense
+  'עמ\'הקצאת אשראי', 'הקצאת אשראי', // credit allocation fee
+  'כאל', 'מקס איט פיננסי', 'לאומי קארד', 'ישראכרט', 'אמריקן אקספרס', 'CAL', // credit card companies
+  'איט פיננסי', 'On איט פיננסי', 'מקס איט',
+  'דמי ניהול', 'עמלה', 'עמלת', // fees
+  'שיק',                      // check payment = expense
 ];
+// AMBIGUOUS - NOT in either list (AI must use judgment):
+// - הוראת קבע / הו"ק (standing order: can be income OR expense)
+// - העברה, העברה-נייד, bit (transfer: can be in OR out)
+// - זיכוי (credit: usually income, but context matters)
+// - ביטוח לאומי (without ג׳ = payment TO them = expense)
+// - החזר (refund: usually income, but could be you refunding someone)
+// - תשלום (payment: usually expense, but "תשלום שהתקבל" = income)
 
 /**
  * AI extraction: parse OCR text into structured transactions using OpenAI.
@@ -80,18 +88,22 @@ export class AiExtractService {
       const candidates = priceLike.length >= 1 ? priceLike : amounts;
 
       if (candidates.length >= 2) {
-        // Two amounts on line → Israeli convention: usually first = income (green), second = expense (red).
-        // If line has only expense keywords (e.g. RTL: expense column read first), swap.
-        const desc = line.replace(dateRe, ' ').replace(amountPattern, ' ').replace(/\s+/g, ' ').trim();
-        const hasIncome = INCOME_KEYWORDS.some((k) => desc.includes(k));
-        const hasExpense = EXPENSE_KEYWORDS.some((k) => desc.includes(k));
-        let income = candidates[0];
-        let expense = candidates[1];
-        if (!hasIncome && hasExpense) {
-          income = candidates[1];
-          expense = candidates[0];
+        // Two amounts on line: DON'T ASSUME which is income/expense.
+        // Bank statements have separate columns, but OCR order is unreliable (RTL/LTR).
+        // Instead, check if ONE amount is zero (meaning only one transaction).
+        const nonZero = candidates.filter((n) => n >= 0.01);
+        if (nonZero.length === 1) {
+          // Only one real amount - treat as single-amount line
+          const desc = line.replace(dateRe, ' ').replace(amountPattern, ' ').replace(/\s+/g, ' ').trim();
+          const hasIncome = INCOME_KEYWORDS.some((k) => desc.includes(k));
+          const hasExpense = EXPENSE_KEYWORDS.some((k) => desc.includes(k));
+          if (hasIncome && !hasExpense) byLine.set(i, 'income');
+          else if (hasExpense && !hasIncome) byLine.set(i, 'expense');
+          else byLine.set(i, 'unknown');
+          continue;
         }
-        twoAmountsByLine.set(i, { income, expense });
+        // Two real amounts: could be income+expense columns, but we can't reliably tell which is which.
+        // Let AI figure it out based on context.
         byLine.set(i, 'unknown');
         continue;
       }
@@ -157,36 +169,55 @@ export class AiExtractService {
 
     const system = `You extract transactions from Israeli bank/credit statement text.
 
-CRITICAL – WE PRE-ANNOTATED EACH ROW WITH SIGN. USE IT STRICTLY.
-• [INCOME_AMT=X] [EXPENSE_AMT=Y] on a row: output TWO transactions – one with amount +X (income), one with amount -Y (expense). Use the same date and appropriate description for each.
-• [SIGN=INCOME AMT=X]: output ONE transaction with amount +X (positive = income). Never make it negative.
-• [SIGN=EXPENSE AMT=X]: output ONE transaction with amount -X (negative = expense). Never make it positive.
-• [SIGN=UNKNOWN AMT=X]: DEFAULT TO EXPENSE (negative). Only use POSITIVE if it's CLEARLY income: salary/משכורת, ביטוח לאומי ג׳ימלה (payout).
-  Transfers (העברה, העברה-נייד, הוראת קבע) are usually EXPENSE. When in doubt, use NEGATIVE.
-Do NOT override our INCOME/EXPENSE annotations. If we marked INCOME, the amount must be positive.
+SIGN ANNOTATIONS – USE THEM, BUT APPLY JUDGMENT FOR "UNKNOWN":
+• [INCOME_AMT=X] [EXPENSE_AMT=Y]: TWO transactions – +X (income) and -Y (expense).
+• [SIGN=INCOME AMT=X]: amount +X (positive). We're confident this is income.
+• [SIGN=EXPENSE AMT=X]: amount -X (negative). We're confident this is expense.
+• [SIGN=UNKNOWN AMT=X]: USE YOUR JUDGMENT based on the FULL context of the description:
 
-1) DATE – In each row use the date in that row (DD/MM/YY or DD.MM.YY). Convert to YYYY-MM-DD. If no date, use previous row's date.
+  INCOME (positive) examples:
+  - משכורת, שכר (salary)
+  - קצבת ילדים, קצבת זקנה (government allowances)
+  - ביטוח לאומי ג׳ימלה (insurance payout - note the ג׳)
+  - זיכוי (credit/refund TO the account)
+  - הוראת קבע where someone PAYS YOU (e.g., tenant paying rent)
+  - העברה/bit where someone SENDS YOU money
 
-2) DESCRIPTION – Copy Hebrew EXACTLY. Do NOT include dates (like "תאריך ערך: 01/01") in the description – only the business/merchant name and transaction type. Never output Latin letters (a-z, A-Z).
+  EXPENSE (negative) examples:
+  - חיוב, משיכה (charge, withdrawal)
+  - credit card companies: כאל, מקס איט, לאומי קארד, ישראכרט
+  - fees: דמי ניהול, עמלה
+  - הוראת קבע where YOU PAY someone (e.g., paying bills)
+  - העברה/bit where YOU SEND money to someone
+  - ביטוח לאומי (without ג׳ = paying INTO insurance)
 
-3) CATEGORY – IMPORTANT: Categorize intelligently, do NOT default to "other".
-Known categories: groceries, transport, utilities, rent, insurance, healthcare, dining, shopping, entertainment, salary, credit_charges, transfers, fees, subscriptions, education, pets, gifts, childcare, savings, pension.
-• משכורת/שכר → salary
+  AMBIGUOUS terms – decide by context:
+  - "הוראת קבע" can be income OR expense
+  - "העברה", "bit" can be income OR expense
+  - "זיכוי" usually income, but check context
+  - When truly unsure, default to EXPENSE (most bank transactions are expenses)
+
+1) DATE – Use the date from each row (DD/MM/YY). Convert to YYYY-MM-DD. If no date, use previous row's date.
+
+2) DESCRIPTION – Copy Hebrew EXACTLY. Remove dates like "תאריך ערך: 01/01". Never output Latin letters.
+
+3) CATEGORY – Categorize intelligently:
+• משכורת/שכר → salary (income)
 • כאל/מקס איט/לאומי קארד/ישראכרט → credit_charges
-• העברה/העברה-נייד/הוראת קבע → transfers (העברות)
-• דמי ניהול/עמלה → fees (עמלות)
+• העברה/הוראת קבע → transfers
+• דמי ניהול/עמלה → fees
 • ביטוח → insurance
 • גז/חשמל/מים/ארנונה → utilities
-• סופר/רמי לוי/שופרסל → groceries
-• דלק/חניה/רכבת/אוטובוס → transport
-• מסעדה/קפה/פיצה → dining
-• If no existing category fits well, create a new slug (lowercase, a-z and underscores only, e.g. "bank_fees", "online_shopping"). The system will create it automatically.
+• סופר/שופרסל/רמי לוי → groceries
+• דלק/חניה/רכבת → transport
+• מסעדה/קפה → dining
+• Create new slugs if needed (lowercase a-z and underscores).
 
-4) INSTALLMENTS – "X מתוך Y" (money) and "N מתוך M" (payment index): amount = X (single payment, negative), totalAmount = Y, installmentCurrent = N, installmentTotal = M.
+4) INSTALLMENTS – "X מתוך Y" = amount X, totalAmount Y.
 
-5) COMPLETENESS – Extract EVERY row that has a date and at least one amount. Do NOT skip small amounts (e.g. 12.00). Missing even one row is a critical error.
+5) COMPLETENESS – Extract EVERY row with a date and amount. Never skip rows.
 
-Output: JSON with key "transactions": array of { date, description, amount (POSITIVE=income, NEGATIVE=expense), categorySlug, totalAmount?, installmentCurrent?, installmentTotal? }. Include every parseable row.`;
+Output: JSON { "transactions": [{ date, description, amount, categorySlug, totalAmount?, installmentCurrent?, installmentTotal? }] }`;
 
     try {
       const model = process.env.OPENAI_MODEL || 'gpt-4o';
