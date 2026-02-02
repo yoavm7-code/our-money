@@ -227,13 +227,32 @@ export const documents = {
   get: (id: string) => api<DocumentWithCount & { _count?: { transactions: number } }>(`/api/documents/${id}`),
 };
 
+export type InsightSection =
+  | 'balanceForecast'
+  | 'savingsRecommendation'
+  | 'investmentRecommendations'
+  | 'taxTips'
+  | 'spendingInsights';
+
+export const INSIGHT_SECTIONS: InsightSection[] = [
+  'balanceForecast',
+  'savingsRecommendation',
+  'investmentRecommendations',
+  'taxTips',
+  'spendingInsights',
+];
+
 export const insights = {
   get: () =>
     api<{
       balanceForecast: string;
       savingsRecommendation: string;
       investmentRecommendations: string;
+      taxTips?: string;
+      spendingInsights?: string;
     }>('/api/insights'),
+  getSection: (section: InsightSection) =>
+    api<{ content: string }>(`/api/insights/${section}`),
 };
 
 export const dashboard = {

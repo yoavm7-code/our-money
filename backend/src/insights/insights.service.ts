@@ -5,6 +5,21 @@ import { AccountType } from '@prisma/client';
 
 const BALANCE_ACCOUNT_TYPES: AccountType[] = ['BANK', 'INVESTMENT', 'PENSION', 'INSURANCE', 'CASH'];
 
+export type InsightSection =
+  | 'balanceForecast'
+  | 'savingsRecommendation'
+  | 'investmentRecommendations'
+  | 'taxTips'
+  | 'spendingInsights';
+
+export const INSIGHT_SECTIONS: InsightSection[] = [
+  'balanceForecast',
+  'savingsRecommendation',
+  'investmentRecommendations',
+  'taxTips',
+  'spendingInsights',
+];
+
 export interface FinancialInsights {
   balanceForecast: string;
   savingsRecommendation: string;
@@ -146,7 +161,112 @@ export class InsightsService {
       return this.getFallbackInsights(data, true);
     }
   }
-  
+
+  async getInsightSection(householdId: string, section: InsightSection): Promise<{ content: string }> {
+    const data = await this.getFinancialData(householdId);
+    const client = this.getOpenAIClient();
+    const fallback = this.getFallbackForSection(data, section, !!client);
+    if (!client) {
+      return { content: fallback };
+    }
+
+    const prompt = this.buildPrompt(data);
+    const sectionPrompt = this.buildSectionAsk(section);
+    const systemPrompt = this.buildSectionSystemPrompt(section);
+
+    try {
+      const completion = await client.chat.completions.create({
+        model: process.env.OPENAI_MODEL || 'gpt-4o',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `${prompt}\n\n${sectionPrompt}` },
+        ],
+        response_format: { type: 'json_object' },
+      });
+      const content = completion.choices[0]?.message?.content;
+      if (!content) return { content: fallback };
+      const parsed = JSON.parse(content) as Record<string, unknown>;
+      const raw = parsed[section];
+      const toReadableString = (v: unknown): string => {
+        if (typeof v === 'string' && v.trim()) return v;
+        if (v != null && typeof v === 'object') {
+          const o = v as Record<string, unknown>;
+          if (Array.isArray(o)) {
+            return o
+              .map((item) => {
+                if (typeof item === 'string') return '• ' + item;
+                if (item != null && typeof item === 'object') {
+                  const t = (item as Record<string, unknown>).type ?? (item as Record<string, unknown>).name ?? (item as Record<string, unknown>).title;
+                  const d = (item as Record<string, unknown>).description ?? (item as Record<string, unknown>).desc ?? (item as Record<string, unknown>).details;
+                  const p = (item as Record<string, unknown>).percentage ?? (item as Record<string, unknown>).allocation;
+                  let line = '• ';
+                  if (t) line += String(t);
+                  if (p) line += ` (${p}%)`;
+                  if (d) line += ': ' + String(d);
+                  return line.trim() === '•' ? '• ' + JSON.stringify(item) : line;
+                }
+                return '• ' + JSON.stringify(item);
+              })
+              .join('\n');
+          }
+        }
+        if (typeof v === 'number') return String(v);
+        return '';
+      };
+      const text = toReadableString(raw);
+      return { content: text?.trim() ? text : fallback };
+    } catch {
+      return { content: fallback };
+    }
+  }
+
+  private buildSectionAsk(section: InsightSection): string {
+    const asks: Record<InsightSection, string> = {
+      balanceForecast: 'בבקשה תן רק צפי יתרה מפורט (balanceForecast) - תחזית ל-1-3 חודשים. החזר JSON עם מפתח balanceForecast.',
+      savingsRecommendation: 'בבקשה תן רק המלצות חיסכון (savingsRecommendation) עם סכומים ספציפיים. החזר JSON עם מפתח savingsRecommendation.',
+      investmentRecommendations: 'בבקשה תן רק המלצות השקעה (investmentRecommendations) מפורטות. החזר JSON עם מפתח investmentRecommendations.',
+      taxTips: 'בבקשה תן רק טיפים למס (taxTips). החזר JSON עם מפתח taxTips.',
+      spendingInsights: 'בבקשה תן רק תובנות על ההוצאות (spendingInsights). החזר JSON עם מפתח spendingInsights.',
+    };
+    return asks[section];
+  }
+
+  private buildSectionSystemPrompt(section: InsightSection): string {
+    const now = new Date();
+    const currentDate = now.toLocaleDateString('he-IL', { year: 'numeric', month: 'long', day: 'numeric' });
+    const currentYear = now.getFullYear();
+    const base = `אתה יועץ פיננסי מומחה לשוק הישראלי. התאריך היום: ${currentDate}. תפקידך לתת המלצה אחת ממוקדת. החזר JSON עם מפתח אחד בלבד.`;
+    const sectionGuidance: Record<InsightSection, string> = {
+      balanceForecast: 'חשב צפי יתרה מדויק על בסיס הכנסות והוצאות. אם יש רק הוצאות - ציין והמלץ להוסיף הכנסות. תן תחזית ל-1-3 חודשים.',
+      savingsRecommendation: `המלץ על סכום ספציפי לחיסכון חירום (3-6 חודשי הוצאות). התייחס לריביות בישראל (כ-4.5% ${currentYear}). הזכר פיקדון, קרן כספית, פק"מ.`,
+      investmentRecommendations: 'המלצות השקעה מפורטות: קרנות השתלמות, קופות גמל, קרנות נאמנות/תעודות סל, אג"ח. שמות מוצרים ישראלים, אחוזי הקצאה, תשואות משוערות.',
+      taxTips: 'נקודות זיכוי, הטבות מס על פנסיה/קופת גמל, קרן השתלמות, החזרי מס. כתוב בעברית.',
+      spendingInsights: 'זהה דפוסי הוצאות, השווה לממוצע, תן טיפים לחיסכון בקטגוריות. כתוב בעברית.',
+    };
+    return `${base}\n\n${sectionGuidance[section]}`;
+  }
+
+  private getFallbackForSection(
+    data: Awaited<ReturnType<typeof this.getFinancialData>>,
+    section: InsightSection,
+    aiEnabled: boolean,
+  ): string {
+    const full = this.getFallbackInsights(data, aiEnabled);
+    if (section === 'balanceForecast') return full.balanceForecast;
+    if (section === 'savingsRecommendation') return full.savingsRecommendation;
+    if (section === 'investmentRecommendations') return full.investmentRecommendations;
+    if (section === 'taxTips') return 'הוסף נתוני הכנסות ו/או סטטוס תעסוקה (שכיר/עצמאי) כדי לקבל טיפים למס מותאמים.';
+    if (section === 'spendingInsights') {
+      const avgExpenses = data.monthlyData.length > 0
+        ? data.monthlyData.reduce((s, m) => s + m.expenses, 0) / data.monthlyData.length
+        : 0;
+      return avgExpenses > 0
+        ? `הוצאה חודשית ממוצעת: ${avgExpenses.toFixed(0)} ₪. הוסף פירוט לפי קטגוריות כדי לקבל תובנות מפורטות.`
+        : 'הוסף תנועות והוצאות כדי לקבל תובנות על ההוצאות.';
+    }
+    return '';
+  }
+
   private buildSystemPrompt(): string {
     const now = new Date();
     const currentDate = now.toLocaleDateString('he-IL', { year: 'numeric', month: 'long', day: 'numeric' });
