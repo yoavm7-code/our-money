@@ -289,13 +289,12 @@ Extract EVERY transaction row. Never skip.`;
 
     const systemPrompt = `You are an expert Israeli bank statement parser. Extract ALL transactions from this bank statement image.
 
-CRITICAL RULES:
-
-1) INCOME vs EXPENSE - Look at the COLORS and COLUMNS:
-   - GREEN text or amounts in "זכות" (credit) column = INCOME (positive amount)
-   - RED text or amounts in "חובה" (debit) column = EXPENSE (negative amount)
-   - If you see two amount columns, left is usually expense, right is usually income
-   - Look for +/- signs near amounts
+CRITICAL RULE – INCOME vs EXPENSE (COLOR OVERRIDES TEXT):
+   - Amount in GREEN or in the "זכות" (credit) column → ALWAYS INCOME. Return amount as POSITIVE (e.g. 8000).
+   - Amount in RED or in the "חובה" (debit) column → ALWAYS EXPENSE. Return amount as NEGATIVE (e.g. -8000).
+   - The COLUMN and COLOR are the source of truth. Ignore the description text for sign.
+   - Example: "הוראת קבע" (standing order) in the GREEN/זכות column = INCOME (+). Same text in RED/חובה = EXPENSE (-).
+   - Never classify a green/זכות amount as expense. Never classify a red/חובה amount as income.
 
 2) DESCRIPTION - Copy the FULL Hebrew text exactly:
    - Include the complete transaction description
@@ -333,7 +332,7 @@ For installments include: totalAmount, installmentCurrent, installmentTotal`;
 
     try {
       const model = process.env.OPENAI_MODEL || 'gpt-4o';
-      let userMessage = 'Extract all transactions from this Israeli bank statement image. Pay close attention to colors (green=income, red=expense) and column positions.';
+      let userMessage = 'Extract all transactions. CRITICAL: If an amount appears in green or in the זכות column, output it as a POSITIVE number (income). If in red or in the חובה column, output NEGATIVE (expense). Do not use the description (e.g. הוראת קבע) to decide sign – only the color/column.';
       if (userContext?.trim()) {
         userMessage += `\n\nUser preferences:\n${userContext.trim().slice(0, 2000)}`;
       }
