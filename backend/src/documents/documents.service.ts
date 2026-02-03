@@ -88,8 +88,25 @@ export class DocumentsService {
       // Use Vision API for images (much more accurate than OCR + text extraction)
       if (doc.mimeType.startsWith('image/')) {
         console.log('[Documents] Using Vision API for image:', doc.fileName);
-        extracted = await this.aiExtractService.extractWithVision(doc.storagePath, userContext);
-        ocrText = '[Vision API - no OCR text]';
+        try {
+          extracted = await this.aiExtractService.extractWithVision(doc.storagePath, userContext);
+          ocrText = '[Vision API - no OCR text]';
+          
+          // If Vision returns nothing, fall back to OCR
+          if (extracted.length === 0) {
+            console.warn('[Documents] Vision API returned 0 transactions, falling back to OCR for:', doc.fileName);
+            ocrText = await this.ocrService.getTextFromImage(doc.storagePath);
+            if (ocrText && ocrText.trim().length >= 10) {
+              extracted = await this.aiExtractService.extractTransactions(ocrText, userContext);
+            }
+          }
+        } catch (visionErr) {
+          console.error('[Documents] Vision API failed, falling back to OCR:', visionErr);
+          ocrText = await this.ocrService.getTextFromImage(doc.storagePath);
+          if (ocrText && ocrText.trim().length >= 10) {
+            extracted = await this.aiExtractService.extractTransactions(ocrText, userContext);
+          }
+        }
       } else if (STRUCTURED_MIMES.includes(doc.mimeType)) {
         // CSV, Excel, Word - parse text and use text-based extraction
         ocrText = await this.documentParser.getTextFromFile(doc.storagePath, doc.mimeType);

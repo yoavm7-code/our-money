@@ -366,8 +366,10 @@ For installments include: totalAmount, installmentCurrent, installmentTotal`;
         return [];
       }
 
+      console.log('[AI-Extract] Vision API response:', content.slice(0, 500));
       const parsed = JSON.parse(content);
       const list = Array.isArray(parsed.transactions) ? parsed.transactions : Array.isArray(parsed) ? parsed : [];
+      console.log('[AI-Extract] Vision API extracted', list.length, 'transactions');
       
       const today = new Date().toISOString().slice(0, 10);
       const isValidSlug = (s: string | undefined) => s && /^[a-z][a-z0-9_]*$/.test(s) && s.length <= 50;
