@@ -179,22 +179,18 @@ SIGN RULES (CRITICAL):
   DEFAULT: If unsure, use NEGATIVE (most bank transactions are expenses).
 
 === DESCRIPTION RULES (VERY IMPORTANT) ===
-• Copy the FULL Hebrew description from the source. Include ALL words.
-• Common patterns to preserve:
-  - "הו"ק הלוי רבית" = standing order for loan interest
-  - "הו"ק הלואה קרן" = standing order for loan principal
-  - "העברה-נייד" = mobile transfer
-  - "העב' לאחר-נייד" = transfer to another via mobile
-  - "מ.א. [company name]" = employer (salary)
-• Remove ONLY: dates like "תאריך ערך: 01/01", page headers, filter text
-• NEVER output single letters or broken text. If you can't read it, use the amount context.
-• NEVER use Latin letters in description - only Hebrew, numbers, punctuation.
+• Copy only the operation/action text in Hebrew (e.g. הוראת קבע, הו"ק הלואה קרן, ביטוח לאומי ג).
+• Do NOT include: the amount (e.g. 8,000.00), value date (תאריך ערך: 01/01), or the words "Income"/"Expense".
+• Preserve: "הו"ק הלוי רבית", "הו"ק הלואה קרן", "העברה-נייד", "מ.א. [company]" = employer.
+• NEVER output single letters or broken text. NEVER add numbers or "Income"/"Expense" to description.
+• Only Hebrew and punctuation in description; no Latin letters.
 
 === CATEGORY RULES (BE SPECIFIC, NOT LAZY) ===
 Use these EXACT slugs (all lowercase with underscores):
 
 INCOME categories:
 • salary - משכורת, שכר, מ.א. [company]
+• income - קצבת ילדים, ביטוח לאומי ג, and other generic income
 
 EXPENSE categories:
 • loan_payment - הלואה, הלוואה, קרן הלואה, הו"ק הלואה
@@ -264,7 +260,8 @@ Extract EVERY transaction row. Never skip.`;
       });
       const fixed = this.applySignHintsOverlay(mapped, ocrText, hints);
       const withCleanDesc = fixed.map((t) => ({ ...t, description: this.sanitizeDescription(t.description) }));
-      return this.fixInstallmentAmounts(withCleanDesc).filter((t: ExtractedTransaction) => Math.abs(t.amount) >= 0.01);
+      const withSignFix = this.applySignCorrectionSafetyNet(withCleanDesc);
+      return this.fixInstallmentAmounts(withSignFix).filter((t: ExtractedTransaction) => Math.abs(t.amount) >= 0.01);
     } catch {
       return this.fallbackExtractWithHints(ocrText, hints);
     }
@@ -298,16 +295,14 @@ CRITICAL RULE – INCOME vs EXPENSE (COLUMN AND COLOR ARE THE ONLY SOURCE OF TRU
    - For each row, look at which column the number is in (זכות vs חובה) or its color (green vs red), then set amount sign accordingly.
    - Israeli bank tables: column headers are "זכות" and "חובה". Amounts under "זכות" or in green = income (positive). Amounts under "חובה" or in red = expense (negative).
 
-2) DESCRIPTION - Copy the FULL Hebrew text exactly:
-   - Include the complete transaction description
-   - "הו"ק הלוי רבית" = standing order for loan interest
-   - "הו"ק הלואה קרן" = standing order for loan principal
-   - "מ.א. [company]" = employer (salary)
-   - NEVER truncate or abbreviate descriptions
-   - NEVER return single letters like "א" or broken text
+2) DESCRIPTION - Operation text ONLY, no amounts or labels:
+   - Copy only the operation/action text in Hebrew (e.g. הוראת קבע, הו"ק הלואה קרן, ביטוח לאומי ג).
+   - Do NOT include: the amount (e.g. 8,000.00), value date (תאריך ערך: 01/02), or the words "Income" / "Expense".
+   - "הו"ק הלוי רבית" = standing order for loan interest; "הו"ק הלואה קרן" = loan principal; "מ.א. [company]" = employer.
+   - NEVER truncate to single letters. NEVER add numbers or "Income"/"Expense" to the description.
 
 3) CATEGORY - Use these EXACT slugs:
-   INCOME: salary (משכורת)
+   INCOME: salary (משכורת), income (קצבת ילדים, ביטוח לאומי ג, and other generic income)
    EXPENSES:
    - loan_payment (הלואה, קרן הלואה)
    - loan_interest (ריבית, הלוי רבית)
@@ -367,10 +362,8 @@ REMINDER: amount sign = column/color only. זכות/green → positive. חובה
         return [];
       }
 
-      console.log('[AI-Extract] Vision API response:', content.slice(0, 500));
       const parsed = JSON.parse(content);
       const list = Array.isArray(parsed.transactions) ? parsed.transactions : Array.isArray(parsed) ? parsed : [];
-      console.log('[AI-Extract] Vision API extracted', list.length, 'transactions');
       
       const today = new Date().toISOString().slice(0, 10);
       const isValidSlug = (s: string | undefined) => s && /^[a-z][a-z0-9_]*$/.test(s) && s.length <= 50;
@@ -389,7 +382,7 @@ REMINDER: amount sign = column/color only. זכות/green → positive. חובה
 
         return {
           date,
-          description: String(t.description || 'לא ידוע').trim().slice(0, 300),
+          description: this.sanitizeDescription(String(t.description || 'לא ידוע').trim().slice(0, 300)),
           amount,
           categorySlug: slug,
           ...(totalAmount != null && totalAmount > 0 && { totalAmount }),
@@ -398,8 +391,8 @@ REMINDER: amount sign = column/color only. זכות/green → positive. חובה
         };
       });
 
-      // Filter out invalid transactions
-      return this.fixInstallmentAmounts(results).filter((t) => Math.abs(t.amount) >= 0.01);
+      const withSignFix = this.applySignCorrectionSafetyNet(results);
+      return this.fixInstallmentAmounts(withSignFix).filter((t) => Math.abs(t.amount) >= 0.01);
     } catch (err) {
       console.error('[AI-Extract] Vision extraction error:', err);
       return [];
@@ -412,29 +405,48 @@ REMINDER: amount sign = column/color only. זכות/green → positive. חובה
   private sanitizeDescription(desc: string): string {
     if (!desc || !desc.trim()) return 'לא ידוע';
     let s = desc.trim();
-    
-    // Remove dates that shouldn't be in description
+
+    // Remove value date and standalone dates
     s = s.replace(/\(?\s*תאריך\s*ערך[:\s]*\d{1,2}[\/\.]\d{1,2}[\/\.]?\d{0,4}\s*\)?/gi, '');
-    s = s.replace(/\d{1,2}[\/\.]\d{1,2}[\/\.]\d{2,4}/g, ''); // DD/MM/YY
-    
+    s = s.replace(/\d{1,2}[\/\.]\d{1,2}[\/\.]\d{2,4}/g, '');
+
+    // Remove amount-like numbers (e.g. 8,000.00, 3,820.00, 500.00 ש"ח) from description
+    s = s.replace(/\s*\d{1,3}(?:[,.]\d{3})*(?:[,.]\d{2})?(?:\s*[₪ש"ח])?\s*/g, ' ');
+    s = s.replace(/\s+\d+\.\d{2}\s*/g, ' ');
+
+    // Remove " Income" / " Expense" (AI sometimes appends these)
+    s = s.replace(/\s+Income\s*/gi, ' ').replace(/\s+Expense\s*/gi, ' ');
+
     // Common OCR errors: Latin in place of Hebrew
     s = s.replace(/xn\s*fe/gi, 'מ.א');
     s = s.replace(/mawn\s*BE-?/gi, 'העברה-נייד');
     s = s.replace(/THANK\?\s*wn\s*\d*/gi, "העב' לאחר-נייד");
-    
-    // Only remove LONG Latin sequences (3+ letters), keep short ones that might be part of Hebrew text
+
+    // Only remove LONG Latin sequences (3+ letters)
     s = s.replace(/\b[a-zA-Z]{3,}\b/g, '');
-    
-    // Clean up whitespace
+
     s = s.replace(/\s+/g, ' ').trim();
-    
-    // Remove leading/trailing punctuation
     s = s.replace(/^[\s\-=:,."']+/, '').replace(/[\s\-=:,."']+$/, '').trim();
-    
-    // If result is too short or empty, return default
+
     if (s.length < 2) return 'לא ידוע';
-    
     return s.slice(0, 300);
+  }
+
+  /** Safety net: fix sign when description clearly indicates income/expense but AI got it wrong. */
+  private applySignCorrectionSafetyNet(transactions: ExtractedTransaction[]): ExtractedTransaction[] {
+    const INCOME_MARKERS = ['קצבת ילדים', 'קצבת זקנה', 'ביטוח לאומי ג', 'בטוח לאומי ג', 'משכורת', 'שכר', 'זיכוי'];
+    const EXPENSE_MARKERS = ['חיוב', 'משיכה', 'כאל', 'מקס איט', 'לאומי קארד', 'ישראכרט', "הו\"ק הלו' רבית", 'הו"ק הלואה קרן', 'עמלת', 'דמי ניהול', 'הקצאת אשראי'];
+    return transactions.map((t) => {
+      const d = (t.description || '').trim();
+      const abs = Math.abs(t.amount);
+      if (t.amount < 0 && INCOME_MARKERS.some((m) => d.includes(m))) {
+        return { ...t, amount: abs };
+      }
+      if (t.amount > 0 && EXPENSE_MARKERS.some((m) => d.includes(m))) {
+        return { ...t, amount: -abs };
+      }
+      return t;
+    });
   }
 
   /**
@@ -632,7 +644,7 @@ REMINDER: amount sign = column/color only. זכות/green → positive. חובה
 
       results.push({
         date: lastDate,
-        description: desc,
+        description: this.sanitizeDescription(desc),
         amount: -Math.abs(amount),
         categorySlug: 'other',
         ...(totalAmount != null && { totalAmount }),
@@ -640,6 +652,6 @@ REMINDER: amount sign = column/color only. זכות/green → positive. חובה
         ...(installmentTotal != null && { installmentTotal }),
       });
     }
-    return this.fixInstallmentAmounts(results);
+    return this.fixInstallmentAmounts(this.applySignCorrectionSafetyNet(results));
   }
 }

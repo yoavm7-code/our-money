@@ -62,6 +62,7 @@ export class TransactionsService {
     entertainment: { name: 'Entertainment', isIncome: false },
     other: { name: 'Other', isIncome: false },
     salary: { name: 'Salary', isIncome: true },
+    income: { name: 'Income', isIncome: true },
     credit_charges: { name: 'Credit card charges', isIncome: false },
     transfers: { name: 'Transfers', isIncome: false },
     fees: { name: 'Fees', isIncome: false },
