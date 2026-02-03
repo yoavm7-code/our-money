@@ -523,7 +523,12 @@
     "pension": "פנסיה",
     "investment": "השקעות",
     "bank_fees": "עמלות בנק",
-    "online_shopping": "קניות אונליין"
+    "online_shopping": "קניות אונליין",
+    "loan_payment": "תשלום הלוואה",
+    "loan_interest": "ריבית הלוואה",
+    "standing_order": "הוראת קבע",
+    "finance": "פיננסים",
+    "unknown": "לא מסווג"
   },
   "insuranceFunds": {
     "title": "ביטוח וקופות",

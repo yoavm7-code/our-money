@@ -167,57 +167,58 @@ export class AiExtractService {
       return this.fallbackExtractWithHints(ocrText, hints);
     }
 
-    const system = `You extract transactions from Israeli bank/credit statement text.
+    const system = `You are an expert Israeli bank statement parser. Extract transactions with HIGH ACCURACY.
 
-SIGN ANNOTATIONS – USE THEM, BUT APPLY JUDGMENT FOR "UNKNOWN":
-• [INCOME_AMT=X] [EXPENSE_AMT=Y]: TWO transactions – +X (income) and -Y (expense).
-• [SIGN=INCOME AMT=X]: amount +X (positive). We're confident this is income.
-• [SIGN=EXPENSE AMT=X]: amount -X (negative). We're confident this is expense.
-• [SIGN=UNKNOWN AMT=X]: USE YOUR JUDGMENT based on the FULL context of the description:
+SIGN RULES (CRITICAL):
+• [SIGN=INCOME AMT=X]: This IS income. Return amount = +X (positive).
+• [SIGN=EXPENSE AMT=X]: This IS expense. Return amount = -X (negative).
+• [SIGN=UNKNOWN AMT=X]: Analyze the description carefully:
+  INCOME (+): משכורת, שכר, זיכוי, קצבה, ביטוח לאומי ג׳ (payout)
+  EXPENSE (-): חיוב, משיכה, הו"ק (הוראת קבע), העברה, הלוואה, ריבית, עמלה, כאל, מקס, לאומי קארד
+  DEFAULT: If unsure, use NEGATIVE (most bank transactions are expenses).
 
-  INCOME (positive) examples:
-  - משכורת, שכר (salary)
-  - קצבת ילדים, קצבת זקנה (government allowances)
-  - ביטוח לאומי ג׳ימלה (insurance payout - note the ג׳)
-  - זיכוי (credit/refund TO the account)
-  - הוראת קבע where someone PAYS YOU (e.g., tenant paying rent)
-  - העברה/bit where someone SENDS YOU money
+=== DESCRIPTION RULES (VERY IMPORTANT) ===
+• Copy the FULL Hebrew description from the source. Include ALL words.
+• Common patterns to preserve:
+  - "הו"ק הלוי רבית" = standing order for loan interest
+  - "הו"ק הלואה קרן" = standing order for loan principal
+  - "העברה-נייד" = mobile transfer
+  - "העב' לאחר-נייד" = transfer to another via mobile
+  - "מ.א. [company name]" = employer (salary)
+• Remove ONLY: dates like "תאריך ערך: 01/01", page headers, filter text
+• NEVER output single letters or broken text. If you can't read it, use the amount context.
+• NEVER use Latin letters in description - only Hebrew, numbers, punctuation.
 
-  EXPENSE (negative) examples:
-  - חיוב, משיכה (charge, withdrawal)
-  - credit card companies: כאל, מקס איט, לאומי קארד, ישראכרט
-  - fees: דמי ניהול, עמלה
-  - הוראת קבע where YOU PAY someone (e.g., paying bills)
-  - העברה/bit where YOU SEND money to someone
-  - ביטוח לאומי (without ג׳ = paying INTO insurance)
+=== CATEGORY RULES (BE SPECIFIC, NOT LAZY) ===
+Use these EXACT slugs (all lowercase with underscores):
 
-  AMBIGUOUS terms – decide by context:
-  - "הוראת קבע" can be income OR expense
-  - "העברה", "bit" can be income OR expense
-  - "זיכוי" usually income, but check context
-  - When truly unsure, default to EXPENSE (most bank transactions are expenses)
+INCOME categories:
+• salary - משכורת, שכר, מ.א. [company]
 
-1) DATE – Use the date from each row (DD/MM/YY). Convert to YYYY-MM-DD. If no date, use previous row's date.
+EXPENSE categories:
+• loan_payment - הלואה, הלוואה, קרן הלואה, הו"ק הלואה
+• loan_interest - ריבית, הלוי רבית, ריבית הלואה
+• credit_charges - כאל, מקס איט, לאומי קארד, ישראכרט, אמריקן אקספרס (credit card company charges)
+• bank_fees - דמי ניהול, עמלת, עמלה בנק, הקצאת אשראי
+• transfers - העברה, העברה-נייד, bit, פייבוקס (money transfers)
+• standing_order - הוראת קבע, הו"ק (when not loan/specific bill)
+• utilities - חשמל, גז, מים, ארנונה, עירייה
+• insurance - ביטוח, פוליסה
+• pension - פנסיה, גמל, קופת גמל, מיטב דש
+• groceries - סופרמרקט, שופרסל, רמי לוי, מגה, ויקטורי
+• transport - דלק, רכבת, אגד, דן, חניה
+• dining - מסעדה, קפה, בית קפה, פיצה
+• shopping - קניות, חנות, רשת
+• healthcare - בריאות, מכבי, כללית, לאומית, מאוחדת, קופת חולים
+• entertainment - בידור, סרט, הופעה
 
-2) DESCRIPTION – Copy Hebrew EXACTLY. Remove dates like "תאריך ערך: 01/01". Never output Latin letters.
+NEVER use "unknown", "finance", "other" unless truly nothing else fits.
+Read the Hebrew carefully - "הו"ק הלוי רבית" is loan_interest, NOT transfers!
 
-3) CATEGORY – Categorize intelligently:
-• משכורת/שכר → salary (income)
-• כאל/מקס איט/לאומי קארד/ישראכרט → credit_charges
-• העברה/הוראת קבע → transfers
-• דמי ניהול/עמלה → fees
-• ביטוח → insurance
-• גז/חשמל/מים/ארנונה → utilities
-• סופר/שופרסל/רמי לוי → groceries
-• דלק/חניה/רכבת → transport
-• מסעדה/קפה → dining
-• Create new slugs if needed (lowercase a-z and underscores).
-
-4) INSTALLMENTS – "X מתוך Y" = amount X, totalAmount Y.
-
-5) COMPLETENESS – Extract EVERY row with a date and amount. Never skip rows.
-
-Output: JSON { "transactions": [{ date, description, amount, categorySlug, totalAmount?, installmentCurrent?, installmentTotal? }] }`;
+=== OUTPUT FORMAT ===
+JSON: { "transactions": [{ "date": "YYYY-MM-DD", "description": "full Hebrew text", "amount": number, "categorySlug": "exact_slug" }] }
+Include installment fields when relevant: totalAmount, installmentCurrent, installmentTotal.
+Extract EVERY transaction row. Never skip.`;
 
     try {
       const model = process.env.OPENAI_MODEL || 'gpt-4o';
@@ -272,20 +273,31 @@ Output: JSON { "transactions": [{ date, description, amount, categorySlug, total
    * Remove or fix OCR gibberish in description: Latin letters that shouldn't be there, common misreads.
    */
   private sanitizeDescription(desc: string): string {
-    if (!desc || !desc.trim()) return desc;
+    if (!desc || !desc.trim()) return 'לא ידוע';
     let s = desc.trim();
-    // Remove dates that shouldn't be in description (תאריך ערך: DD/MM, etc.)
-    s = s.replace(/\(?\s*תאריך\s*ערך[:\s]*\d{1,2}[\/\.]\d{1,2}\)?/gi, '');
-    s = s.replace(/\d{1,2}[\/\.]\d{1,2}[\/\.]\d{2,4}/g, ''); // DD/MM/YY or DD/MM/YYYY
-    s = s.replace(/\d{1,2}[\/\.]\d{1,2}(?!\d)/g, ''); // DD/MM without year
+    
+    // Remove dates that shouldn't be in description
+    s = s.replace(/\(?\s*תאריך\s*ערך[:\s]*\d{1,2}[\/\.]\d{1,2}[\/\.]?\d{0,4}\s*\)?/gi, '');
+    s = s.replace(/\d{1,2}[\/\.]\d{1,2}[\/\.]\d{2,4}/g, ''); // DD/MM/YY
+    
     // Common OCR errors: Latin in place of Hebrew
     s = s.replace(/xn\s*fe/gi, 'מ.א');
-    s = s.replace(/mawn\s*BE-?/gi, 'העברה-נייד').replace(/THANK\?\s*wn\s*\d*/gi, "העב' לאחר-נייד");
-    // Strip remaining Latin word sequences (2+ letters) so description is Hebrew-only
-    s = s.replace(/\s*[a-zA-Z]{2,}(?:\s+[a-zA-Z]*)*\s*/g, ' ');
-    // Clean up extra whitespace and punctuation
-    s = s.replace(/\s+/g, ' ').replace(/^\s*[=\-:,]+\s*/, '').replace(/\s*[=\-:,]+\s*$/, '').trim();
-    return s.slice(0, 300) || 'Unknown';
+    s = s.replace(/mawn\s*BE-?/gi, 'העברה-נייד');
+    s = s.replace(/THANK\?\s*wn\s*\d*/gi, "העב' לאחר-נייד");
+    
+    // Only remove LONG Latin sequences (3+ letters), keep short ones that might be part of Hebrew text
+    s = s.replace(/\b[a-zA-Z]{3,}\b/g, '');
+    
+    // Clean up whitespace
+    s = s.replace(/\s+/g, ' ').trim();
+    
+    // Remove leading/trailing punctuation
+    s = s.replace(/^[\s\-=:,."']+/, '').replace(/[\s\-=:,."']+$/, '').trim();
+    
+    // If result is too short or empty, return default
+    if (s.length < 2) return 'לא ידוע';
+    
+    return s.slice(0, 300);
   }
 
   /**

@@ -5,7 +5,7 @@ import { users, accounts, categories } from '@/lib/api';
 import { COUNTRY_CODES } from '@/lib/countries';
 import { useTranslation } from '@/i18n/context';
 
-const KNOWN_CATEGORY_SLUGS = ['groceries', 'transport', 'utilities', 'rent', 'insurance', 'healthcare', 'dining', 'shopping', 'entertainment', 'other', 'salary', 'credit_charges', 'transfers', 'fees', 'subscriptions', 'education', 'pets', 'gifts', 'childcare', 'savings', 'pension', 'investment', 'bank_fees', 'online_shopping'];
+const KNOWN_CATEGORY_SLUGS = ['groceries', 'transport', 'utilities', 'rent', 'insurance', 'healthcare', 'dining', 'shopping', 'entertainment', 'other', 'salary', 'credit_charges', 'transfers', 'fees', 'subscriptions', 'education', 'pets', 'gifts', 'childcare', 'savings', 'pension', 'investment', 'bank_fees', 'online_shopping', 'loan_payment', 'loan_interest', 'standing_order', 'finance', 'unknown'];
 
 const ACCOUNT_TYPE_KEYS: Record<string, string> = {
   BANK: 'settings.bank',
@@ -522,9 +522,12 @@ export default function SettingsPage() {
         <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">{t('settings.excludeFromExpenseTotalHint')}</p>
         <ul className="flex flex-wrap gap-2">
           {categoriesList.map((c) => {
-            const displayName = c.slug && KNOWN_CATEGORY_SLUGS.includes(c.slug)
-              ? t('categories.' + c.slug)
-              : c.name;
+            let displayName = c.name;
+            if (c.slug) {
+              const tr = t('categories.' + c.slug);
+              if (tr !== 'categories.' + c.slug) displayName = tr;
+            }
+            if (!displayName && c.slug) displayName = c.slug.replace(/_/g, ' ');
             return (
               <li
                 key={c.id}

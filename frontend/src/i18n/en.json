@@ -523,7 +523,12 @@
     "pension": "Pension",
     "investment": "Investment",
     "bank_fees": "Bank fees",
-    "online_shopping": "Online shopping"
+    "online_shopping": "Online shopping",
+    "loan_payment": "Loan payment",
+    "loan_interest": "Loan interest",
+    "standing_order": "Standing order",
+    "finance": "Finance",
+    "unknown": "Uncategorized"
   },
   "insuranceFunds": {
     "title": "Insurance & Funds",

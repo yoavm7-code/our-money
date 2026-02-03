@@ -72,9 +72,14 @@ export class TransactionsService {
     childcare: { name: 'Childcare', isIncome: false },
     savings: { name: 'Savings', isIncome: false },
     pension: { name: 'Pension', isIncome: false },
-investment: { name: 'Investment', isIncome: false },
+    investment: { name: 'Investment', isIncome: false },
     bank_fees: { name: 'Bank fees', isIncome: false },
     online_shopping: { name: 'Online shopping', isIncome: false },
+    loan_payment: { name: 'Loan payment', isIncome: false },
+    loan_interest: { name: 'Loan interest', isIncome: false },
+    standing_order: { name: 'Standing order', isIncome: false },
+    finance: { name: 'Finance', isIncome: false },
+    unknown: { name: 'Uncategorized', isIncome: false },
   };
 
   /** Generate a readable name from a slug (e.g. "bank_fees" → "Bank fees") */

@@ -112,13 +112,13 @@ export default function DashboardPage() {
     );
   }
 
-  const KNOWN_SLUGS = ['groceries', 'transport', 'utilities', 'rent', 'insurance', 'healthcare', 'dining', 'shopping', 'entertainment', 'other', 'salary', 'credit_charges', 'transfers', 'fees', 'subscriptions', 'education', 'pets', 'gifts', 'childcare', 'savings', 'pension', 'investment', 'bank_fees', 'online_shopping'];
+  const KNOWN_SLUGS = ['groceries', 'transport', 'utilities', 'rent', 'insurance', 'healthcare', 'dining', 'shopping', 'entertainment', 'other', 'salary', 'credit_charges', 'transfers', 'fees', 'subscriptions', 'education', 'pets', 'gifts', 'childcare', 'savings', 'pension', 'investment', 'bank_fees', 'online_shopping', 'loan_payment', 'loan_interest', 'standing_order', 'finance', 'unknown'];
   const getCatName = (name: string | undefined, slug: string | undefined) => {
-    if (!name) return t('common.other');
-    if (slug && KNOWN_SLUGS.includes(slug)) {
+    if (slug) {
       const tr = t('categories.' + slug);
-      return tr !== 'categories.' + slug ? tr : name;
+      if (tr !== 'categories.' + slug) return tr;
     }
+    if (!name) return slug ? slug.replace(/_/g, ' ') : t('common.other');
     return name;
   };
   const pieData =

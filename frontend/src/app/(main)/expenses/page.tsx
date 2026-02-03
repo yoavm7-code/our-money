@@ -4,13 +4,13 @@ import { useEffect, useState } from 'react';
 import { dashboard, transactions as txApi, accounts, categories } from '@/lib/api';
 import { useTranslation } from '@/i18n/context';
 
-const KNOWN_SLUGS = ['groceries', 'transport', 'utilities', 'rent', 'insurance', 'healthcare', 'dining', 'shopping', 'entertainment', 'other', 'salary', 'credit_charges', 'transfers', 'fees', 'subscriptions', 'education', 'pets', 'gifts', 'childcare', 'savings', 'pension', 'investment', 'bank_fees', 'online_shopping'];
+const KNOWN_SLUGS = ['groceries', 'transport', 'utilities', 'rent', 'insurance', 'healthcare', 'dining', 'shopping', 'entertainment', 'other', 'salary', 'credit_charges', 'transfers', 'fees', 'subscriptions', 'education', 'pets', 'gifts', 'childcare', 'savings', 'pension', 'investment', 'bank_fees', 'online_shopping', 'loan_payment', 'loan_interest', 'standing_order', 'finance', 'unknown'];
 function getCatName(name: string, slug: string | undefined, t: (k: string) => string) {
-  if (slug && KNOWN_SLUGS.includes(slug)) {
+  if (slug) {
     const tr = t('categories.' + slug);
-    return tr !== 'categories.' + slug ? tr : name;
+    if (tr !== 'categories.' + slug) return tr;
   }
-  return name;
+  return name || (slug ? slug.replace(/_/g, ' ') : 'לא מסווג');
 }
 
 function formatCurrency(n: number, locale: string) {

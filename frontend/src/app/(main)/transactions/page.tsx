@@ -24,14 +24,19 @@ type Tx = {
   isRecurring?: boolean;
 };
 
-const KNOWN_SLUGS = ['groceries', 'transport', 'utilities', 'rent', 'insurance', 'healthcare', 'dining', 'shopping', 'entertainment', 'other', 'salary', 'credit_charges', 'transfers', 'fees', 'subscriptions', 'education', 'pets', 'gifts', 'childcare', 'savings', 'pension', 'investment', 'bank_fees', 'online_shopping'];
+const KNOWN_SLUGS = ['groceries', 'transport', 'utilities', 'rent', 'insurance', 'healthcare', 'dining', 'shopping', 'entertainment', 'other', 'salary', 'credit_charges', 'transfers', 'fees', 'subscriptions', 'education', 'pets', 'gifts', 'childcare', 'savings', 'pension', 'investment', 'bank_fees', 'online_shopping', 'loan_payment', 'loan_interest', 'standing_order', 'finance', 'unknown'];
 
 function getCategoryDisplayName(name: string, slug: string | undefined, t: (k: string) => string): string {
-  if (slug && KNOWN_SLUGS.includes(slug)) {
+  // Always try to translate first
+  if (slug) {
     const translated = t('categories.' + slug);
-    return translated !== 'categories.' + slug ? translated : name;
+    if (translated !== 'categories.' + slug) return translated;
   }
-  return name;
+  // Fall back to database name, but convert slug-style to readable if no name
+  if (!name && slug) {
+    return slug.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+  return name || 'לא מסווג';
 }
 
 export default function TransactionsPage() {
