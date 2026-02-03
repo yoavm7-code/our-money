@@ -358,7 +358,7 @@ The "column" field is mandatory. We use it to set income (זכות) vs expense (
             ],
           },
         ],
-        max_tokens: 4096,
+        max_completion_tokens: 4096,
         response_format: { type: 'json_object' },
       });
 
