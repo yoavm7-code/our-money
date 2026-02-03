@@ -382,7 +382,7 @@ The "column" field is mandatory. We use it to set income (זכות) vs expense (
         if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) date = today;
 
         const rawSlug = t.categorySlug ? String(t.categorySlug).toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '') : undefined;
-        const slug = isValidSlug(rawSlug) ? rawSlug : 'other';
+        const slug: string = isValidSlug(rawSlug) ? (rawSlug as string) : 'other';
 
         const absAmount = Math.abs(Number(t.amount) || 0);
         const col = String(t.column || '').trim();
