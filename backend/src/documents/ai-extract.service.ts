@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import OpenAI from 'openai';
+import * as fs from 'fs';
 
 export interface ExtractedTransaction {
   date: string; // YYYY-MM-DD
@@ -266,6 +267,139 @@ Extract EVERY transaction row. Never skip.`;
       return this.fixInstallmentAmounts(withCleanDesc).filter((t: ExtractedTransaction) => Math.abs(t.amount) >= 0.01);
     } catch {
       return this.fallbackExtractWithHints(ocrText, hints);
+    }
+  }
+
+  /**
+   * Extract transactions using GPT-4o Vision API - sends image directly without OCR.
+   * This is much more accurate for images as the AI can see colors, layout, and Hebrew text directly.
+   */
+  async extractWithVision(imagePath: string, userContext?: string): Promise<ExtractedTransaction[]> {
+    const client = this.getClient();
+    if (!client) {
+      console.warn('[AI-Extract] No OpenAI client, Vision extraction unavailable');
+      return [];
+    }
+
+    // Read image and convert to base64
+    const imageBuffer = fs.readFileSync(imagePath);
+    const base64Image = imageBuffer.toString('base64');
+    const mimeType = imagePath.toLowerCase().endsWith('.png') ? 'image/png' : 
+                     imagePath.toLowerCase().endsWith('.webp') ? 'image/webp' : 'image/jpeg';
+
+    const systemPrompt = `You are an expert Israeli bank statement parser. Extract ALL transactions from this bank statement image.
+
+CRITICAL RULES:
+
+1) INCOME vs EXPENSE - Look at the COLORS and COLUMNS:
+   - GREEN text or amounts in "זכות" (credit) column = INCOME (positive amount)
+   - RED text or amounts in "חובה" (debit) column = EXPENSE (negative amount)
+   - If you see two amount columns, left is usually expense, right is usually income
+   - Look for +/- signs near amounts
+
+2) DESCRIPTION - Copy the FULL Hebrew text exactly:
+   - Include the complete transaction description
+   - "הו"ק הלוי רבית" = standing order for loan interest
+   - "הו"ק הלואה קרן" = standing order for loan principal
+   - "מ.א. [company]" = employer (salary)
+   - NEVER truncate or abbreviate descriptions
+   - NEVER return single letters like "א" or broken text
+
+3) CATEGORY - Use these EXACT slugs:
+   INCOME: salary (משכורת)
+   EXPENSES:
+   - loan_payment (הלואה, קרן הלואה)
+   - loan_interest (ריבית, הלוי רבית)
+   - credit_charges (כאל, מקס איט, לאומי קארד, ישראכרט)
+   - bank_fees (דמי ניהול, עמלה, הקצאת אשראי)
+   - transfers (העברה, bit, פייבוקס)
+   - standing_order (הוראת קבע - when not loan/specific bill)
+   - utilities (חשמל, גז, מים, ארנונה)
+   - insurance (ביטוח)
+   - pension (פנסיה, גמל)
+   - groceries (סופרמרקט)
+   - transport (דלק, רכבת)
+   - dining (מסעדה, קפה)
+   - shopping (קניות, חנות)
+   - healthcare (קופת חולים, רופא)
+
+4) DATE - Extract the date for each row (DD/MM/YY or DD/MM/YYYY), convert to YYYY-MM-DD.
+
+5) COMPLETENESS - Extract EVERY visible transaction. Never skip rows. Never invent transactions that aren't visible.
+
+Output JSON: { "transactions": [{ "date": "YYYY-MM-DD", "description": "full Hebrew description", "amount": number, "categorySlug": "slug" }] }
+
+For installments include: totalAmount, installmentCurrent, installmentTotal`;
+
+    try {
+      const model = process.env.OPENAI_MODEL || 'gpt-4o';
+      let userMessage = 'Extract all transactions from this Israeli bank statement image. Pay close attention to colors (green=income, red=expense) and column positions.';
+      if (userContext?.trim()) {
+        userMessage += `\n\nUser preferences:\n${userContext.trim().slice(0, 2000)}`;
+      }
+
+      const completion = await client.chat.completions.create({
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: userMessage },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:${mimeType};base64,${base64Image}`,
+                  detail: 'high', // Use high detail for better text recognition
+                },
+              },
+            ],
+          },
+        ],
+        max_tokens: 4096,
+        response_format: { type: 'json_object' },
+      });
+
+      const content = completion.choices[0]?.message?.content;
+      if (!content) {
+        console.warn('[AI-Extract] Vision API returned no content');
+        return [];
+      }
+
+      const parsed = JSON.parse(content);
+      const list = Array.isArray(parsed.transactions) ? parsed.transactions : Array.isArray(parsed) ? parsed : [];
+      
+      const today = new Date().toISOString().slice(0, 10);
+      const isValidSlug = (s: string | undefined) => s && /^[a-z][a-z0-9_]*$/.test(s) && s.length <= 50;
+
+      const results: ExtractedTransaction[] = list.map((t: Record<string, unknown>) => {
+        let date = String(t.date || '').trim();
+        if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) date = today;
+        
+        let amount = Number(t.amount) || 0;
+        const rawSlug = t.categorySlug ? String(t.categorySlug).toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '') : undefined;
+        const slug = isValidSlug(rawSlug) ? rawSlug : 'other';
+        
+        const totalAmount = t.totalAmount != null ? Number(t.totalAmount) : undefined;
+        const installmentCurrent = t.installmentCurrent != null ? Math.max(1, Math.floor(Number(t.installmentCurrent))) : undefined;
+        const installmentTotal = t.installmentTotal != null ? Math.max(1, Math.floor(Number(t.installmentTotal))) : undefined;
+
+        return {
+          date,
+          description: String(t.description || 'לא ידוע').trim().slice(0, 300),
+          amount,
+          categorySlug: slug,
+          ...(totalAmount != null && totalAmount > 0 && { totalAmount }),
+          ...(installmentCurrent != null && { installmentCurrent }),
+          ...(installmentTotal != null && { installmentTotal }),
+        };
+      });
+
+      // Filter out invalid transactions
+      return this.fixInstallmentAmounts(results).filter((t) => Math.abs(t.amount) >= 0.01);
+    } catch (err) {
+      console.error('[AI-Extract] Vision extraction error:', err);
+      return [];
     }
   }
 

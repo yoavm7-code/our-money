@@ -82,16 +82,50 @@ export class DocumentsService {
       }
 
       let ocrText = '';
+      let extracted: Awaited<ReturnType<typeof this.aiExtractService.extractTransactions>> = [];
+      const userContext = await this.buildUserContext(householdId);
+
+      // Use Vision API for images (much more accurate than OCR + text extraction)
       if (doc.mimeType.startsWith('image/')) {
-        ocrText = await this.ocrService.getTextFromImage(doc.storagePath);
+        console.log('[Documents] Using Vision API for image:', doc.fileName);
+        extracted = await this.aiExtractService.extractWithVision(doc.storagePath, userContext);
+        ocrText = '[Vision API - no OCR text]';
       } else if (STRUCTURED_MIMES.includes(doc.mimeType)) {
+        // CSV, Excel, Word - parse text and use text-based extraction
         ocrText = await this.documentParser.getTextFromFile(doc.storagePath, doc.mimeType);
+        if (ocrText && ocrText.trim().length >= 10) {
+          extracted = await this.aiExtractService.extractTransactions(ocrText, userContext);
+        }
       } else if (doc.mimeType === 'application/pdf') {
-        await this.prisma.document.updateMany({
-          where: { id: documentId, householdId },
-          data: { status: 'FAILED', errorMessage: 'PDF extraction is not supported yet. Please upload an image (PNG/JPEG/WebP), CSV, Excel, or Word.' },
-        });
-        return;
+        // PDF - try to convert to image and use Vision, or fall back to text extraction
+        try {
+          const pdfImages = await this.convertPdfToImages(doc.storagePath);
+          if (pdfImages.length > 0) {
+            console.log('[Documents] Using Vision API for PDF:', doc.fileName, '(' + pdfImages.length + ' pages)');
+            for (const imagePath of pdfImages) {
+              const pageExtracted = await this.aiExtractService.extractWithVision(imagePath, userContext);
+              extracted.push(...pageExtracted);
+              // Clean up temp image
+              try { fs.unlinkSync(imagePath); } catch { /* ignore */ }
+            }
+            ocrText = '[Vision API from PDF - no OCR text]';
+          } else {
+            throw new Error('Could not convert PDF to images');
+          }
+        } catch (pdfErr) {
+          console.warn('[Documents] PDF conversion failed, trying text extraction:', pdfErr);
+          // Fall back to text extraction from PDF
+          ocrText = await this.documentParser.getTextFromFile(doc.storagePath, doc.mimeType);
+          if (ocrText && ocrText.trim().length >= 10) {
+            extracted = await this.aiExtractService.extractTransactions(ocrText, userContext);
+          } else {
+            await this.prisma.document.updateMany({
+              where: { id: documentId, householdId },
+              data: { status: 'FAILED', errorMessage: 'Could not extract text from PDF. Try converting to image first.' },
+            });
+            return;
+          }
+        }
       }
 
       await this.prisma.document.updateMany({
@@ -99,14 +133,8 @@ export class DocumentsService {
         data: { ocrText: ocrText.slice(0, 50000) },
       });
 
-      if (!ocrText || ocrText.trim().length < 10) {
-        console.warn('[Documents] Document ' + documentId + ': OCR returned little or no text (length=' + (ocrText?.length ?? 0) + '). PDFs are not yet supported.');
-      }
-
-      const userContext = await this.buildUserContext(householdId);
-      const extracted = await this.aiExtractService.extractTransactions(ocrText, userContext);
       if (extracted.length === 0) {
-        console.warn('[Documents] Document ' + documentId + ': No transactions extracted (OCR length=' + (ocrText?.length ?? 0) + '). Check image quality or try a different format.');
+        console.warn('[Documents] Document ' + documentId + ': No transactions extracted. Check image quality or try a different format.');
       }
 
       // Check for duplicates: same account, date, amount, description
@@ -195,6 +223,52 @@ export class DocumentsService {
         where: { id: documentId, householdId },
         data: { status: 'FAILED', errorMessage: message },
       });
+    }
+  }
+
+  /**
+   * Convert PDF to images for Vision API processing.
+   * Returns array of temporary image file paths.
+   */
+  private async convertPdfToImages(pdfPath: string): Promise<string[]> {
+    const tempDir = path.join(path.dirname(pdfPath), 'temp_pdf_images');
+    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+
+    try {
+      // Try using pdf-poppler (requires poppler-utils installed on system)
+      const { execSync } = require('child_process');
+      const baseName = path.basename(pdfPath, '.pdf');
+      const outputPattern = path.join(tempDir, `${baseName}-page`);
+      
+      // Try pdftoppm (Linux/Mac with poppler) or pdftocairo
+      try {
+        execSync(`pdftoppm -png -r 200 "${pdfPath}" "${outputPattern}"`, { 
+          timeout: 60000,
+          stdio: 'pipe' 
+        });
+      } catch {
+        // Try pdftocairo as fallback
+        execSync(`pdftocairo -png -r 200 "${pdfPath}" "${outputPattern}"`, { 
+          timeout: 60000,
+          stdio: 'pipe' 
+        });
+      }
+
+      // Find generated images
+      const files = fs.readdirSync(tempDir);
+      const images = files
+        .filter(f => f.startsWith(baseName) && (f.endsWith('.png') || f.endsWith('.jpg')))
+        .sort()
+        .map(f => path.join(tempDir, f));
+
+      return images;
+    } catch (err) {
+      console.warn('[Documents] PDF to image conversion failed:', err);
+      // Clean up temp directory
+      try {
+        fs.rmSync(tempDir, { recursive: true });
+      } catch { /* ignore */ }
+      return [];
     }
   }
 
