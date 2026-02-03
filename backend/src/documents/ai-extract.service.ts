@@ -323,13 +323,18 @@ CRITICAL RULE – INCOME vs EXPENSE (COLUMN AND COLOR ARE THE ONLY SOURCE OF TRU
 
 5) COMPLETENESS - Extract EVERY visible transaction. Never skip rows. Never invent transactions that aren't visible.
 
-Output JSON: { "transactions": [{ "date": "YYYY-MM-DD", "description": "full Hebrew description", "amount": number (POSITIVE if from זכות/green, NEGATIVE if from חובה/red), "categorySlug": "slug" }] }
+6) COLUMN (CRITICAL) - For each transaction you MUST output which column the amount was in:
+   - "column": "זכות" if the amount appeared under the זכות (credit) column or in green.
+   - "column": "חובה" if the amount appeared under the חובה (debit) column or in red.
+   Look at the table headers and the position/color of each number. This field determines income vs expense.
+
+Output JSON: { "transactions": [{ "date": "YYYY-MM-DD", "description": "operation text only", "amount": number (absolute value, e.g. 8000 or 712), "column": "זכות" or "חובה", "categorySlug": "slug" }] }
 For installments include: totalAmount, installmentCurrent, installmentTotal.
-REMINDER: amount sign = column/color only. זכות/green → positive. חובה/red → negative.`;
+The "column" field is mandatory. We use it to set income (זכות) vs expense (חובה) in code.`;
 
     try {
       const model = process.env.OPENAI_MODEL || 'gpt-4o';
-      let userMessage = 'Extract all transactions. For each row: look at which COLUMN the amount is in (זכות = credit = income → positive number; חובה = debit = expense → negative number). Color (green/red) matches: green=positive, red=negative. Example: 8,000 in זכות column even with description "הוראת-קבע" → output amount 8000 (positive).';
+      let userMessage = 'Extract all transactions. For EACH row: 1) Read the amount as a positive number (e.g. 8000, 712). 2) Look at which COLUMN it is in: זכות (credit, often green) or חובה (debit, often red). 3) Set "column" to "זכות" or "חובה" accordingly. We use "column" to set income/expense in code, so this must be accurate.';
       if (userContext?.trim()) {
         userMessage += `\n\nUser preferences:\n${userContext.trim().slice(0, 2000)}`;
       }
@@ -371,11 +376,16 @@ REMINDER: amount sign = column/color only. זכות/green → positive. חובה
       const results: ExtractedTransaction[] = list.map((t: Record<string, unknown>) => {
         let date = String(t.date || '').trim();
         if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) date = today;
-        
-        let amount = Number(t.amount) || 0;
+
+        const absAmount = Math.abs(Number(t.amount) || 0);
+        const col = String(t.column || '').trim();
+        const isCredit = /זכות|credit/i.test(col);
+        const isDebit = /חובה|debit/i.test(col);
+        const amount = isCredit ? absAmount : isDebit ? -absAmount : Number(t.amount) ?? 0;
+
         const rawSlug = t.categorySlug ? String(t.categorySlug).toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '') : undefined;
         const slug = isValidSlug(rawSlug) ? rawSlug : 'other';
-        
+
         const totalAmount = t.totalAmount != null ? Number(t.totalAmount) : undefined;
         const installmentCurrent = t.installmentCurrent != null ? Math.max(1, Math.floor(Number(t.installmentCurrent))) : undefined;
         const installmentTotal = t.installmentTotal != null ? Math.max(1, Math.floor(Number(t.installmentTotal))) : undefined;
