@@ -436,10 +436,15 @@ REMINDER: amount sign = column/color only. זכות/green → positive. חובה
   private applySignCorrectionSafetyNet(transactions: ExtractedTransaction[]): ExtractedTransaction[] {
     const INCOME_MARKERS = ['קצבת ילדים', 'קצבת זקנה', 'ביטוח לאומי ג', 'בטוח לאומי ג', 'משכורת', 'שכר', 'זיכוי'];
     const EXPENSE_MARKERS = ['חיוב', 'משיכה', 'כאל', 'מקס איט', 'לאומי קארד', 'ישראכרט', "הו\"ק הלו' רבית", 'הו"ק הלואה קרן', 'עמלת', 'דמי ניהול', 'הקצאת אשראי'];
+    const AMBIGUOUS_CAN_BE_INCOME = ['הוראת קבע', 'הוראת-קבע', 'העברה-נייד', "העב' לאחר-נייד", 'העברה'];
+    const EXPENSE_CONTEXT = ['חשמל', 'גז', 'מים', 'ארנונה', 'ביטוח', 'פנסיה', 'גמל', 'הלוואה', 'רבית'];
     return transactions.map((t) => {
       const d = (t.description || '').trim();
       const abs = Math.abs(t.amount);
       if (t.amount < 0 && INCOME_MARKERS.some((m) => d.includes(m))) {
+        return { ...t, amount: abs };
+      }
+      if (t.amount < 0 && AMBIGUOUS_CAN_BE_INCOME.some((m) => d.includes(m)) && !EXPENSE_MARKERS.some((m) => d.includes(m)) && !EXPENSE_CONTEXT.some((m) => d.includes(m))) {
         return { ...t, amount: abs };
       }
       if (t.amount > 0 && EXPENSE_MARKERS.some((m) => d.includes(m))) {
