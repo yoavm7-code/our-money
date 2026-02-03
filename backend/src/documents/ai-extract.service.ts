@@ -261,7 +261,8 @@ Extract EVERY transaction row. Never skip.`;
       const fixed = this.applySignHintsOverlay(mapped, ocrText, hints);
       const withCleanDesc = fixed.map((t) => ({ ...t, description: this.sanitizeDescription(t.description) }));
       const withSignFix = this.applySignCorrectionSafetyNet(withCleanDesc);
-      return this.fixInstallmentAmounts(withSignFix).filter((t: ExtractedTransaction) => Math.abs(t.amount) >= 0.01);
+      const withCategorySign = this.applySignFromCategory(withSignFix);
+      return this.fixInstallmentAmounts(withCategorySign).filter((t: ExtractedTransaction) => Math.abs(t.amount) >= 0.01);
     } catch {
       return this.fallbackExtractWithHints(ocrText, hints);
     }
@@ -323,10 +324,10 @@ CRITICAL RULE – INCOME vs EXPENSE (COLUMN AND COLOR ARE THE ONLY SOURCE OF TRU
 
 5) COMPLETENESS - Extract EVERY visible transaction. Never skip rows. Never invent transactions that aren't visible.
 
-6) COLUMN (CRITICAL) - For each transaction you MUST output which column the amount was in:
-   - "column": "זכות" if the amount appeared under the זכות (credit) column or in green.
-   - "column": "חובה" if the amount appeared under the חובה (debit) column or in red.
-   Look at the table headers and the position/color of each number. This field determines income vs expense.
+6) COLUMN (MANDATORY) - For EVERY row you MUST output "column" as exactly "זכות" or "חובה":
+   - "column": "זכות" = amount was in the credit column (green / right side in Israeli banks).
+   - "column": "חובה" = amount was in the debit column (red / left side).
+   Without this field we cannot tell income from expense. Look at the table header and where the number sits; output one of these two words for every transaction.
 
 Output JSON: { "transactions": [{ "date": "YYYY-MM-DD", "description": "operation text only", "amount": number (absolute value, e.g. 8000 or 712), "column": "זכות" or "חובה", "categorySlug": "slug" }] }
 For installments include: totalAmount, installmentCurrent, installmentTotal.
@@ -373,18 +374,26 @@ The "column" field is mandatory. We use it to set income (זכות) vs expense (
       const today = new Date().toISOString().slice(0, 10);
       const isValidSlug = (s: string | undefined) => s && /^[a-z][a-z0-9_]*$/.test(s) && s.length <= 50;
 
+      const INCOME_SLUGS = new Set(['salary', 'income']);
+      const EXPENSE_SLUGS = new Set(['loan_payment', 'loan_interest', 'credit_charges', 'bank_fees', 'fees', 'utilities', 'insurance', 'pension', 'groceries', 'transport', 'dining', 'shopping', 'healthcare', 'entertainment', 'other']);
+
       const results: ExtractedTransaction[] = list.map((t: Record<string, unknown>) => {
         let date = String(t.date || '').trim();
         if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) date = today;
+
+        const rawSlug = t.categorySlug ? String(t.categorySlug).toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '') : undefined;
+        const slug = isValidSlug(rawSlug) ? rawSlug : 'other';
 
         const absAmount = Math.abs(Number(t.amount) || 0);
         const col = String(t.column || '').trim();
         const isCredit = /זכות|credit/i.test(col);
         const isDebit = /חובה|debit/i.test(col);
-        const amount = isCredit ? absAmount : isDebit ? -absAmount : Number(t.amount) ?? 0;
-
-        const rawSlug = t.categorySlug ? String(t.categorySlug).toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '') : undefined;
-        const slug = isValidSlug(rawSlug) ? rawSlug : 'other';
+        let amount: number;
+        if (isCredit) amount = absAmount;
+        else if (isDebit) amount = -absAmount;
+        else if (INCOME_SLUGS.has(slug)) amount = absAmount;
+        else if (EXPENSE_SLUGS.has(slug)) amount = -absAmount;
+        else amount = Number(t.amount) ?? 0;
 
         const totalAmount = t.totalAmount != null ? Number(t.totalAmount) : undefined;
         const installmentCurrent = t.installmentCurrent != null ? Math.max(1, Math.floor(Number(t.installmentCurrent))) : undefined;
@@ -402,7 +411,8 @@ The "column" field is mandatory. We use it to set income (זכות) vs expense (
       });
 
       const withSignFix = this.applySignCorrectionSafetyNet(results);
-      return this.fixInstallmentAmounts(withSignFix).filter((t) => Math.abs(t.amount) >= 0.01);
+      const withCategorySign = this.applySignFromCategory(withSignFix);
+      return this.fixInstallmentAmounts(withCategorySign).filter((t) => Math.abs(t.amount) >= 0.01);
     } catch (err) {
       console.error('[AI-Extract] Vision extraction error:', err);
       return [];
@@ -440,6 +450,18 @@ The "column" field is mandatory. We use it to set income (זכות) vs expense (
 
     if (s.length < 2) return 'לא ידוע';
     return s.slice(0, 300);
+  }
+
+  /** When category is clearly income or expense, set sign from it (used when column is missing or for OCR path). Do not use standing_order/transfers – they can be either. */
+  private applySignFromCategory(transactions: ExtractedTransaction[]): ExtractedTransaction[] {
+    const INCOME_SLUGS = new Set(['salary', 'income']);
+    const EXPENSE_SLUGS = new Set(['loan_payment', 'loan_interest', 'credit_charges', 'bank_fees', 'fees', 'utilities', 'insurance', 'pension', 'groceries', 'transport', 'dining', 'shopping', 'healthcare', 'entertainment', 'other']);
+    return transactions.map((t) => {
+      const abs = Math.abs(t.amount);
+      if (t.categorySlug && INCOME_SLUGS.has(t.categorySlug) && t.amount < 0) return { ...t, amount: abs };
+      if (t.categorySlug && EXPENSE_SLUGS.has(t.categorySlug) && t.amount > 0) return { ...t, amount: -abs };
+      return t;
+    });
   }
 
   /** Safety net: fix sign ONLY for UNAMBIGUOUS descriptions. Do NOT flip "הוראת קבע" or "העברה" – they can be income OR expense; Vision/column decides. */
@@ -662,6 +684,8 @@ The "column" field is mandatory. We use it to set income (זכות) vs expense (
         ...(installmentTotal != null && { installmentTotal }),
       });
     }
-    return this.fixInstallmentAmounts(this.applySignCorrectionSafetyNet(results));
+    const withSignFix = this.applySignCorrectionSafetyNet(results);
+    const withCategorySign = this.applySignFromCategory(withSignFix);
+    return this.fixInstallmentAmounts(withCategorySign);
   }
 }
