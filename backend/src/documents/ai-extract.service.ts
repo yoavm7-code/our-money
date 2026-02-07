@@ -303,8 +303,8 @@ Read the bank statement table and transcribe each row. The table has columns for
 - Extract EVERY visible row. Never skip or merge rows.
 - Amount is always a positive number.
 
-=== OUTPUT ===
-{ "transactions": [{ "date": "YYYY-MM-DD", "description": "Hebrew text", "amount": <positive number>, "categorySlug": "slug" }] }`;
+=== OUTPUT (JSON) ===
+Return a JSON object: { "transactions": [{ "date": "YYYY-MM-DD", "description": "Hebrew text", "amount": <positive number>, "categorySlug": "slug" }] }`;
 
     try {
       const model = process.env.OPENAI_MODEL || 'gpt-5.2';
