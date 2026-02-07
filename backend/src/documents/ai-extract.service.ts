@@ -218,7 +218,7 @@ Include installment fields when relevant: totalAmount, installmentCurrent, insta
 Extract EVERY transaction row. Never skip.`;
 
     try {
-      const model = process.env.OPENAI_MODEL || 'gpt-4.1';
+      const model = process.env.OPENAI_MODEL || 'gpt-5.2';
       let userContent = `Extract transactions. Each row is pre-annotated with [INCOME_AMT]/[EXPENSE_AMT] or [SIGN=... AMT=...]. Use these signs exactly.\n\n${annotated.slice(0, 14000)}`;
       if (userContext?.trim()) {
         userContent += `\n\n---\nUser preferences (if a description was categorized as "salary", use categorySlug "salary" and POSITIVE amount):\n${userContext.trim().slice(0, 2000)}`;
@@ -305,7 +305,7 @@ Read the bank statement table and transcribe each row. The table has columns for
 { "transactions": [{ "date": "YYYY-MM-DD", "description": "Hebrew text", "amount": <positive number>, "categorySlug": "slug" }] }`;
 
     try {
-      const model = process.env.OPENAI_MODEL || 'gpt-4.1';
+      const model = process.env.OPENAI_MODEL || 'gpt-5.2';
       let userMessage = 'Transcribe every row of this bank statement table. Output date, description, amount (positive number), and categorySlug for each row.';
       if (userContext?.trim()) {
         userMessage += `\n\nUser preferences:\n${userContext.trim().slice(0, 2000)}`;
