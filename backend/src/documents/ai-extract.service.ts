@@ -394,6 +394,13 @@ For EACH row, extract ALL of these fields:
       const list: Array<Record<string, unknown>> = Array.isArray(parsed.transactions) ? parsed.transactions : Array.isArray(parsed) ? parsed : [];
       console.log('[AI-Extract] Pass 1 extracted', list.length, 'transactions');
 
+      // Debug: log raw AI output for first 5 rows to see balance values
+      console.log('[AI-Extract] RAW AI sample (first 5):', JSON.stringify(list.slice(0, 5).map((t) => ({
+        desc: String(t.description || '').slice(0, 25),
+        amt: t.amount,
+        bal: t.balance,
+      }))));
+
       if (list.length === 0) return [];
 
       // === STEP 2: Determine sign from BALANCE column (most reliable – pure math) ===
