@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import OpenAI from 'openai';
 import * as fs from 'fs';
-import * as sharp from 'sharp';
+import { PNG } from 'pngjs';
+import * as jpeg from 'jpeg-js';
 
 export interface ExtractedTransaction {
   date: string; // YYYY-MM-DD
@@ -408,16 +409,33 @@ Read the bank statement table and transcribe each row. The table has columns for
    */
   async analyzeAmountColors(imagePath: string): Promise<Array<'income' | 'expense'>> {
     try {
-      const { data, info } = await (sharp as any)(imagePath)
-        .raw()
-        .toBuffer({ resolveWithObject: true });
+      const fileBuffer = fs.readFileSync(imagePath);
+      let pixelData: Buffer;
+      let width: number;
+      let height: number;
 
-      const { width, height, channels } = info;
+      // Decode image based on format (pure JS – no native dependencies)
+      const lowerPath = imagePath.toLowerCase();
+      if (lowerPath.endsWith('.png')) {
+        const png = PNG.sync.read(fileBuffer);
+        pixelData = png.data; // RGBA
+        width = png.width;
+        height = png.height;
+      } else {
+        // JPEG (also handles .jpg, .jpeg)
+        const decoded = jpeg.decode(fileBuffer, { useTArray: true });
+        pixelData = Buffer.from(decoded.data); // RGBA
+        width = decoded.width;
+        height = decoded.height;
+      }
+
+      console.log(`[AI-Extract] Color analysis: image ${width}x${height}, ${pixelData.length} bytes`);
 
       // Scan each horizontal band for green/red colored text pixels
-      // Amount columns are typically in the left ~40% of the image (for RTL bank statements)
+      // Amount columns are in the left ~40% of the image (RTL bank statements)
       const amountAreaEnd = Math.floor(width * 0.4);
       const bandHeight = 3;
+      const channels = 4; // RGBA
 
       const bands: Array<{ greenPixels: number; redPixels: number; y: number }> = [];
 
@@ -427,20 +445,21 @@ Read the bank statement table and transcribe each row. The table has columns for
         for (let dy = 0; dy < bandHeight && y + dy < height; dy++) {
           for (let x = 0; x < amountAreaEnd; x++) {
             const idx = ((y + dy) * width + x) * channels;
-            const r = data[idx];
-            const g = data[idx + 1];
-            const b = data[idx + 2];
+            const r = pixelData[idx];
+            const g = pixelData[idx + 1];
+            const b = pixelData[idx + 2];
             // Green text: G channel dominant (allow dark green like #006400)
             if (g > 60 && g > r * 1.3 && g > b) greenCount++;
             // Red text: R channel dominant (allow dark red like #CC0000)
             if (r > 60 && r > g * 1.3 && r > b) redCount++;
           }
         }
-        // Only consider bands with meaningful colored pixel counts
         if (greenCount > 5 || redCount > 5) {
           bands.push({ greenPixels: greenCount, redPixels: redCount, y });
         }
       }
+
+      console.log(`[AI-Extract] Color analysis: ${bands.length} colored bands found`);
 
       // Merge adjacent bands into row clusters (each cluster = one table row)
       const rows: Array<'income' | 'expense'> = [];
@@ -450,7 +469,6 @@ Read the bank statement table and transcribe each row. The table has columns for
 
       for (const band of bands) {
         if (band.y - prevY > 15) {
-          // New cluster - save previous
           if (clusterGreen > 0 || clusterRed > 0) {
             rows.push(clusterGreen > clusterRed ? 'income' : 'expense');
           }
@@ -462,7 +480,6 @@ Read the bank statement table and transcribe each row. The table has columns for
         }
         prevY = band.y;
       }
-      // Don't forget the last cluster
       if (clusterGreen > 0 || clusterRed > 0) {
         rows.push(clusterGreen > clusterRed ? 'income' : 'expense');
       }
