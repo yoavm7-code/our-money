@@ -218,7 +218,7 @@ Include installment fields when relevant: totalAmount, installmentCurrent, insta
 Extract EVERY transaction row. Never skip.`;
 
     try {
-      const model = process.env.OPENAI_MODEL || 'gpt-4o';
+      const model = process.env.OPENAI_MODEL || 'gpt-5.2';
       let userContent = `Extract transactions. Each row is pre-annotated with [INCOME_AMT]/[EXPENSE_AMT] or [SIGN=... AMT=...]. Use these signs exactly.\n\n${annotated.slice(0, 14000)}`;
       if (userContext?.trim()) {
         userContent += `\n\n---\nUser preferences (if a description was categorized as "salary", use categorySlug "salary" and POSITIVE amount):\n${userContext.trim().slice(0, 2000)}`;
@@ -285,61 +285,33 @@ Extract EVERY transaction row. Never skip.`;
     const mimeType = imagePath.toLowerCase().endsWith('.png') ? 'image/png' : 
                      imagePath.toLowerCase().endsWith('.webp') ? 'image/webp' : 'image/jpeg';
 
-    const systemPrompt = `You are an expert Israeli bank statement parser. Extract ALL transactions from this bank statement image.
+    const systemPrompt = `You are an expert at reading Israeli bank statement tables from screenshots.
 
-CRITICAL RULE – INCOME vs EXPENSE (COLUMN AND COLOR ARE THE ONLY SOURCE OF TRUTH):
-   - Amount appears in the "זכות" column OR in GREEN → INCOME. You MUST output a POSITIVE number (e.g. 8000, 6000, 356).
-   - Amount appears in the "חובה" column OR in RED → EXPENSE. You MUST output a NEGATIVE number (e.g. -8000, -1200).
-   - IGNORE the description text when deciding sign. "הוראת קבע", "העברה", "קצבת ילדים" can be EITHER – the column tells you which.
-   - CONCRETE EXAMPLE: 8,000 in the זכות column with description "הוראת-קבע (תאריך ערך: 01/02)" → output amount: 8000 (positive, income). Same 8,000 in חובה → output -8000.
-   - WRONG: outputting -8000 when 8000 is in green/זכות. RIGHT: output 8000 when in green/זכות.
-   - For each row, look at which column the number is in (זכות vs חובה) or its color (green vs red), then set amount sign accordingly.
-   - Israeli bank tables: column headers are "זכות" and "חובה". Amounts under "זכות" or in green = income (positive). Amounts under "חובה" or in red = expense (negative).
+=== YOUR TASK ===
+Read the bank statement table and transcribe each row. The table has columns for date, operation, and amounts.
 
-2) DESCRIPTION - Operation text ONLY, no amounts or labels:
-   - Copy only the operation/action text in Hebrew (e.g. הוראת קבע, הו"ק הלואה קרן, ביטוח לאומי ג).
-   - Do NOT include: the amount (e.g. 8,000.00), value date (תאריך ערך: 01/02), or the words "Income" / "Expense".
-   - "הו"ק הלוי רבית" = standing order for loan interest; "הו"ק הלואה קרן" = loan principal; "מ.א. [company]" = employer.
-   - NEVER truncate to single letters. NEVER add numbers or "Income"/"Expense" to the description.
+=== FOR EACH ROW ===
+1) "date": Convert DD/MM/YY to "YYYY-MM-DD". Ignore Hebrew weekday prefix (ב', ה', א').
+2) "description": The operation text in Hebrew. Do NOT include amounts or dates.
+   "מ.א." + company = employer salary. "הו"ק הלוי רבית" = loan interest. "הו"ק הלואה קרן" = loan principal.
+3) "amount": The number from this row (always positive, e.g. 5000, 82.05).
+4) "categorySlug": A category slug from: salary, income, loan_payment, loan_interest, credit_charges, bank_fees, transfers, standing_order, utilities, insurance, pension, groceries, transport, dining, shopping, healthcare, other.
 
-3) CATEGORY - Use these EXACT slugs:
-   INCOME: salary (משכורת), income (קצבת ילדים, ביטוח לאומי ג, and other generic income)
-   EXPENSES:
-   - loan_payment (הלואה, קרן הלואה)
-   - loan_interest (ריבית, הלוי רבית)
-   - credit_charges (כאל, מקס איט, לאומי קארד, ישראכרט)
-   - bank_fees (דמי ניהול, עמלה, הקצאת אשראי)
-   - transfers (העברה, bit, פייבוקס)
-   - standing_order (הוראת קבע - when not loan/specific bill)
-   - utilities (חשמל, גז, מים, ארנונה)
-   - insurance (ביטוח)
-   - pension (פנסיה, גמל)
-   - groceries (סופרמרקט)
-   - transport (דלק, רכבת)
-   - dining (מסעדה, קפה)
-   - shopping (קניות, חנות)
-   - healthcare (קופת חולים, רופא)
+=== RULES ===
+- Extract EVERY visible row. Never skip or merge rows.
+- Amount is always a positive number.
 
-4) DATE - Extract the date for each row (DD/MM/YY or DD/MM/YYYY), convert to YYYY-MM-DD.
-
-5) COMPLETENESS - Extract EVERY visible transaction. Never skip rows. Never invent transactions that aren't visible.
-
-6) COLUMN (MANDATORY) - For EVERY row you MUST output "column" as exactly "זכות" or "חובה":
-   - "column": "זכות" = amount was in the credit column (green / right side in Israeli banks).
-   - "column": "חובה" = amount was in the debit column (red / left side).
-   Without this field we cannot tell income from expense. Look at the table header and where the number sits; output one of these two words for every transaction.
-
-Output JSON: { "transactions": [{ "date": "YYYY-MM-DD", "description": "operation text only", "amount": number (absolute value, e.g. 8000 or 712), "column": "זכות" or "חובה", "categorySlug": "slug" }] }
-For installments include: totalAmount, installmentCurrent, installmentTotal.
-The "column" field is mandatory. We use it to set income (זכות) vs expense (חובה) in code.`;
+=== OUTPUT ===
+{ "transactions": [{ "date": "YYYY-MM-DD", "description": "Hebrew text", "amount": <positive number>, "categorySlug": "slug" }] }`;
 
     try {
-      const model = process.env.OPENAI_MODEL || 'gpt-4o';
-      let userMessage = 'Extract all transactions. For EACH row: 1) Read the amount as a positive number (e.g. 8000, 712). 2) Look at which COLUMN it is in: זכות (credit, often green) or חובה (debit, often red). 3) Set "column" to "זכות" or "חובה" accordingly. We use "column" to set income/expense in code, so this must be accurate.';
+      const model = process.env.OPENAI_MODEL || 'gpt-5.2';
+      let userMessage = 'Transcribe every row of this bank statement table. Output date, description, amount (positive number), and categorySlug for each row.';
       if (userContext?.trim()) {
         userMessage += `\n\nUser preferences:\n${userContext.trim().slice(0, 2000)}`;
       }
 
+      // === PASS 1: Extract all transactions (amounts, dates, descriptions) ===
       const completion = await client.chat.completions.create({
         model,
         messages: [
@@ -352,13 +324,13 @@ The "column" field is mandatory. We use it to set income (זכות) vs expense (
                 type: 'image_url',
                 image_url: {
                   url: `data:${mimeType};base64,${base64Image}`,
-                  detail: 'high', // Use high detail for better text recognition
+                  detail: 'high',
                 },
               },
             ],
           },
         ],
-        max_completion_tokens: 4096,
+        max_completion_tokens: 16384,
         response_format: { type: 'json_object' },
       });
 
@@ -368,16 +340,76 @@ The "column" field is mandatory. We use it to set income (זכות) vs expense (
         return [];
       }
 
+      console.log('[AI-Extract] Pass 1 response length:', content.length);
+
       const parsed = JSON.parse(content);
-      const list = Array.isArray(parsed.transactions) ? parsed.transactions : Array.isArray(parsed) ? parsed : [];
-      
+      const list: Array<Record<string, unknown>> = Array.isArray(parsed.transactions) ? parsed.transactions : Array.isArray(parsed) ? parsed : [];
+      console.log('[AI-Extract] Pass 1 extracted', list.length, 'transactions');
+
+      if (list.length === 0) return [];
+
+      // === PASS 2: Determine which items are income (green/זכות) vs expense (red/חובה) ===
+      // Build a numbered list for the AI to classify
+      const itemsList = list.map((t, i) => {
+        const desc = String(t.description || '').slice(0, 50);
+        const amount = Number(t.amount) || 0;
+        const date = String(t.date || '');
+        return `${i + 1}. ${date} | ${desc} | ${amount}`;
+      }).join('\n');
+
+      const classifyPrompt = `Look at this bank statement image again. I extracted these transactions:
+
+${itemsList}
+
+For each transaction, determine if its amount appears in the CREDIT column (זכות – green text, money received/incoming) or the DEBIT column (חובה – red text, money paid/outgoing).
+
+IMPORTANT: Look at the actual IMAGE to determine this. Check the text color: GREEN numbers = credit/income, RED numbers = debit/expense. Do NOT guess from the description – "העברה" or "הוראת קבע" can be either income or expense depending on which column the number is in.
+
+Output JSON: { "incomeIndices": [list of 1-based indices that are INCOME/CREDIT/GREEN] }
+For example if items 1, 3, 5 are income: { "incomeIndices": [1, 3, 5] }`;
+
+      const classifyCompletion = await client.chat.completions.create({
+        model,
+        messages: [
+          { role: 'system', content: 'You are analyzing a bank statement image to determine which amounts are income (credit/green) vs expense (debit/red). Look at the image carefully.' },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: classifyPrompt },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:${mimeType};base64,${base64Image}`,
+                  detail: 'high',
+                },
+              },
+            ],
+          },
+        ],
+        max_completion_tokens: 2048,
+        response_format: { type: 'json_object' },
+      });
+
+      const classifyContent = classifyCompletion.choices[0]?.message?.content;
+      let incomeIndicesSet = new Set<number>();
+
+      if (classifyContent) {
+        console.log('[AI-Extract] Pass 2 classify response:', classifyContent.slice(0, 500));
+        try {
+          const classifyParsed = JSON.parse(classifyContent);
+          const indices: number[] = Array.isArray(classifyParsed.incomeIndices) ? classifyParsed.incomeIndices : [];
+          // Convert 1-based to 0-based
+          incomeIndicesSet = new Set(indices.map(i => i - 1));
+          console.log('[AI-Extract] Pass 2 income indices (0-based):', [...incomeIndicesSet]);
+        } catch {
+          console.error('[AI-Extract] Pass 2 JSON parse error');
+        }
+      }
+
       const today = new Date().toISOString().slice(0, 10);
       const isValidSlug = (s: string | undefined) => s && /^[a-z][a-z0-9_]*$/.test(s) && s.length <= 50;
 
-      const INCOME_SLUGS = new Set(['salary', 'income']);
-      const EXPENSE_SLUGS = new Set(['loan_payment', 'loan_interest', 'credit_charges', 'bank_fees', 'fees', 'utilities', 'insurance', 'pension', 'groceries', 'transport', 'dining', 'shopping', 'healthcare', 'entertainment', 'other']);
-
-      const results: ExtractedTransaction[] = list.map((t: Record<string, unknown>) => {
+      const results: ExtractedTransaction[] = list.map((t: Record<string, unknown>, index: number) => {
         let date = String(t.date || '').trim();
         if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) date = today;
 
@@ -385,15 +417,11 @@ The "column" field is mandatory. We use it to set income (זכות) vs expense (
         const slug: string = isValidSlug(rawSlug) ? (rawSlug as string) : 'other';
 
         const absAmount = Math.abs(Number(t.amount) || 0);
-        const col = String(t.column || '').trim();
-        const isCredit = /זכות|credit/i.test(col);
-        const isDebit = /חובה|debit/i.test(col);
-        let amount: number;
-        if (isCredit) amount = absAmount;
-        else if (isDebit) amount = -absAmount;
-        else if (INCOME_SLUGS.has(slug)) amount = absAmount;
-        else if (EXPENSE_SLUGS.has(slug)) amount = -absAmount;
-        else amount = Number(t.amount) ?? 0;
+        // Use Pass 2 classification to determine sign
+        const isIncome = incomeIndicesSet.has(index);
+        const amount = isIncome ? absAmount : -absAmount;
+
+        console.log(`[AI-Extract] Final Row ${index}: ${String(t.description || '').slice(0, 25)} → ${isIncome ? 'INCOME' : 'EXPENSE'} ${amount}`);
 
         const totalAmount = t.totalAmount != null ? Number(t.totalAmount) : undefined;
         const installmentCurrent = t.installmentCurrent != null ? Math.max(1, Math.floor(Number(t.installmentCurrent))) : undefined;
@@ -410,9 +438,11 @@ The "column" field is mandatory. We use it to set income (זכות) vs expense (
         };
       });
 
+      // For Vision path: column field is the source of truth for sign.
+      // Do NOT apply applySignFromCategory here – a wrong category must not override column-based sign.
+      // Only apply the safety net for unambiguous markers (e.g. קצבת ילדים is always income).
       const withSignFix = this.applySignCorrectionSafetyNet(results);
-      const withCategorySign = this.applySignFromCategory(withSignFix);
-      return this.fixInstallmentAmounts(withCategorySign).filter((t) => Math.abs(t.amount) >= 0.01);
+      return this.fixInstallmentAmounts(withSignFix).filter((t) => Math.abs(t.amount) >= 0.01);
     } catch (err) {
       console.error('[AI-Extract] Vision extraction error:', err);
       return [];
@@ -466,7 +496,7 @@ The "column" field is mandatory. We use it to set income (זכות) vs expense (
 
   /** Safety net: fix sign ONLY for UNAMBIGUOUS descriptions. Do NOT flip "הוראת קבע" or "העברה" – they can be income OR expense; Vision/column decides. */
   private applySignCorrectionSafetyNet(transactions: ExtractedTransaction[]): ExtractedTransaction[] {
-    const INCOME_MARKERS = ['קצבת ילדים', 'קצבת זקנה', 'ביטוח לאומי ג', 'בטוח לאומי ג', 'משכורת', 'שכר', 'זיכוי'];
+    const INCOME_MARKERS = ['קצבת ילדים', 'קצבת זקנה', 'ביטוח לאומי ג', 'בטוח לאומי ג', 'משכורת', 'שכר', 'זיכוי', 'מ.א.', 'מ.א '];
     const EXPENSE_MARKERS = ['חיוב', 'משיכה', 'כאל', 'מקס איט', 'לאומי קארד', 'ישראכרט', "הו\"ק הלו' רבית", 'הו"ק הלואה קרן', 'עמלת', 'דמי ניהול', 'הקצאת אשראי'];
     return transactions.map((t) => {
       const d = (t.description || '').trim();
