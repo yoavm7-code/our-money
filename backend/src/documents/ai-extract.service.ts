@@ -218,7 +218,7 @@ Include installment fields when relevant: totalAmount, installmentCurrent, insta
 Extract EVERY transaction row. Never skip.`;
 
     try {
-      const model = process.env.OPENAI_MODEL || 'gpt-4o';
+      const model = process.env.OPENAI_MODEL || 'gpt-4.1';
       let userContent = `Extract transactions. Each row is pre-annotated with [INCOME_AMT]/[EXPENSE_AMT] or [SIGN=... AMT=...]. Use these signs exactly.\n\n${annotated.slice(0, 14000)}`;
       if (userContext?.trim()) {
         userContent += `\n\n---\nUser preferences (if a description was categorized as "salary", use categorySlug "salary" and POSITIVE amount):\n${userContext.trim().slice(0, 2000)}`;
@@ -288,44 +288,30 @@ Extract EVERY transaction row. Never skip.`;
     const systemPrompt = `You are an expert at reading Israeli bank statement tables from screenshots.
 
 === YOUR TASK ===
-Read the table in the image and transcribe each row into structured JSON.
-The table has these columns (in Hebrew, right-to-left):
-- תאריך (date)
-- הפעולה (operation/description)
-- חובה (debit column – money going OUT)
-- זכות (credit column – money coming IN)
+Read the bank statement table and transcribe each row. The table has columns for date, operation, and amounts.
 
-IMPORTANT: Each row has a number in EITHER the חובה column OR the זכות column, but NOT both.
-You must report BOTH fields for each row: put the number where it appears, and null for the empty column.
-
-=== FOR EACH ROW, OUTPUT ===
+=== FOR EACH ROW ===
 1) "date": Convert DD/MM/YY to "YYYY-MM-DD". Ignore Hebrew weekday prefix (ב', ה', א').
-2) "description": The operation text in Hebrew. Do NOT include amounts or value dates (תאריך ערך: ...).
-   "מ.א." + company = employer (salary). "הו"ק הלוי רבית" = loan interest. "הו"ק הלואה קרן" = loan principal.
-3) "debit": The number from the חובה column as a positive number, or null if that cell is empty.
-4) "credit": The number from the זכות column as a positive number, or null if that cell is empty.
-5) "categorySlug": A category from the list below.
-
-=== CATEGORY SLUGS ===
-INCOME: salary (משכורת, שכר, מ.א. [company]), income (קצבת ילדים, ביטוח לאומי ג, other)
-EXPENSES: loan_payment (הלואה, קרן הלואה), loan_interest (ריבית, הלוי רבית), credit_charges (כאל, מקס איט, לאומי קארד, ישראכרט), bank_fees (דמי ניהול, עמלה), transfers (העברה, העברה-נייד, העב' לאחר-נייד, bit, פייבוקס), standing_order (הוראת קבע), utilities (חשמל, גז, מים), insurance (ביטוח), pension (פנסיה, גמל, מיטב דש), groceries (סופרמרקט), transport (דלק, רכבת), dining (מסעדה, קפה), shopping (קניות), healthcare (קופת חולים)
+2) "description": The operation text in Hebrew. Do NOT include amounts or dates.
+   "מ.א." + company = employer salary. "הו"ק הלוי רבית" = loan interest. "הו"ק הלואה קרן" = loan principal.
+3) "amount": The number from this row (always positive, e.g. 5000, 82.05).
+4) "categorySlug": A category slug from: salary, income, loan_payment, loan_interest, credit_charges, bank_fees, transfers, standing_order, utilities, insurance, pension, groceries, transport, dining, shopping, healthcare, other.
 
 === RULES ===
-- Extract EVERY visible row. Never skip. Never merge two rows. Never invent rows.
-- Each table row = exactly one JSON object.
-- For each row, exactly ONE of debit/credit should be a number, the other should be null.
+- Extract EVERY visible row. Never skip or merge rows.
+- Amount is always a positive number.
 
-=== OUTPUT FORMAT ===
-{ "transactions": [{ "date": "YYYY-MM-DD", "description": "Hebrew text", "debit": <number or null>, "credit": <number or null>, "categorySlug": "slug" }] }
-For installments add: totalAmount, installmentCurrent, installmentTotal.`;
+=== OUTPUT ===
+{ "transactions": [{ "date": "YYYY-MM-DD", "description": "Hebrew text", "amount": <positive number>, "categorySlug": "slug" }] }`;
 
     try {
-      const model = process.env.OPENAI_MODEL || 'gpt-4o';
-      let userMessage = 'Transcribe this bank statement table. For each row output: date, description, debit (number from חובה column or null), credit (number from זכות column or null), and categorySlug. Each row has a number in exactly one of the two amount columns – report it in the correct field and set the other to null.';
+      const model = process.env.OPENAI_MODEL || 'gpt-4.1';
+      let userMessage = 'Transcribe every row of this bank statement table. Output date, description, amount (positive number), and categorySlug for each row.';
       if (userContext?.trim()) {
         userMessage += `\n\nUser preferences:\n${userContext.trim().slice(0, 2000)}`;
       }
 
+      // === PASS 1: Extract all transactions (amounts, dates, descriptions) ===
       const completion = await client.chat.completions.create({
         model,
         messages: [
@@ -338,7 +324,7 @@ For installments add: totalAmount, installmentCurrent, installmentTotal.`;
                 type: 'image_url',
                 image_url: {
                   url: `data:${mimeType};base64,${base64Image}`,
-                  detail: 'high', // Use high detail for better text recognition
+                  detail: 'high',
                 },
               },
             ],
@@ -354,59 +340,88 @@ For installments add: totalAmount, installmentCurrent, installmentTotal.`;
         return [];
       }
 
-      console.log('[AI-Extract] Vision raw response length:', content.length);
-      console.log('[AI-Extract] Vision raw response (first 2000 chars):', content.slice(0, 2000));
+      console.log('[AI-Extract] Pass 1 response length:', content.length);
 
       const parsed = JSON.parse(content);
-      const list = Array.isArray(parsed.transactions) ? parsed.transactions : Array.isArray(parsed) ? parsed : [];
-      console.log('[AI-Extract] Vision parsed transaction count:', list.length);
+      const list: Array<Record<string, unknown>> = Array.isArray(parsed.transactions) ? parsed.transactions : Array.isArray(parsed) ? parsed : [];
+      console.log('[AI-Extract] Pass 1 extracted', list.length, 'transactions');
 
-      // Log each transaction's debit/credit fields for debugging
-      list.forEach((t: Record<string, unknown>, i: number) => {
-        console.log(`[AI-Extract] Row ${i}: date=${t.date}, desc="${String(t.description || '').slice(0, 30)}", debit=${t.debit}, credit=${t.credit}, cat=${t.categorySlug}`);
+      if (list.length === 0) return [];
+
+      // === PASS 2: Determine which items are income (green/זכות) vs expense (red/חובה) ===
+      // Build a numbered list for the AI to classify
+      const itemsList = list.map((t, i) => {
+        const desc = String(t.description || '').slice(0, 50);
+        const amount = Number(t.amount) || 0;
+        const date = String(t.date || '');
+        return `${i + 1}. ${date} | ${desc} | ${amount}`;
+      }).join('\n');
+
+      const classifyPrompt = `Look at this bank statement image again. I extracted these transactions:
+
+${itemsList}
+
+For each transaction, determine if its amount appears in the CREDIT column (זכות – green text, money received/incoming) or the DEBIT column (חובה – red text, money paid/outgoing).
+
+IMPORTANT: Look at the actual IMAGE to determine this. Check the text color: GREEN numbers = credit/income, RED numbers = debit/expense. Do NOT guess from the description – "העברה" or "הוראת קבע" can be either income or expense depending on which column the number is in.
+
+Output JSON: { "incomeIndices": [list of 1-based indices that are INCOME/CREDIT/GREEN] }
+For example if items 1, 3, 5 are income: { "incomeIndices": [1, 3, 5] }`;
+
+      const classifyCompletion = await client.chat.completions.create({
+        model,
+        messages: [
+          { role: 'system', content: 'You are analyzing a bank statement image to determine which amounts are income (credit/green) vs expense (debit/red). Look at the image carefully.' },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: classifyPrompt },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:${mimeType};base64,${base64Image}`,
+                  detail: 'high',
+                },
+              },
+            ],
+          },
+        ],
+        max_completion_tokens: 2048,
+        response_format: { type: 'json_object' },
       });
+
+      const classifyContent = classifyCompletion.choices[0]?.message?.content;
+      let incomeIndicesSet = new Set<number>();
+
+      if (classifyContent) {
+        console.log('[AI-Extract] Pass 2 classify response:', classifyContent.slice(0, 500));
+        try {
+          const classifyParsed = JSON.parse(classifyContent);
+          const indices: number[] = Array.isArray(classifyParsed.incomeIndices) ? classifyParsed.incomeIndices : [];
+          // Convert 1-based to 0-based
+          incomeIndicesSet = new Set(indices.map(i => i - 1));
+          console.log('[AI-Extract] Pass 2 income indices (0-based):', [...incomeIndicesSet]);
+        } catch {
+          console.error('[AI-Extract] Pass 2 JSON parse error');
+        }
+      }
 
       const today = new Date().toISOString().slice(0, 10);
       const isValidSlug = (s: string | undefined) => s && /^[a-z][a-z0-9_]*$/.test(s) && s.length <= 50;
 
-      const INCOME_SLUGS = new Set(['salary', 'income']);
-      const EXPENSE_SLUGS = new Set(['loan_payment', 'loan_interest', 'credit_charges', 'bank_fees', 'fees', 'utilities', 'insurance', 'pension', 'groceries', 'transport', 'dining', 'shopping', 'healthcare', 'entertainment', 'other']);
-
-      const results: ExtractedTransaction[] = list.map((t: Record<string, unknown>) => {
+      const results: ExtractedTransaction[] = list.map((t: Record<string, unknown>, index: number) => {
         let date = String(t.date || '').trim();
         if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) date = today;
 
         const rawSlug = t.categorySlug ? String(t.categorySlug).toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '') : undefined;
         const slug: string = isValidSlug(rawSlug) ? (rawSlug as string) : 'other';
 
-        // New approach: use debit/credit fields directly
-        const debitVal = t.debit != null ? Number(t.debit) : null;
-        const creditVal = t.credit != null ? Number(t.credit) : null;
-        const hasDebit = debitVal != null && debitVal > 0;
-        const hasCredit = creditVal != null && creditVal > 0;
+        const absAmount = Math.abs(Number(t.amount) || 0);
+        // Use Pass 2 classification to determine sign
+        const isIncome = incomeIndicesSet.has(index);
+        const amount = isIncome ? absAmount : -absAmount;
 
-        let amount: number;
-        if (hasCredit && !hasDebit) {
-          // Amount was in the credit (זכות) column → income (positive)
-          amount = Math.abs(creditVal);
-        } else if (hasDebit && !hasCredit) {
-          // Amount was in the debit (חובה) column → expense (negative)
-          amount = -Math.abs(debitVal);
-        } else if (hasCredit && hasDebit) {
-          // Both columns have values (unusual) - use the larger one, credit = positive
-          console.warn(`[AI-Extract] Both debit and credit set for "${String(t.description || '').slice(0, 30)}": debit=${debitVal}, credit=${creditVal}`);
-          amount = creditVal > debitVal ? Math.abs(creditVal) : -Math.abs(debitVal);
-        } else {
-          // Fallback: neither field set, try legacy 'amount' field
-          const fallbackAmount = Math.abs(Number(t.amount) || 0);
-          // Also check for legacy 'column' field
-          const col = String(t.column || '').trim();
-          if (/זכות|credit/i.test(col)) amount = fallbackAmount;
-          else if (/חובה|debit/i.test(col)) amount = -fallbackAmount;
-          else if (INCOME_SLUGS.has(slug)) amount = fallbackAmount;
-          else if (EXPENSE_SLUGS.has(slug)) amount = -fallbackAmount;
-          else amount = -fallbackAmount; // default to expense
-        }
+        console.log(`[AI-Extract] Final Row ${index}: ${String(t.description || '').slice(0, 25)} → ${isIncome ? 'INCOME' : 'EXPENSE'} ${amount}`);
 
         const totalAmount = t.totalAmount != null ? Number(t.totalAmount) : undefined;
         const installmentCurrent = t.installmentCurrent != null ? Math.max(1, Math.floor(Number(t.installmentCurrent))) : undefined;
