@@ -139,15 +139,27 @@ export class InsightsService {
     const systemPrompt = this.buildSystemPrompt(locale, countryCode);
     
     try {
-      const completion = await client.chat.completions.create({
-        model: process.env.OPENAI_MODEL || 'gpt-4o',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: prompt },
-        ],
-        response_format: { type: 'json_object' },
-      });
-      const content = completion.choices[0]?.message?.content;
+      const insightMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: prompt },
+      ];
+      let content: string | null = null;
+      try {
+        const completion = await client.chat.completions.create({
+          model: process.env.OPENAI_MODEL || 'gpt-4o',
+          messages: insightMessages,
+          response_format: { type: 'json_object' },
+        });
+        content = completion.choices[0]?.message?.content;
+      } catch (jsonErr: unknown) {
+        console.warn('[Insights] json_object format failed, retrying:', jsonErr instanceof Error ? jsonErr.message : String(jsonErr));
+        const fallback = await client.chat.completions.create({
+          model: process.env.OPENAI_MODEL || 'gpt-4o',
+          messages: insightMessages,
+        });
+        content = fallback.choices[0]?.message?.content;
+        if (content) { const m = content.match(/\{[\s\S]*\}/); content = m ? m[0] : content; }
+      }
       if (!content) return this.getFallbackInsights(data, true, locale);
       const parsed = JSON.parse(content) as Record<string, unknown>;
       const fallback = this.getFallbackInsights(data, true, locale);
@@ -205,15 +217,27 @@ export class InsightsService {
     const systemPrompt = this.buildSectionSystemPrompt(section, locale, countryCode);
 
     try {
-      const completion = await client.chat.completions.create({
-        model: process.env.OPENAI_MODEL || 'gpt-4o',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `${prompt}\n\n${sectionPrompt}` },
-        ],
-        response_format: { type: 'json_object' },
-      });
-      const content = completion.choices[0]?.message?.content;
+      const sectionMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `${prompt}\n\n${sectionPrompt}` },
+      ];
+      let content: string | null = null;
+      try {
+        const completion = await client.chat.completions.create({
+          model: process.env.OPENAI_MODEL || 'gpt-4o',
+          messages: sectionMessages,
+          response_format: { type: 'json_object' },
+        });
+        content = completion.choices[0]?.message?.content;
+      } catch (jsonErr: unknown) {
+        console.warn('[Insights] Section json_object format failed, retrying:', jsonErr instanceof Error ? jsonErr.message : String(jsonErr));
+        const fb = await client.chat.completions.create({
+          model: process.env.OPENAI_MODEL || 'gpt-4o',
+          messages: sectionMessages,
+        });
+        content = fb.choices[0]?.message?.content;
+        if (content) { const m = content.match(/\{[\s\S]*\}/); content = m ? m[0] : content; }
+      }
       if (!content) return { content: fallback };
       const parsed = JSON.parse(content) as Record<string, unknown>;
       const raw = parsed[section];

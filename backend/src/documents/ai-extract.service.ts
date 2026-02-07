@@ -225,15 +225,32 @@ Extract EVERY transaction row. Never skip.`;
       if (userContext?.trim()) {
         userContent += `\n\n---\nUser preferences (if a description was categorized as "salary", use categorySlug "salary" and POSITIVE amount):\n${userContext.trim().slice(0, 2000)}`;
       }
-      const completion = await client.chat.completions.create({
-        model,
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: userContent },
-        ],
-        response_format: { type: 'json_object' },
-      });
-      const content = completion.choices[0]?.message?.content;
+      const ocrMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+        { role: 'system', content: system },
+        { role: 'user', content: userContent },
+      ];
+
+      let content: string | null = null;
+      try {
+        const completion = await client.chat.completions.create({
+          model,
+          messages: ocrMessages,
+          response_format: { type: 'json_object' },
+        });
+        content = completion.choices[0]?.message?.content;
+      } catch (jsonFormatErr: unknown) {
+        const errMsg = jsonFormatErr instanceof Error ? jsonFormatErr.message : String(jsonFormatErr);
+        console.warn('[AI-Extract] OCR json_object format failed, retrying without:', errMsg);
+        const fallbackCompletion = await client.chat.completions.create({
+          model,
+          messages: ocrMessages,
+        });
+        content = fallbackCompletion.choices[0]?.message?.content;
+        if (content) {
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          content = jsonMatch ? jsonMatch[0] : content;
+        }
+      }
       if (!content) return this.fallbackExtractWithHints(ocrText, hints);
       const parsed = JSON.parse(content);
       const list = Array.isArray(parsed.transactions) ? parsed.transactions : Array.isArray(parsed) ? parsed : [];
@@ -308,35 +325,56 @@ Return a JSON object: { "transactions": [{ "date": "YYYY-MM-DD", "description": 
 
     try {
       const model = process.env.OPENAI_MODEL || 'gpt-5.2';
-      let userMessage = 'Transcribe every row of this bank statement table. Output date, description, amount (positive number), and categorySlug for each row.';
+      let userMessage = 'Transcribe every row of this bank statement table into JSON. Output date, description, amount (positive number), and categorySlug for each row.';
       if (userContext?.trim()) {
         userMessage += `\n\nUser preferences:\n${userContext.trim().slice(0, 2000)}`;
       }
 
       // === PASS 1: Extract all transactions (amounts, dates, descriptions) ===
-      const completion = await client.chat.completions.create({
-        model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: userMessage },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: `data:${mimeType};base64,${base64Image}`,
-                  detail: 'high',
-                },
+      const visionMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+        { role: 'system', content: systemPrompt },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: userMessage },
+            {
+              type: 'image_url',
+              image_url: {
+                url: `data:${mimeType};base64,${base64Image}`,
+                detail: 'high',
               },
-            ],
-          },
-        ],
-        max_completion_tokens: 16384,
-        response_format: { type: 'json_object' },
-      });
+            },
+          ],
+        },
+      ];
 
-      const content = completion.choices[0]?.message?.content;
+      let content: string | null = null;
+      try {
+        const completion = await client.chat.completions.create({
+          model,
+          messages: visionMessages,
+          max_completion_tokens: 16384,
+          response_format: { type: 'json_object' },
+        });
+        content = completion.choices[0]?.message?.content;
+      } catch (jsonFormatErr: unknown) {
+        // Fallback: if response_format: json_object fails (e.g. model requires 'json' keyword in messages),
+        // retry without response_format and extract JSON from the raw text.
+        const errMsg = jsonFormatErr instanceof Error ? jsonFormatErr.message : String(jsonFormatErr);
+        console.warn('[AI-Extract] json_object format failed, retrying without response_format:', errMsg);
+        const fallbackCompletion = await client.chat.completions.create({
+          model,
+          messages: visionMessages,
+          max_completion_tokens: 16384,
+        });
+        content = fallbackCompletion.choices[0]?.message?.content;
+        // Extract JSON from potential markdown code block or raw text
+        if (content) {
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          content = jsonMatch ? jsonMatch[0] : content;
+        }
+      }
+
       if (!content) {
         console.warn('[AI-Extract] Vision API returned no content');
         return [];
