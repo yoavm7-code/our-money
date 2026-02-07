@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import OpenAI from 'openai';
 import * as fs from 'fs';
+import * as sharp from 'sharp';
 
 export interface ExtractedTransaction {
   date: string; // YYYY-MM-DD
@@ -348,63 +349,10 @@ Read the bank statement table and transcribe each row. The table has columns for
 
       if (list.length === 0) return [];
 
-      // === PASS 2: Determine which items are income (green/זכות) vs expense (red/חובה) ===
-      // Build a numbered list for the AI to classify
-      const itemsList = list.map((t, i) => {
-        const desc = String(t.description || '').slice(0, 50);
-        const amount = Number(t.amount) || 0;
-        const date = String(t.date || '');
-        return `${i + 1}. ${date} | ${desc} | ${amount}`;
-      }).join('\n');
-
-      const classifyPrompt = `Look at this bank statement image again. I extracted these transactions:
-
-${itemsList}
-
-For each transaction, determine if its amount appears in the CREDIT column (זכות – green text, money received/incoming) or the DEBIT column (חובה – red text, money paid/outgoing).
-
-IMPORTANT: Look at the actual IMAGE to determine this. Check the text color: GREEN numbers = credit/income, RED numbers = debit/expense. Do NOT guess from the description – "העברה" or "הוראת קבע" can be either income or expense depending on which column the number is in.
-
-Output JSON: { "incomeIndices": [list of 1-based indices that are INCOME/CREDIT/GREEN] }
-For example if items 1, 3, 5 are income: { "incomeIndices": [1, 3, 5] }`;
-
-      const classifyCompletion = await client.chat.completions.create({
-        model,
-        messages: [
-          { role: 'system', content: 'You are analyzing a bank statement image to determine which amounts are income (credit/green) vs expense (debit/red). Look at the image carefully.' },
-          {
-            role: 'user',
-            content: [
-              { type: 'text', text: classifyPrompt },
-              {
-                type: 'image_url',
-                image_url: {
-                  url: `data:${mimeType};base64,${base64Image}`,
-                  detail: 'high',
-                },
-              },
-            ],
-          },
-        ],
-        max_completion_tokens: 2048,
-        response_format: { type: 'json_object' },
-      });
-
-      const classifyContent = classifyCompletion.choices[0]?.message?.content;
-      let incomeIndicesSet = new Set<number>();
-
-      if (classifyContent) {
-        console.log('[AI-Extract] Pass 2 classify response:', classifyContent.slice(0, 500));
-        try {
-          const classifyParsed = JSON.parse(classifyContent);
-          const indices: number[] = Array.isArray(classifyParsed.incomeIndices) ? classifyParsed.incomeIndices : [];
-          // Convert 1-based to 0-based
-          incomeIndicesSet = new Set(indices.map(i => i - 1));
-          console.log('[AI-Extract] Pass 2 income indices (0-based):', [...incomeIndicesSet]);
-        } catch {
-          console.error('[AI-Extract] Pass 2 JSON parse error');
-        }
-      }
+      // === STEP 2: Programmatic color analysis – scan image pixels for green/red ===
+      // This replaces the unreliable AI-based column/color detection.
+      const colorSignals = await this.analyzeAmountColors(imagePath);
+      console.log('[AI-Extract] Color signals:', colorSignals.length, 'rows detected vs', list.length, 'transactions extracted');
 
       const today = new Date().toISOString().slice(0, 10);
       const isValidSlug = (s: string | undefined) => s && /^[a-z][a-z0-9_]*$/.test(s) && s.length <= 50;
@@ -417,11 +365,15 @@ For example if items 1, 3, 5 are income: { "incomeIndices": [1, 3, 5] }`;
         const slug: string = isValidSlug(rawSlug) ? (rawSlug as string) : 'other';
 
         const absAmount = Math.abs(Number(t.amount) || 0);
-        // Use Pass 2 classification to determine sign
-        const isIncome = incomeIndicesSet.has(index);
+
+        // Use programmatic color detection to determine sign
+        let isIncome = false;
+        if (index < colorSignals.length) {
+          isIncome = colorSignals[index] === 'income';
+        }
         const amount = isIncome ? absAmount : -absAmount;
 
-        console.log(`[AI-Extract] Final Row ${index}: ${String(t.description || '').slice(0, 25)} → ${isIncome ? 'INCOME' : 'EXPENSE'} ${amount}`);
+        console.log(`[AI-Extract] Row ${index}: ${String(t.description || '').slice(0, 25)} → color=${index < colorSignals.length ? colorSignals[index] : 'N/A'} → ${isIncome ? 'INCOME' : 'EXPENSE'} ${amount}`);
 
         const totalAmount = t.totalAmount != null ? Number(t.totalAmount) : undefined;
         const installmentCurrent = t.installmentCurrent != null ? Math.max(1, Math.floor(Number(t.installmentCurrent))) : undefined;
@@ -445,6 +397,80 @@ For example if items 1, 3, 5 are income: { "incomeIndices": [1, 3, 5] }`;
       return this.fixInstallmentAmounts(withSignFix).filter((t) => Math.abs(t.amount) >= 0.01);
     } catch (err) {
       console.error('[AI-Extract] Vision extraction error:', err);
+      return [];
+    }
+  }
+
+  /**
+   * Programmatic color analysis: scan image pixels to detect green vs red amount rows.
+   * Returns an ordered array of 'income' | 'expense' for each detected row with colored numbers.
+   * Green text = income (זכות), Red text = expense (חובה).
+   */
+  async analyzeAmountColors(imagePath: string): Promise<Array<'income' | 'expense'>> {
+    try {
+      const { data, info } = await (sharp as any)(imagePath)
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+
+      const { width, height, channels } = info;
+
+      // Scan each horizontal band for green/red colored text pixels
+      // Amount columns are typically in the left ~40% of the image (for RTL bank statements)
+      const amountAreaEnd = Math.floor(width * 0.4);
+      const bandHeight = 3;
+
+      const bands: Array<{ greenPixels: number; redPixels: number; y: number }> = [];
+
+      for (let y = 0; y < height; y += bandHeight) {
+        let greenCount = 0;
+        let redCount = 0;
+        for (let dy = 0; dy < bandHeight && y + dy < height; dy++) {
+          for (let x = 0; x < amountAreaEnd; x++) {
+            const idx = ((y + dy) * width + x) * channels;
+            const r = data[idx];
+            const g = data[idx + 1];
+            const b = data[idx + 2];
+            // Green text: G channel dominant (allow dark green like #006400)
+            if (g > 60 && g > r * 1.3 && g > b) greenCount++;
+            // Red text: R channel dominant (allow dark red like #CC0000)
+            if (r > 60 && r > g * 1.3 && r > b) redCount++;
+          }
+        }
+        // Only consider bands with meaningful colored pixel counts
+        if (greenCount > 5 || redCount > 5) {
+          bands.push({ greenPixels: greenCount, redPixels: redCount, y });
+        }
+      }
+
+      // Merge adjacent bands into row clusters (each cluster = one table row)
+      const rows: Array<'income' | 'expense'> = [];
+      let prevY = -100;
+      let clusterGreen = 0;
+      let clusterRed = 0;
+
+      for (const band of bands) {
+        if (band.y - prevY > 15) {
+          // New cluster - save previous
+          if (clusterGreen > 0 || clusterRed > 0) {
+            rows.push(clusterGreen > clusterRed ? 'income' : 'expense');
+          }
+          clusterGreen = band.greenPixels;
+          clusterRed = band.redPixels;
+        } else {
+          clusterGreen += band.greenPixels;
+          clusterRed += band.redPixels;
+        }
+        prevY = band.y;
+      }
+      // Don't forget the last cluster
+      if (clusterGreen > 0 || clusterRed > 0) {
+        rows.push(clusterGreen > clusterRed ? 'income' : 'expense');
+      }
+
+      console.log(`[AI-Extract] Color analysis found ${rows.length} colored rows:`, rows);
+      return rows;
+    } catch (err) {
+      console.error('[AI-Extract] Color analysis failed:', err);
       return [];
     }
   }
