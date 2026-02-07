@@ -327,7 +327,13 @@ Return a JSON object: { "transactions": [{ "date": "YYYY-MM-DD", "description": 
 
     try {
       const model = process.env.OPENAI_MODEL || 'gpt-5.2';
-      let userMessage = 'Transcribe every row of this bank statement table into JSON. Output date, description, amount (positive number), and categorySlug for each row.';
+      let userMessage = `Read this bank statement screenshot and extract every row into JSON.
+For EACH row, extract ALL of these fields:
+1. date - in YYYY-MM-DD format
+2. description - the Hebrew operation text only
+3. amount - the transaction number (always positive)
+4. balance - the running balance (יתרה) column value. This is CRITICAL. It is usually the leftmost number in each row and changes after each transaction. It can be negative. Only use null if there truly is no balance column.
+5. categorySlug - a category from the allowed list`;
       if (userContext?.trim()) {
         userMessage += `\n\nUser preferences:\n${userContext.trim().slice(0, 2000)}`;
       }
@@ -509,7 +515,7 @@ Return a JSON object: { "transactions": [{ "date": "YYYY-MM-DD", "description": 
       if (amount < 0.01) continue; // skip zero amounts
 
       // Validate: |delta| should approximately equal amount
-      const tolerance = Math.max(1, amount * 0.05); // 5% tolerance or ₪1
+      const tolerance = Math.max(2, amount * 0.05); // 5% tolerance or ₪2
       if (Math.abs(Math.abs(delta) - amount) <= tolerance) {
         results[i] = delta > 0 ? 'income' : 'expense';
         determined++;
