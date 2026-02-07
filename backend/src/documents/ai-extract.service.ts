@@ -307,21 +307,23 @@ Extract EVERY transaction row. Never skip.`;
     const systemPrompt = `You are an expert at reading Israeli bank statement tables from screenshots.
 
 === YOUR TASK ===
-Read the bank statement table and transcribe each row. The table has columns for date, operation, and amounts.
+Read the bank statement table and transcribe each row. The table typically has columns: date, operation, debit (חובה), credit (זכות), and running balance (יתרה).
 
 === FOR EACH ROW ===
 1) "date": Convert DD/MM/YY to "YYYY-MM-DD". Ignore Hebrew weekday prefix (ב', ה', א').
 2) "description": The operation text in Hebrew. Do NOT include amounts or dates.
    "מ.א." + company = employer salary. "הו"ק הלוי רבית" = loan interest. "הו"ק הלואה קרן" = loan principal.
-3) "amount": The number from this row (always positive, e.g. 5000, 82.05).
-4) "categorySlug": A category slug from: salary, income, loan_payment, loan_interest, credit_charges, bank_fees, transfers, standing_order, utilities, insurance, pension, groceries, transport, dining, shopping, healthcare, other.
+3) "amount": The transaction amount (always positive, e.g. 5000, 82.05). This is the number from the חובה or זכות column.
+4) "balance": The running balance (יתרה) shown for this row. This is usually the leftmost number column. It can be negative. Use null if no balance column is visible.
+5) "categorySlug": A category slug from: salary, income, loan_payment, loan_interest, credit_charges, bank_fees, transfers, standing_order, utilities, insurance, pension, groceries, transport, dining, shopping, healthcare, other.
 
 === RULES ===
 - Extract EVERY visible row. Never skip or merge rows.
 - Amount is always a positive number.
+- Balance is the running total (יתרה) and CAN be negative. Read it exactly as shown.
 
 === OUTPUT (JSON) ===
-Return a JSON object: { "transactions": [{ "date": "YYYY-MM-DD", "description": "Hebrew text", "amount": <positive number>, "categorySlug": "slug" }] }`;
+Return a JSON object: { "transactions": [{ "date": "YYYY-MM-DD", "description": "Hebrew text", "amount": <positive number>, "balance": <number or null>, "categorySlug": "slug" }] }`;
 
     try {
       const model = process.env.OPENAI_MODEL || 'gpt-5.2';
@@ -388,19 +390,16 @@ Return a JSON object: { "transactions": [{ "date": "YYYY-MM-DD", "description": 
 
       if (list.length === 0) return [];
 
-      // === STEP 2: Programmatic color analysis – scan image pixels for green/red ===
-      // This replaces the unreliable AI-based column/color detection.
+      // === STEP 2: Determine sign from BALANCE column (most reliable – pure math) ===
+      const balanceSigns = this.determineSignsFromBalance(list);
+      const balanceDetermined = balanceSigns.filter((s) => s !== null).length;
+      console.log(`[AI-Extract] Balance-based signs: ${balanceDetermined}/${list.length} determined`);
+
+      // === STEP 3: Color analysis as secondary signal ===
       const colorSignals = await this.analyzeAmountColors(imagePath);
       const colorCountMatch = colorSignals.length === list.length;
-      console.log(`[AI-Extract] Color signals: ${colorSignals.length} rows detected vs ${list.length} transactions. Match=${colorCountMatch}`);
-
-      // If counts don't match, color analysis may be unreliable (header/footer rows detected, or missing rows).
-      // In that case, default to expense (safer) and rely on safety net for income keywords.
       const useColors = colorCountMatch || (colorSignals.length > 0 && Math.abs(colorSignals.length - list.length) <= 2);
-
-      if (!useColors && colorSignals.length > 0) {
-        console.warn(`[AI-Extract] Color count mismatch (${colorSignals.length} vs ${list.length}). Falling back to keyword-based sign detection.`);
-      }
+      console.log(`[AI-Extract] Color signals: ${colorSignals.length} rows vs ${list.length} transactions. useColors=${useColors}`);
 
       const today = new Date().toISOString().slice(0, 10);
       const isValidSlug = (s: string | undefined) => s && /^[a-z][a-z0-9_]*$/.test(s) && s.length <= 50;
@@ -414,15 +413,22 @@ Return a JSON object: { "transactions": [{ "date": "YYYY-MM-DD", "description": 
 
         const absAmount = Math.abs(Number(t.amount) || 0);
 
-        // Use programmatic color detection to determine sign
+        // Sign priority: 1) Balance math  2) Color analysis  3) Default expense
         let isIncome = false;
-        if (useColors && index < colorSignals.length) {
+        let signSource = 'default';
+
+        if (balanceSigns[index] != null) {
+          isIncome = balanceSigns[index] === 'income';
+          signSource = 'balance';
+        } else if (useColors && index < colorSignals.length) {
           isIncome = colorSignals[index] === 'income';
+          signSource = 'color';
         }
-        // When color analysis unavailable, default to expense (safety net will fix income keywords)
+        // else: default expense, safety net will fix unambiguous income keywords
+
         const amount = isIncome ? absAmount : -absAmount;
 
-        console.log(`[AI-Extract] Row ${index}: ${String(t.description || '').slice(0, 30)} | amt=${absAmount} | color=${useColors && index < colorSignals.length ? colorSignals[index] : 'N/A'} → ${isIncome ? '+INCOME' : '-EXPENSE'}`);
+        console.log(`[AI-Extract] Row ${index}: ${String(t.description || '').slice(0, 30)} | amt=${absAmount} | sign=${signSource}:${isIncome ? 'INCOME' : 'EXPENSE'} | bal=${t.balance ?? 'null'}`);
 
         const totalAmount = t.totalAmount != null ? Number(t.totalAmount) : undefined;
         const installmentCurrent = t.installmentCurrent != null ? Math.max(1, Math.floor(Number(t.installmentCurrent))) : undefined;
@@ -448,6 +454,73 @@ Return a JSON object: { "transactions": [{ "date": "YYYY-MM-DD", "description": 
       console.error('[AI-Extract] Vision extraction error:', err);
       return [];
     }
+  }
+
+  /**
+   * Determine income/expense sign from balance (יתרה) column differences.
+   * For each pair of adjacent rows, delta = balance[newer] - balance[older].
+   * If delta ≈ +amount → income. If delta ≈ -amount → expense.
+   * Returns null for rows where sign can't be determined.
+   */
+  private determineSignsFromBalance(
+    list: Array<Record<string, unknown>>,
+  ): Array<'income' | 'expense' | null> {
+    const results: Array<'income' | 'expense' | null> = new Array(list.length).fill(null);
+
+    // Extract balances
+    const balances = list.map((t) => {
+      const b = t.balance;
+      if (b == null || b === 'null' || b === '') return null;
+      const n = Number(b);
+      return isNaN(n) ? null : n;
+    });
+
+    const amounts = list.map((t) => Math.abs(Number(t.amount) || 0));
+
+    // Count how many balances we have
+    const balanceCount = balances.filter((b) => b !== null).length;
+    if (balanceCount < 2) {
+      console.log(`[AI-Extract] Balance: only ${balanceCount} balance values, skipping balance-based detection`);
+      return results;
+    }
+
+    // Detect order: reverse chronological (newest first, typical) or chronological
+    let isReverse = true;
+    for (let i = 0; i < list.length - 1; i++) {
+      const d1 = String(list[i].date || '');
+      const d2 = String(list[i + 1].date || '');
+      if (d1 < d2) { isReverse = false; break; }
+      if (d1 > d2) { isReverse = true; break; }
+    }
+
+    console.log(`[AI-Extract] Balance: ${balanceCount} values, order=${isReverse ? 'newest-first' : 'oldest-first'}`);
+
+    let determined = 0;
+    for (let i = 0; i < list.length; i++) {
+      // Get the "older" adjacent row's balance
+      const olderIdx = isReverse ? i + 1 : i - 1;
+      if (olderIdx < 0 || olderIdx >= list.length) continue;
+      if (balances[i] == null || balances[olderIdx] == null) continue;
+
+      // delta = current_balance - older_balance = signed_amount of current transaction
+      const delta = balances[i]! - balances[olderIdx]!;
+      const amount = amounts[i];
+
+      if (amount < 0.01) continue; // skip zero amounts
+
+      // Validate: |delta| should approximately equal amount
+      const tolerance = Math.max(1, amount * 0.05); // 5% tolerance or ₪1
+      if (Math.abs(Math.abs(delta) - amount) <= tolerance) {
+        results[i] = delta > 0 ? 'income' : 'expense';
+        determined++;
+        console.log(`[AI-Extract] Balance row ${i}: bal=${balances[i]}, older_bal=${balances[olderIdx]}, delta=${delta.toFixed(2)}, amt=${amount} → ${results[i]}`);
+      } else {
+        console.log(`[AI-Extract] Balance row ${i}: bal=${balances[i]}, older_bal=${balances[olderIdx]}, delta=${delta.toFixed(2)}, amt=${amount} → MISMATCH (skipped)`);
+      }
+    }
+
+    console.log(`[AI-Extract] Balance analysis: determined ${determined}/${list.length} signs`);
+    return results;
   }
 
   /**
