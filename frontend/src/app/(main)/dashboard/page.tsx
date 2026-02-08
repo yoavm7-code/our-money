@@ -17,6 +17,42 @@ import {
   Legend,
 } from 'recharts';
 
+// Distinct colors per category slug for the pie chart
+const CATEGORY_COLORS: Record<string, string> = {
+  credit_charges: '#ef4444',   // red
+  transfers: '#f97316',        // orange
+  standing_order: '#f59e0b',   // amber
+  loan_payment: '#eab308',     // yellow
+  loan_interest: '#d97706',    // dark amber
+  pension: '#84cc16',          // lime
+  insurance: '#22c55e',        // green
+  utilities: '#14b8a6',        // teal
+  groceries: '#06b6d4',        // cyan
+  transport: '#0ea5e9',        // sky
+  healthcare: '#3b82f6',       // blue
+  dining: '#6366f1',           // indigo
+  shopping: '#8b5cf6',         // violet
+  entertainment: '#a855f7',    // purple
+  education: '#d946ef',        // fuchsia
+  bank_fees: '#ec4899',        // pink
+  subscriptions: '#f43f5e',    // rose
+  childcare: '#fb923c',        // orange-light
+  pets: '#a3e635',             // lime-light
+  gifts: '#2dd4bf',            // teal-light
+  savings: '#38bdf8',          // sky-light
+  investment: '#818cf8',       // indigo-light
+  salary: '#34d399',           // emerald
+  income: '#4ade80',           // green-light
+  rent: '#fb7185',             // rose-light
+  online_shopping: '#c084fc',  // purple-light
+  other: '#94a3b8',            // slate
+};
+const FALLBACK_COLORS = [
+  '#ef4444', '#f97316', '#f59e0b', '#84cc16', '#22c55e',
+  '#14b8a6', '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6',
+  '#a855f7', '#ec4899', '#f43f5e', '#0ea5e9', '#d946ef',
+];
+
 function formatCurrency(n: number, locale: string) {
   return new Intl.NumberFormat(locale === 'he' ? 'he-IL' : 'en-IL', {
     style: 'currency',
@@ -122,11 +158,17 @@ export default function DashboardPage() {
     return name;
   };
   const pieData =
-    summary?.spendingByCategory?.map((c) => ({
-      name: getCatName(c.category?.name, (c.category as { slug?: string })?.slug),
-      value: c.total,
-      color: c.category?.color ?? '#64748b',
-    })) ?? [];
+    summary?.spendingByCategory?.map((c, i) => {
+      const slug = (c.category as { slug?: string })?.slug;
+      const color = c.category?.color
+        ?? (slug ? CATEGORY_COLORS[slug] : undefined)
+        ?? FALLBACK_COLORS[i % FALLBACK_COLORS.length];
+      return {
+        name: getCatName(c.category?.name, slug),
+        value: c.total,
+        color,
+      };
+    }) ?? [];
 
   const barData = trends ?? [];
 
