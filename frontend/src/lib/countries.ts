@@ -175,7 +175,6 @@ const COUNTRY_LIST: { code: string; name: string }[] = [
   { code: 'OM', name: 'Oman' },
   { code: 'PK', name: 'Pakistan' },
   { code: 'PW', name: 'Palau' },
-  { code: 'PS', name: 'Palestine, State of' },
   { code: 'PA', name: 'Panama' },
   { code: 'PG', name: 'Papua New Guinea' },
   { code: 'PY', name: 'Paraguay' },
