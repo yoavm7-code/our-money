@@ -50,7 +50,7 @@ const EXPENSE_KEYWORDS = [
 // - הוראת קבע / הו"ק (standing order: can be income OR expense)
 // - העברה, העברה-נייד, bit (transfer: can be in OR out)
 // - זיכוי (credit: usually income, but context matters)
-// - ביטוח לאומי (without ג׳ = payment TO them = expense)
+// - ביטוח לאומי חד (one-time: can be payment TO them or payout FROM them)
 // - החזר (refund: usually income, but could be you refunding someone)
 // - תשלום (payment: usually expense, but "תשלום שהתקבל" = income)
 
@@ -744,7 +744,7 @@ For EACH row, extract ALL of these fields:
       "הו\"ק הלו' רבית", 'הו"ק הלואה קרן', "הו\"ק הלוי רבית",
       'עמלת', 'דמי ניהול', 'הקצאת אשראי',
       "העב' לאחר", 'העברה לאחר',   // transfer TO another = always expense
-      'בטוח לאומי חד', 'ביטוח לאומי חד', // National insurance PAYMENT (not payout)
+      // NOTE: 'ביטוח לאומי חד' is AMBIGUOUS (can be payment TO or FROM) – let AI/column decide
     ];
     return transactions.map((t) => {
       const d = (t.description || '').trim();
