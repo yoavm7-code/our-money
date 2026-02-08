@@ -170,25 +170,27 @@ export class AiExtractService {
       return this.fallbackExtractWithHints(ocrText, hints);
     }
 
-    const system = `You are an expert Israeli bank statement parser. Extract transactions with HIGH ACCURACY.
+    const system = `You are an expert Israeli financial document parser. You handle both bank statements and credit card statements. Extract transactions with HIGH ACCURACY.
 
 SIGN RULES (CRITICAL):
 • [SIGN=INCOME AMT=X]: This IS income. Return amount = +X (positive).
 • [SIGN=EXPENSE AMT=X]: This IS expense. Return amount = -X (negative).
 • [SIGN=UNKNOWN AMT=X]: Analyze the description carefully:
-  INCOME (+): משכורת, שכר, זיכוי, קצבה, ביטוח לאומי ג׳ (payout)
+  INCOME (+): משכורת, שכר, זיכוי, קצבה, ביטוח לאומי ג׳ (payout), ביטול עסקה (cancellation/refund)
   EXPENSE (-): חיוב, משיכה, הו"ק (הוראת קבע), העברה, הלוואה, ריבית, עמלה, כאל, מקס, לאומי קארד
-  DEFAULT: If unsure, use NEGATIVE (most bank transactions are expenses).
+  DEFAULT: If unsure, use NEGATIVE (most transactions are expenses).
 
 === DESCRIPTION RULES (VERY IMPORTANT) ===
-• Copy only the operation/action text in Hebrew (e.g. הוראת קבע, הו"ק הלואה קרן, ביטוח לאומי ג).
-• Do NOT include: the amount (e.g. 8,000.00), value date (תאריך ערך: 01/01), or the words "Income"/"Expense".
+• Copy the transaction description text as-is.
+• For bank statements: Hebrew operation text (e.g. הוראת קבע, הו"ק הלואה קרן, ביטוח לאומי ג).
+• For credit card statements: Keep merchant names in Latin as-is (e.g. "AMAZON PRIME", "MIDJOURNEY INC", "PAYPAL *EBAY US").
+• Do NOT include: the amount, value date (תאריך ערך: 01/01), or the words "Income"/"Expense".
 • Preserve: "הו"ק הלוי רבית", "הו"ק הלואה קרן", "העברה-נייד", "מ.א. [company]" = employer.
 • NEVER output single letters or broken text. NEVER add numbers or "Income"/"Expense" to description.
-• Only Hebrew and punctuation in description; no Latin letters.
 
 === CATEGORY RULES (BE SPECIFIC, NOT LAZY) ===
-Use these EXACT slugs (all lowercase with underscores):
+Use these EXACT slugs (all lowercase with underscores).
+IMPORTANT: IGNORE any categories shown in the source document. Always assign YOUR OWN category.
 
 INCOME categories:
 • salary - משכורת, שכר, מ.א. [company]
@@ -208,14 +210,16 @@ EXPENSE categories:
 • transport - דלק, רכבת, אגד, דן, חניה
 • dining - מסעדה, קפה, בית קפה, פיצה
 • shopping - קניות, חנות, רשת
+• online_shopping - AMAZON, EBAY, ALIEXPRESS, PAYPAL *EBAY, online purchases
+• subscriptions - NETFLIX, SPOTIFY, AMAZON PRIME, VPN services, SaaS, MIDJOURNEY, AI tools, monthly digital services
 • healthcare - בריאות, מכבי, כללית, לאומית, מאוחדת, קופת חולים
-• entertainment - בידור, סרט, הופעה
+• entertainment - בידור, סרט, הופעה, FACEBOOK (ads/gaming)
 
 NEVER use "unknown", "finance", "other" unless truly nothing else fits.
 Read the Hebrew carefully - "הו"ק הלוי רבית" is loan_interest, NOT transfers!
 
 === OUTPUT FORMAT ===
-JSON: { "transactions": [{ "date": "YYYY-MM-DD", "description": "full Hebrew text", "amount": number, "categorySlug": "exact_slug" }] }
+JSON: { "transactions": [{ "date": "YYYY-MM-DD", "description": "text as-is (Hebrew or Latin)", "amount": number, "categorySlug": "exact_slug" }] }
 Include installment fields when relevant: totalAmount, installmentCurrent, installmentTotal.
 Extract EVERY transaction row. Never skip.`;
 
@@ -304,42 +308,52 @@ Extract EVERY transaction row. Never skip.`;
     const mimeType = imagePath.toLowerCase().endsWith('.png') ? 'image/png' : 
                      imagePath.toLowerCase().endsWith('.webp') ? 'image/webp' : 'image/jpeg';
 
-    const systemPrompt = `You are an expert at reading Israeli bank statement tables from screenshots.
+    const systemPrompt = `You are an expert at reading Israeli financial documents from screenshots.
+You can handle BOTH bank statements AND credit card statements (e.g. Max, Cal, Leumi Card, Isracard, Amex).
 
-=== YOUR TASK ===
-Read the bank statement table and transcribe each row. The table typically has columns: date, operation, debit (חובה), credit (זכות), and optionally running balance (יתרה).
+=== DETECT DOCUMENT TYPE ===
+First, determine which type of document this is:
+A) **Bank statement** — has columns like: date, operation, debit (חובה), credit (זכות), and running balance (יתרה).
+B) **Credit card statement** — has columns like: date, business/merchant name, category (ignore!), transaction type (חיוב חודשי, חיוב עסקת חו"ל, ביטול עסקה), foreign currency amount, ILS amount.
 
 === FOR EACH ROW ===
-1) "date": Convert DD/MM/YY to "YYYY-MM-DD". Ignore Hebrew weekday prefix (ב', ה', א').
-2) "description": The operation text in Hebrew. Do NOT include amounts or dates.
-   "מ.א." + company = employer salary. "הו"ק הלוי רבית" = loan interest. "הו"ק הלואה קרן" = loan principal.
-3) "amount": The transaction amount (always positive, e.g. 5000, 82.05). This is the number from the חובה or זכות column.
-4) "type": CRITICAL — determine if this is "income" or "expense" based on which column the amount appears in:
-   - Amount in the "זכות" (credit) column → "income"
-   - Amount in the "חובה" (debit) column → "expense"
-   Look at the column headers to identify which column contains each number. Green amounts are typically credit (income), red amounts are typically debit (expense).
-5) "balance": The running balance (יתרה) shown for this row. Use null if no balance column is visible.
-6) "categorySlug": A category slug from: salary, income, loan_payment, loan_interest, credit_charges, bank_fees, transfers, standing_order, utilities, insurance, pension, groceries, transport, dining, shopping, healthcare, other.
+1) "date": Convert DD/MM/YY or DD.MM.YY to "YYYY-MM-DD". Ignore Hebrew weekday prefix (ב', ה', א').
+2) "description": The transaction description.
+   - For bank statements: The Hebrew operation text (e.g. הוראת קבע, העברה-נייד). "מ.א." + company = employer salary.
+   - For credit card statements: The merchant/business name AS-IS, including Latin characters (e.g. "AMAZON PRIME", "MIDJOURNEY INC", "PAYPAL *FACEBOOK"). Keep the full name, do NOT translate to Hebrew.
+3) "amount": The transaction amount (always positive, e.g. 5000, 82.05).
+   - For bank statements: the number from the חובה or זכות column.
+   - For credit card statements: the ILS amount (₪). If negative (e.g. -600.61 from ביטול עסקה), use the absolute value here; the "type" field indicates sign.
+4) "type": CRITICAL — "income" or "expense":
+   - Bank: Amount in "זכות" (credit) column → "income". Amount in "חובה" (debit) column → "expense".
+   - Credit card: Regular charges (חיוב חודשי, חיוב עסקת חו"ל, etc.) → "expense". Cancellations (ביטול עסקה) or negative amounts → "income".
+5) "balance": The running balance (יתרה) column value, or null if not present (credit cards usually don't have this).
+6) "categorySlug": YOUR OWN categorization from: salary, income, loan_payment, loan_interest, credit_charges, bank_fees, transfers, standing_order, utilities, insurance, pension, groceries, transport, dining, shopping, healthcare, entertainment, subscriptions, online_shopping, education, other.
+   IMPORTANT: IGNORE any categories shown in the source document (e.g. "חשמל ומחשבים", "שונות", "פנאי, בידור וספורט"). Always assign YOUR OWN category based on the merchant/description:
+   - AMAZON PRIME, NETFLIX, EXPRESSVPN, SPOTIFY → subscriptions
+   - PAYPAL *FACEBOOK, MIDJOURNEY, RAILWAY, ASTRIA.AI → subscriptions or online_shopping
+   - PAYPAL *EBAY → online_shopping
+   - Software/SaaS services → subscriptions
 
 === RULES ===
 - Extract EVERY visible row. Never skip or merge rows.
 - Amount is always a positive number.
-- "type" MUST be either "income" or "expense" — look at the column position of each amount carefully.
-- Balance is the running total (יתרה) and CAN be negative. Read it exactly as shown.
+- "type" MUST be either "income" or "expense".
+- Balance CAN be negative. Read it exactly as shown, or null if no balance column.
 
 === OUTPUT (JSON) ===
-Return a JSON object: { "transactions": [{ "date": "YYYY-MM-DD", "description": "Hebrew text", "amount": <positive number>, "type": "income" or "expense", "balance": <number or null>, "categorySlug": "slug" }] }`;
+Return a JSON object: { "transactions": [{ "date": "YYYY-MM-DD", "description": "text (Hebrew or Latin as-is)", "amount": <positive number>, "type": "income" or "expense", "balance": <number or null>, "categorySlug": "slug" }] }`;
 
     try {
       const model = process.env.OPENAI_MODEL || 'gpt-5.2';
-      let userMessage = `Read this bank statement screenshot and extract every row into JSON.
+      let userMessage = `Read this financial document screenshot and extract every transaction row into JSON.
 For EACH row, extract ALL of these fields:
 1. date - in YYYY-MM-DD format
-2. description - the Hebrew operation text only
-3. amount - the transaction number (always positive)
-4. type - CRITICAL: "income" if the amount is in the זכות (credit) column, "expense" if in the חובה (debit) column. Check the column position carefully.
-5. balance - the running balance (יתרה) column value. It can be negative. Only use null if there truly is no balance column.
-6. categorySlug - a category from the allowed list`;
+2. description - the transaction text (Hebrew or Latin as shown). For credit cards keep the merchant name as-is (e.g. "AMAZON PRIME", "PAYPAL *EBAY").
+3. amount - the transaction number in ILS (always positive)
+4. type - "income" or "expense". For bank: check the חובה/זכות column. For credit cards: regular charges = "expense", cancellations (ביטול עסקה) or negative amounts = "income".
+5. balance - the running balance column, or null if not present
+6. categorySlug - YOUR OWN category (ignore any categories shown in the document)`;
       if (userContext?.trim()) {
         userMessage += `\n\nUser preferences:\n${userContext.trim().slice(0, 2000)}`;
       }
@@ -691,7 +705,8 @@ For EACH row, extract ALL of these fields:
   }
 
   /**
-   * Remove or fix OCR gibberish in description: Latin letters that shouldn't be there, common misreads.
+   * Remove or fix OCR gibberish in description while preserving intentional Latin text
+   * (e.g. credit card merchant names like AMAZON PRIME, MIDJOURNEY, PAYPAL).
    */
   private sanitizeDescription(desc: string): string {
     if (!desc || !desc.trim()) return 'לא ידוע';
@@ -708,13 +723,20 @@ For EACH row, extract ALL of these fields:
     // Remove " Income" / " Expense" (AI sometimes appends these)
     s = s.replace(/\s+Income\s*/gi, ' ').replace(/\s+Expense\s*/gi, ' ');
 
-    // Common OCR errors: Latin in place of Hebrew
+    // Common OCR errors: Latin in place of Hebrew (only specific known patterns)
     s = s.replace(/xn\s*fe/gi, 'מ.א');
     s = s.replace(/mawn\s*BE-?/gi, 'העברה-נייד');
     s = s.replace(/THANK\?\s*wn\s*\d*/gi, "העב' לאחר-נייד");
 
-    // Only remove LONG Latin sequences (3+ letters)
-    s = s.replace(/\b[a-zA-Z]{3,}\b/g, '');
+    // Only remove Latin if the description is primarily Hebrew (has Hebrew chars).
+    // Credit card descriptions can be fully Latin (e.g. "AMAZON PRIME", "PAYPAL *EBAY US").
+    const hebrewChars = (s.match(/[\u0590-\u05FF]/g) || []).length;
+    const latinChars = (s.match(/[a-zA-Z]/g) || []).length;
+    if (hebrewChars > 0 && hebrewChars > latinChars) {
+      // Primarily Hebrew text: remove stray Latin sequences (likely OCR noise)
+      s = s.replace(/\b[a-zA-Z]{3,}\b/g, '');
+    }
+    // If primarily Latin or no Hebrew, keep the Latin text intact
 
     s = s.replace(/\s+/g, ' ').trim();
     s = s.replace(/^[\s\-=:,."']+/, '').replace(/[\s\-=:,."']+$/, '').trim();
