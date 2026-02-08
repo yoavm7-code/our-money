@@ -307,23 +307,28 @@ Extract EVERY transaction row. Never skip.`;
     const systemPrompt = `You are an expert at reading Israeli bank statement tables from screenshots.
 
 === YOUR TASK ===
-Read the bank statement table and transcribe each row. The table typically has columns: date, operation, debit (חובה), credit (זכות), and running balance (יתרה).
+Read the bank statement table and transcribe each row. The table typically has columns: date, operation, debit (חובה), credit (זכות), and optionally running balance (יתרה).
 
 === FOR EACH ROW ===
 1) "date": Convert DD/MM/YY to "YYYY-MM-DD". Ignore Hebrew weekday prefix (ב', ה', א').
 2) "description": The operation text in Hebrew. Do NOT include amounts or dates.
    "מ.א." + company = employer salary. "הו"ק הלוי רבית" = loan interest. "הו"ק הלואה קרן" = loan principal.
 3) "amount": The transaction amount (always positive, e.g. 5000, 82.05). This is the number from the חובה or זכות column.
-4) "balance": The running balance (יתרה) shown for this row. This is usually the leftmost number column. It can be negative. Use null if no balance column is visible.
-5) "categorySlug": A category slug from: salary, income, loan_payment, loan_interest, credit_charges, bank_fees, transfers, standing_order, utilities, insurance, pension, groceries, transport, dining, shopping, healthcare, other.
+4) "type": CRITICAL — determine if this is "income" or "expense" based on which column the amount appears in:
+   - Amount in the "זכות" (credit) column → "income"
+   - Amount in the "חובה" (debit) column → "expense"
+   Look at the column headers to identify which column contains each number. Green amounts are typically credit (income), red amounts are typically debit (expense).
+5) "balance": The running balance (יתרה) shown for this row. Use null if no balance column is visible.
+6) "categorySlug": A category slug from: salary, income, loan_payment, loan_interest, credit_charges, bank_fees, transfers, standing_order, utilities, insurance, pension, groceries, transport, dining, shopping, healthcare, other.
 
 === RULES ===
 - Extract EVERY visible row. Never skip or merge rows.
 - Amount is always a positive number.
+- "type" MUST be either "income" or "expense" — look at the column position of each amount carefully.
 - Balance is the running total (יתרה) and CAN be negative. Read it exactly as shown.
 
 === OUTPUT (JSON) ===
-Return a JSON object: { "transactions": [{ "date": "YYYY-MM-DD", "description": "Hebrew text", "amount": <positive number>, "balance": <number or null>, "categorySlug": "slug" }] }`;
+Return a JSON object: { "transactions": [{ "date": "YYYY-MM-DD", "description": "Hebrew text", "amount": <positive number>, "type": "income" or "expense", "balance": <number or null>, "categorySlug": "slug" }] }`;
 
     try {
       const model = process.env.OPENAI_MODEL || 'gpt-5.2';
@@ -332,8 +337,9 @@ For EACH row, extract ALL of these fields:
 1. date - in YYYY-MM-DD format
 2. description - the Hebrew operation text only
 3. amount - the transaction number (always positive)
-4. balance - the running balance (יתרה) column value. This is CRITICAL. It is usually the leftmost number in each row and changes after each transaction. It can be negative. Only use null if there truly is no balance column.
-5. categorySlug - a category from the allowed list`;
+4. type - CRITICAL: "income" if the amount is in the זכות (credit) column, "expense" if in the חובה (debit) column. Check the column position carefully.
+5. balance - the running balance (יתרה) column value. It can be negative. Only use null if there truly is no balance column.
+6. categorySlug - a category from the allowed list`;
       if (userContext?.trim()) {
         userMessage += `\n\nUser preferences:\n${userContext.trim().slice(0, 2000)}`;
       }
@@ -404,8 +410,32 @@ For EACH row, extract ALL of these fields:
       // === STEP 3: Color analysis as secondary signal ===
       const colorSignals = await this.analyzeAmountColors(imagePath);
       const colorCountMatch = colorSignals.length === list.length;
-      const useColors = colorCountMatch || (colorSignals.length > 0 && Math.abs(colorSignals.length - list.length) <= 2);
-      console.log(`[AI-Extract] Color signals: ${colorSignals.length} rows vs ${list.length} transactions. useColors=${useColors}`);
+      const maxColorDiff = Math.max(3, Math.floor(list.length * 0.2));
+      const useColors = colorCountMatch || (colorSignals.length > 0 && Math.abs(colorSignals.length - list.length) <= maxColorDiff);
+
+      // When color rows > transactions, find best alignment offset by matching known keywords
+      let colorOffset = 0;
+      if (useColors && !colorCountMatch && colorSignals.length > list.length) {
+        const maxOffset = colorSignals.length - list.length;
+        let bestScore = -1;
+        for (let off = 0; off <= maxOffset; off++) {
+          let score = 0;
+          for (let i = 0; i < list.length; i++) {
+            const desc = String(list[i].description || '');
+            const colorType = colorSignals[i + off];
+            if (INCOME_KEYWORDS.some(k => desc.includes(k)) && colorType === 'income') score++;
+            if (EXPENSE_KEYWORDS.some(k => desc.includes(k)) && colorType === 'expense') score++;
+          }
+          if (score > bestScore) {
+            bestScore = score;
+            colorOffset = off;
+          }
+        }
+        if (colorOffset > 0) {
+          console.log(`[AI-Extract] Color offset: skipping first ${colorOffset} color rows (score=${bestScore})`);
+        }
+      }
+      console.log(`[AI-Extract] Color signals: ${colorSignals.length} rows vs ${list.length} transactions. useColors=${useColors}, offset=${colorOffset}`);
 
       const today = new Date().toISOString().slice(0, 10);
       const isValidSlug = (s: string | undefined) => s && /^[a-z][a-z0-9_]*$/.test(s) && s.length <= 50;
@@ -419,16 +449,25 @@ For EACH row, extract ALL of these fields:
 
         const absAmount = Math.abs(Number(t.amount) || 0);
 
-        // Sign priority: 1) Balance math  2) Color analysis  3) Default expense
+        // Sign priority: 1) Balance math  2) AI-reported column type  3) Color analysis  4) Default expense
         let isIncome = false;
         let signSource = 'default';
 
         if (balanceSigns[index] != null) {
           isIncome = balanceSigns[index] === 'income';
           signSource = 'balance';
-        } else if (useColors && index < colorSignals.length) {
-          isIncome = colorSignals[index] === 'income';
-          signSource = 'color';
+        } else {
+          const aiType = String(t.type || '').toLowerCase().trim();
+          if (aiType === 'income' || aiType === 'credit') {
+            isIncome = true;
+            signSource = 'ai-type';
+          } else if (aiType === 'expense' || aiType === 'debit') {
+            isIncome = false;
+            signSource = 'ai-type';
+          } else if (useColors && (index + colorOffset) < colorSignals.length) {
+            isIncome = colorSignals[index + colorOffset] === 'income';
+            signSource = 'color';
+          }
         }
         // else: default expense, safety net will fix unambiguous income keywords
 
