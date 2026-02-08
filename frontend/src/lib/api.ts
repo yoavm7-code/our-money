@@ -134,6 +134,7 @@ export type DocumentWithCount = {
   status: string;
   uploadedAt: string;
   _count?: { transactions: number };
+  extractedCount?: number;
 };
 
 export const documents = {

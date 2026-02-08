@@ -29,7 +29,7 @@ export default function UploadPage() {
   const [accountsList, setAccountsList] = useState<Array<{ id: string; name: string }>>([]);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [recent, setRecent] = useState<Array<{ id: string; fileName: string; status: string; uploadedAt: string; _count?: { transactions: number } }>>([]);
+  const [recent, setRecent] = useState<Array<{ id: string; fileName: string; status: string; uploadedAt: string; _count?: { transactions: number }; extractedCount?: number }>>([]);
   const [progress, setProgress] = useState<ProgressState>({ phase: 'idle', uploadPercent: 0, status: '' });
   const [pendingReview, setPendingReview] = useState<{ document: PendingReviewDoc; accountId: string } | null>(null);
   const [confirmingImport, setConfirmingImport] = useState(false);
@@ -287,8 +287,8 @@ export default function UploadPage() {
                           : 'text-slate-500'
                     }`}
                   >
-                    {d.status === 'COMPLETED' && d._count?.transactions != null
-                      ? t('upload.doneCount', { count: d._count.transactions })
+                    {d.status === 'COMPLETED'
+                      ? t('upload.doneCount', { count: d.extractedCount ?? d._count?.transactions ?? 0 })
                       : d.status === 'FAILED'
                         ? t('upload.doneFailed')
                         : d.status === 'PROCESSING'
@@ -298,7 +298,7 @@ export default function UploadPage() {
                             : d.status}
                   </span>
                 </div>
-                {d.status === 'COMPLETED' && (d._count?.transactions ?? 0) === 0 && (
+                {d.status === 'COMPLETED' && (d.extractedCount ?? d._count?.transactions ?? 0) === 0 && (
                   <p className="text-xs text-amber-600 dark:text-amber-400">
                     {t('upload.noTransactionsExtracted')}
                   </p>

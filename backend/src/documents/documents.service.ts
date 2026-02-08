@@ -10,6 +10,19 @@ import { AiExtractService } from './ai-extract.service';
 import { DocumentParserService, STRUCTURED_MIMES } from './document-parser.service';
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads');
+
+/** Multer may decode UTF-8 filenames as Latin-1, producing mojibake for Hebrew/non-ASCII.
+ *  Re-interpret the bytes as UTF-8 when possible. */
+function fixFilename(raw: string): string {
+  try {
+    const decoded = Buffer.from(raw, 'latin1').toString('utf8');
+    // If decoding produced replacement characters, the original was already valid UTF-8
+    if (decoded.includes('\uFFFD')) return raw;
+    return decoded;
+  } catch {
+    return raw;
+  }
+}
 const ALLOWED_MIMES = [
   'image/jpeg',
   'image/png',
@@ -44,7 +57,8 @@ export class DocumentsService {
         'Invalid file type. Allowed: JPEG, PNG, WebP, PDF, CSV, Excel (.xlsx, .xls), Word (.docx, .doc)',
       );
     }
-    const storagePath = path.join(UPLOAD_DIR, householdId, `${Date.now()}-${file.originalname}`);
+    const fileName = fixFilename(file.originalname);
+    const storagePath = path.join(UPLOAD_DIR, householdId, `${Date.now()}-${fileName}`);
     const dir = path.dirname(storagePath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(storagePath, file.buffer);
@@ -52,7 +66,7 @@ export class DocumentsService {
     const doc = await this.prisma.document.create({
       data: {
         householdId,
-        fileName: file.originalname,
+        fileName,
         mimeType: file.mimetype,
         storagePath,
         fileSize: file.size,
@@ -326,11 +340,27 @@ export class DocumentsService {
   }
 
   async findAll(householdId: string) {
-    return this.prisma.document.findMany({
+    const docs = await this.prisma.document.findMany({
       where: { householdId },
       orderBy: { uploadedAt: 'desc' },
-      include: { _count: { select: { transactions: true } } },
+      select: {
+        id: true,
+        fileName: true,
+        mimeType: true,
+        fileSize: true,
+        status: true,
+        uploadedAt: true,
+        processedAt: true,
+        extractedJson: true,
+        _count: { select: { transactions: true } },
+      },
     });
+    // Return extractedCount (from extractedJson) so UI shows how many were
+    // originally extracted, even if transactions were later deleted.
+    return docs.map(({ extractedJson, ...rest }) => ({
+      ...rest,
+      extractedCount: Array.isArray(extractedJson) ? extractedJson.length : 0,
+    }));
   }
 
   async findOne(householdId: string, id: string) {
