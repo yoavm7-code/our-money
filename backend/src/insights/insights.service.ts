@@ -10,7 +10,8 @@ export type InsightSection =
   | 'savingsRecommendation'
   | 'investmentRecommendations'
   | 'taxTips'
-  | 'spendingInsights';
+  | 'spendingInsights'
+  | 'monthlySummary';
 
 export const INSIGHT_SECTIONS: InsightSection[] = [
   'balanceForecast',
@@ -18,6 +19,7 @@ export const INSIGHT_SECTIONS: InsightSection[] = [
   'investmentRecommendations',
   'taxTips',
   'spendingInsights',
+  'monthlySummary',
 ];
 
 export interface FinancialInsights {
@@ -26,6 +28,7 @@ export interface FinancialInsights {
   investmentRecommendations: string;
   taxTips?: string;
   spendingInsights?: string;
+  monthlySummary?: string;
 }
 
 @Injectable()
@@ -104,6 +107,32 @@ export class InsightsService {
     const fixedExpensesMonthly = fixedExpensesSum / monthsInRange;
     const fixedIncomeMonthly = fixedIncomeSum / monthsInRange;
 
+    // Spending by category (for monthly summary insights)
+    const categories = await this.prisma.category.findMany({
+      where: { householdId },
+      select: { id: true, name: true, slug: true },
+    });
+    const categoryMap = new Map(categories.map((c) => [c.id, c]));
+
+    const categorySpending = await this.prisma.transaction.groupBy({
+      by: ['categoryId'],
+      where: { householdId, date: { gte: sixMonthsAgo, lte: now }, amount: { lt: 0 } },
+      _sum: { amount: true },
+      _count: true,
+    });
+
+    const spendingByCategory = categorySpending
+      .map((cs) => {
+        const cat = cs.categoryId ? categoryMap.get(cs.categoryId) : null;
+        return {
+          name: cat?.name ?? 'Other',
+          slug: cat?.slug ?? 'other',
+          total: Math.abs(Number(cs._sum.amount ?? 0)),
+          count: cs._count,
+        };
+      })
+      .sort((a, b) => b.total - a.total);
+
     return {
       totalBalance,
       accounts,
@@ -113,6 +142,7 @@ export class InsightsService {
       fixedIncomeSum,
       fixedExpensesMonthly,
       fixedIncomeMonthly,
+      spendingByCategory,
     };
   }
 
@@ -197,6 +227,7 @@ export class InsightsService {
         investmentRecommendations: toReadableString(parsed.investmentRecommendations) || fallback.investmentRecommendations,
         taxTips: toReadableString(parsed.taxTips) || undefined,
         spendingInsights: toReadableString(parsed.spendingInsights) || undefined,
+        monthlySummary: toReadableString(parsed.monthlySummary) || undefined,
       };
     } catch {
       return this.getFallbackInsights(data, true, locale);
@@ -282,6 +313,7 @@ export class InsightsService {
         investmentRecommendations: 'Provide only detailed investment recommendations (investmentRecommendations). Return JSON with key investmentRecommendations.',
         taxTips: 'Provide only tax tips (taxTips). Return JSON with key taxTips.',
         spendingInsights: 'Provide only spending insights (spendingInsights). Return JSON with key spendingInsights.',
+        monthlySummary: 'Provide a monthly summary (monthlySummary): analyze each month\'s spending patterns, identify what the user spent most on, where they can save, and which expenses to consider reducing. Compare months to highlight trends. Return JSON with key monthlySummary.',
       };
       return asks[section];
     }
@@ -291,6 +323,7 @@ export class InsightsService {
       investmentRecommendations: 'בבקשה תן רק המלצות השקעה (investmentRecommendations) מפורטות. החזר JSON עם מפתח investmentRecommendations.',
       taxTips: 'בבקשה תן רק טיפים למס (taxTips). החזר JSON עם מפתח taxTips.',
       spendingInsights: 'בבקשה תן רק תובנות על ההוצאות (spendingInsights). החזר JSON עם מפתח spendingInsights.',
+      monthlySummary: 'בבקשה תן סיכום חודשי (monthlySummary): נתח את דפוסי ההוצאות בכל חודש, זהה על מה המשתמש הוציא הכי הרבה, איפה אפשר לחסוך, ואילו הוצאות כדאי לשקול להפחית. השווה בין חודשים כדי לזהות מגמות. החזר JSON עם מפתח monthlySummary.',
     };
     return asks[section];
   }
@@ -312,6 +345,7 @@ export class InsightsService {
         investmentRecommendations: 'Detailed investment recommendations: provident funds, investment funds, mutual funds/ETFs, government bonds. Israeli product names, allocation percentages, expected returns.',
         taxTips: 'Tax credit points, tax benefits for pension/provident, advanced study fund, tax refunds.',
         spendingInsights: 'Identify spending patterns, including fixed vs variable expenses when fixed expenses are provided. Compare to average, give category-specific saving tips.',
+        monthlySummary: 'Analyze monthly spending patterns over the last months. For each month, highlight top spending categories, compare to previous months, identify trends (increasing/decreasing expenses). Suggest specific expenses to reduce and areas where the user is doing well. Give actionable monthly tips.',
       };
       return `${base}\n\n${sectionGuidance[section]}${this.getCountryContext(countryCode)}`;
     }
@@ -322,6 +356,7 @@ export class InsightsService {
       investmentRecommendations: 'המלצות השקעה מפורטות: קרנות השתלמות, קופות גמל, קרנות נאמנות/תעודות סל, אג"ח. שמות מוצרים ישראלים, אחוזי הקצאה, תשואות משוערות.',
       taxTips: 'נקודות זיכוי, הטבות מס על פנסיה/קופת גמל, קרן השתלמות, החזרי מס.',
       spendingInsights: 'זהה דפוסי הוצאות, כולל הוצאות קבועות לעומת משתנות כשמופיעות. השווה לממוצע, תן טיפים לחיסכון בקטגוריות.',
+      monthlySummary: 'נתח את דפוסי ההוצאות לפי חודשים. לכל חודש, הדגש את הקטגוריות המובילות, השווה לחודשים קודמים, זהה מגמות (עליה/ירידה בהוצאות). הצע הוצאות ספציפיות להפחתה ותחומים בהם המשתמש מתנהל היטב. תן טיפים חודשיים מעשיים.',
     };
     return `${base}\n\n${sectionGuidance[section]}${this.getCountryContext(countryCode)}`;
   }
@@ -353,6 +388,29 @@ export class InsightsService {
       return avgExpenses > 0
         ? `הוצאה חודשית ממוצעת: ${avgExpenses.toFixed(0)} ₪. הוסף פירוט לפי קטגוריות כדי לקבל תובנות מפורטות.`
         : 'הוסף תנועות והוצאות כדי לקבל תובנות על ההוצאות.';
+    }
+    if (section === 'monthlySummary') {
+      if (data.monthlyData.length === 0) {
+        return locale === 'en'
+          ? 'Add transactions to get a monthly spending summary.'
+          : 'הוסף תנועות כדי לקבל סיכום הוצאות חודשי.';
+      }
+      const lines = data.monthlyData.map((m) => {
+        const surplus = m.income - m.expenses;
+        return locale === 'en'
+          ? `${m.month}: Income ${m.income.toFixed(0)} ILS, Expenses ${m.expenses.toFixed(0)} ILS, ${surplus >= 0 ? 'Surplus' : 'Deficit'}: ${Math.abs(surplus).toFixed(0)} ILS`
+          : `${m.month}: הכנסות ${m.income.toFixed(0)} ₪, הוצאות ${m.expenses.toFixed(0)} ₪, ${surplus >= 0 ? 'עודף' : 'גירעון'}: ${Math.abs(surplus).toFixed(0)} ₪`;
+      });
+      const topCategories = (data.spendingByCategory ?? []).slice(0, 5).map((c) =>
+        locale === 'en'
+          ? `• ${c.name}: ${c.total.toFixed(0)} ILS`
+          : `• ${c.name}: ${c.total.toFixed(0)} ₪`,
+      );
+      const header = locale === 'en' ? 'Monthly breakdown:' : 'פירוט חודשי:';
+      const catHeader = topCategories.length > 0
+        ? (locale === 'en' ? '\n\nTop spending categories (6 months):' : '\n\nקטגוריות הוצאה מובילות (6 חודשים):')
+        : '';
+      return `${header}\n${lines.join('\n')}${catHeader}${topCategories.length > 0 ? '\n' + topCategories.join('\n') : ''}`;
     }
     return '';
   }
@@ -513,6 +571,12 @@ ${langInstruction}${this.getCountryContext(countryCode)}`;
     const fixedExpMonthly = d.fixedExpensesMonthly ?? 0;
     const fixedIncMonthly = d.fixedIncomeMonthly ?? 0;
 
+    const catLines = (data.spendingByCategory ?? []).slice(0, 10).map((c) =>
+      isEn
+        ? `  • ${c.name}: ${c.total.toLocaleString('en-IL')} ILS (${c.count} transactions)`
+        : `  • ${c.name}: ${c.total.toLocaleString('he-IL')} ₪ (${c.count} תנועות)`,
+    ).join('\n');
+
     const countryLine = countryCode ? `User's country (ISO): ${countryCode.toUpperCase().slice(0, 2)}\n\n` : '';
     if (isEn) {
       return `${countryLine}## My household data (last 6 months)
@@ -532,6 +596,9 @@ ${accs || 'No accounts defined'}
 
 ### Monthly breakdown:
 ${monthly || 'No data'}
+
+### Top spending categories (6 months total):
+${catLines || 'No category data'}
 
 ---
 
@@ -555,6 +622,9 @@ ${accs || 'אין חשבונות מוגדרים'}
 
 ### פירוט חודשי:
 ${monthly || 'אין נתונים'}
+
+### קטגוריות הוצאה מובילות (סה"כ 6 חודשים):
+${catLines || 'אין נתוני קטגוריות'}
 
 ---
 

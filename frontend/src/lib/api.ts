@@ -255,7 +255,8 @@ export type InsightSection =
   | 'savingsRecommendation'
   | 'investmentRecommendations'
   | 'taxTips'
-  | 'spendingInsights';
+  | 'spendingInsights'
+  | 'monthlySummary';
 
 export const INSIGHT_SECTIONS: InsightSection[] = [
   'balanceForecast',
@@ -263,6 +264,7 @@ export const INSIGHT_SECTIONS: InsightSection[] = [
   'investmentRecommendations',
   'taxTips',
   'spendingInsights',
+  'monthlySummary',
 ];
 
 export const insights = {
@@ -273,6 +275,7 @@ export const insights = {
       investmentRecommendations: string;
       taxTips?: string;
       spendingInsights?: string;
+      monthlySummary?: string;
     }>('/api/insights', { params: lang ? { lang } : undefined }),
   getSection: (section: InsightSection, lang?: string) =>
     api<{ content: string }>(`/api/insights/${section}`, { params: lang ? { lang } : undefined }),

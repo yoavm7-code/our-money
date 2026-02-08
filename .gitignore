@@ -11,4 +11,5 @@ uploads
 .idea
 .vscode
 *.pem
+*.tsbuildinfo
 service-account*.json
