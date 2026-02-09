@@ -217,13 +217,22 @@ export default function DashboardPage() {
     return name;
   };
 
+  const MAX_PIE_CATEGORIES = 8;
+
   const makePieData = (variant: string) => {
     const source = variant === 'income' ? summary?.incomeByCategory : summary?.spendingByCategory;
-    return source?.map((c, i) => {
+    if (!source) return [];
+    const mapped = source.map((c, i) => {
       const slug = (c.category as { slug?: string })?.slug;
       const color = c.category?.color ?? (slug ? CATEGORY_COLORS[slug] : undefined) ?? FALLBACK_COLORS[i % FALLBACK_COLORS.length];
       return { name: getCatName(c.category?.name, slug), value: c.total, color };
-    }) ?? [];
+    });
+    if (mapped.length <= MAX_PIE_CATEGORIES) return mapped;
+    const top = mapped.slice(0, MAX_PIE_CATEGORIES - 1);
+    const rest = mapped.slice(MAX_PIE_CATEGORIES - 1);
+    const otherValue = rest.reduce((sum, c) => sum + c.value, 0);
+    top.push({ name: t('common.other'), value: otherValue, color: '#94a3b8' });
+    return top;
   };
 
   const getMetricValue = (metric: string): number => {
@@ -348,7 +357,7 @@ export default function DashboardPage() {
                     {data.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                   </Pie>
                   <Tooltip formatter={(v: number) => formatCurrency(v, locale)} contentStyle={{ borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--card)' }} />
-                  <Legend layout="vertical" align="right" verticalAlign="middle" wrapperStyle={{ paddingRight: 8 }} />
+                  <Legend layout="vertical" align="right" verticalAlign="middle" wrapperStyle={{ paddingRight: 8, maxHeight: 280, overflowY: 'auto', fontSize: 12 }} />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
@@ -450,7 +459,7 @@ export default function DashboardPage() {
                 })}
               </ul>
             ) : (
-              <p className="text-slate-500 text-sm py-4 text-center">{t('dashboard.noSpendingData')}</p>
+              <p className="text-slate-500 text-sm py-4 text-center">{t('dashboard.noRecentTransactions')}</p>
             )}
           </>
         );

@@ -25,6 +25,8 @@ model Household {
   transactions Transaction[]
   documents   Document[]
   rules       CategoryRule[]
+  loans       Loan[]
+  savings     Saving[]
 }
 
 // --------------------------------------------
@@ -36,6 +38,7 @@ model User {
   passwordHash String   @map("password_hash")
   name         String?
   countryCode  String?  @map("country_code") // ISO 3166-1 alpha-2 (e.g. IL, US)
+  avatarPath   String?  @map("avatar_path")  // path to uploaded avatar image
   dashboardConfig Json? @map("dashboard_config") // widget layout, colors, order
   householdId  String   @map("household_id")
   createdAt    DateTime @default(now())
@@ -48,22 +51,25 @@ model User {
 // Accounts (bank, credit card, insurance, investment)
 // --------------------------------------------
 model Account {
-  id           String   @id @default(uuid())
-  householdId  String   @map("household_id")
-  name         String
-  type         AccountType
-  provider     String?  // e.g. "bank-xyz", "visa", "pension-fund"
-  externalId   String?  @unique @map("external_id") // from open banking / API
-  balance      Decimal  @default(0) @db.Decimal(14, 2)
-  currency     String   @default("ILS")
-  isActive     Boolean  @default(true) @map("is_active")
-  syncToken    String?  @map("sync_token") // for incremental sync
-  metadata     Json?    // provider-specific (encrypted credentials ref, etc.)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                  String   @id @default(uuid())
+  householdId         String   @map("household_id")
+  name                String
+  type                AccountType
+  provider            String?  // e.g. "bank-xyz", "visa", "pension-fund"
+  externalId          String?  @unique @map("external_id") // from open banking / API
+  balance             Decimal  @default(0) @db.Decimal(14, 2)
+  currency            String   @default("ILS")
+  isActive            Boolean  @default(true) @map("is_active")
+  syncToken           String?  @map("sync_token") // for incremental sync
+  linkedBankAccountId String?  @map("linked_bank_account_id") // for credit cards: which bank account charges go to
+  metadata            Json?    // provider-specific (encrypted credentials ref, etc.)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
-  household    Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  transactions Transaction[]
+  household         Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  transactions      Transaction[]
+  linkedBankAccount Account?      @relation("CreditCardToBank", fields: [linkedBankAccountId], references: [id])
+  linkedCreditCards Account[]     @relation("CreditCardToBank")
 
   @@index([householdId])
   @@index([type])
@@ -198,4 +204,52 @@ model CategoryRule {
 
   @@index([householdId])
   @@index([categoryId])
+}
+
+// --------------------------------------------
+// Loans (mortgage, personal loans, etc.)
+// --------------------------------------------
+model Loan {
+  id              String    @id @default(uuid())
+  householdId     String    @map("household_id")
+  name            String    // e.g. "Mortgage", "Car loan"
+  lender          String?   // e.g. "Bank Hapoalim"
+  originalAmount  Decimal   @map("original_amount") @db.Decimal(14, 2)
+  remainingAmount Decimal   @map("remaining_amount") @db.Decimal(14, 2)
+  interestRate    Decimal?  @map("interest_rate") @db.Decimal(5, 2) // annual %
+  monthlyPayment  Decimal?  @map("monthly_payment") @db.Decimal(14, 2)
+  startDate       DateTime? @map("start_date") @db.Date
+  endDate         DateTime? @map("end_date") @db.Date
+  currency        String    @default("ILS")
+  notes           String?
+  isActive        Boolean   @default(true) @map("is_active")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId])
+}
+
+// --------------------------------------------
+// Savings goals (emergency fund, vacation, etc.)
+// --------------------------------------------
+model Saving {
+  id            String    @id @default(uuid())
+  householdId   String    @map("household_id")
+  name          String    // e.g. "Emergency fund", "Vacation"
+  targetAmount  Decimal?  @map("target_amount") @db.Decimal(14, 2)
+  currentAmount Decimal   @default(0) @map("current_amount") @db.Decimal(14, 2)
+  interestRate  Decimal?  @map("interest_rate") @db.Decimal(5, 2)
+  startDate     DateTime? @map("start_date") @db.Date
+  targetDate    DateTime? @map("target_date") @db.Date
+  currency      String    @default("ILS")
+  notes         String?
+  isActive      Boolean   @default(true) @map("is_active")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId])
 }

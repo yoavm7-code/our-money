@@ -58,6 +58,7 @@
     "uploadDocuments": "Upload Documents",
     "income": "Income",
     "expenses": "Expenses",
+    "loansSavings": "Loans & Savings",
     "insuranceFunds": "Insurance & Funds",
     "insights": "Financial Insights",
     "settings": "Settings"
@@ -354,6 +355,7 @@
     "income": "Income",
     "expenses": "Expenses",
     "noSpendingData": "No spending data in this period",
+    "noRecentTransactions": "No recent transactions",
     "noTrendData": "No trend data in this period",
     "fixedExpenses": "Fixed expenses",
     "fixedIncome": "Fixed income",
@@ -460,7 +462,10 @@
     "addAll": "Add all",
     "addOnlyNew": "Add only new",
     "addNone": "Add none",
-    "importConfirmed": "Import confirmed."
+    "importConfirmed": "Import confirmed.",
+    "addUploadSlot": "Add another source to upload",
+    "slotNumber": "Source #{{n}}",
+    "addNewSource": "Add new source"
   },
   "income": {
     "title": "Income",
@@ -528,7 +533,10 @@
     "excludeFromExpenseTotal": "Exclude from expense total",
     "excludeFromExpenseTotalHint": "Useful for credit card charges – avoids double-counting if you also upload card statements.",
     "categoryRemoved": "Category removed.",
-    "confirmRemoveCategory": "Remove this category? Transactions will be set to 'No category'."
+    "confirmRemoveCategory": "Remove this category? Transactions will be set to 'No category'.",
+    "linkedBankAccount": "Linked bank account",
+    "noLinkedAccount": "No linked account",
+    "linkedBankAccountHint": "Which bank account does this credit card charge from? Linking helps connect card expenses to total balance."
   },
   "transactionsPage": {
     "search": "Search transactions…",
@@ -577,10 +585,71 @@
   },
   "insuranceFunds": {
     "title": "Insurance & Funds",
-    "description": "Track insurance policies, pension funds, and investment accounts. Add accounts in Settings to see them here. API connectors for providers can be added later.",
-    "noAccounts": "No insurance or investment accounts yet. Add an account in Settings (type: Insurance, Pension, or Investment)."
+    "description": "Track insurance policies, pension funds, and investment accounts. Add accounts in Settings or directly here. API connectors for providers can be added later.",
+    "noAccounts": "No insurance or investment accounts yet. Add a new entry.",
+    "addManual": "Add manually",
+    "editEntry": "Edit entry",
+    "added": "Entry added.",
+    "updated": "Entry updated.",
+    "namePlaceholder": "e.g. Clal Life Insurance",
+    "currentValue": "Current value"
   },
   "smartTip": {
     "title": "Smart Tip"
+  },
+  "profile": {
+    "editProfile": "Edit profile",
+    "uploadAvatar": "Upload photo"
+  },
+  "tips": {
+    "title": "Financial Tips",
+    "subtitle": "Personalized AI recommendations",
+    "generateNew": "Generate new tips",
+    "generating": "Generating tips...",
+    "markRead": "Mark as read",
+    "markAllRead": "Mark all read",
+    "loading": "Loading tips...",
+    "empty": "No tips available",
+    "emptyHint": "Click 'Generate new tips' to get recommendations"
+  },
+  "loansSavings": {
+    "title": "Loans & Savings",
+    "description": "Manage loans, mortgages, and savings goals. Track progress and get a full picture of your financial situation.",
+    "loans": "Loans",
+    "savingsGoals": "Savings",
+    "totalDebt": "Total debt",
+    "monthlyPayments": "Monthly payments",
+    "totalSaved": "Total saved",
+    "savingsTarget": "Savings target",
+    "addLoan": "Add loan",
+    "editLoan": "Edit loan",
+    "addSaving": "Add saving",
+    "editSaving": "Edit saving",
+    "noLoans": "No loans yet. Add a loan to track your progress.",
+    "noSavings": "No savings yet. Add a savings goal to get started.",
+    "loanName": "Loan name",
+    "loanNamePlaceholder": "e.g. Mortgage, Car loan",
+    "lender": "Lender",
+    "lenderPlaceholder": "e.g. Bank Hapoalim",
+    "originalAmount": "Original amount",
+    "remainingAmount": "Remaining balance",
+    "interestRate": "Annual interest",
+    "monthlyPaymentLabel": "Monthly payment",
+    "startDate": "Start date",
+    "endDate": "End date",
+    "notes": "Notes",
+    "savingName": "Saving name",
+    "savingNamePlaceholder": "e.g. Emergency fund, Vacation",
+    "currentAmountLabel": "Current amount",
+    "targetAmountLabel": "Target amount",
+    "targetDateLabel": "Target date",
+    "confirmDelete": "Delete?",
+    "saved": "Saved successfully.",
+    "of": "of",
+    "paidOff": "paid off",
+    "monthly": "Monthly",
+    "interest": "Interest",
+    "target": "Target",
+    "reached": "reached"
   }
 }

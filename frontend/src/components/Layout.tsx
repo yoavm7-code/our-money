@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTranslation } from '@/i18n/context';
+import { users } from '@/lib/api';
+import TipsPanel from '@/components/TipsPanel';
 
 const navItems: { href: string; key: string; icon: string }[] = [
   { href: '/dashboard', key: 'nav.dashboard', icon: 'grid' },
@@ -11,6 +13,7 @@ const navItems: { href: string; key: string; icon: string }[] = [
   { href: '/upload', key: 'nav.uploadDocuments', icon: 'upload' },
   { href: '/income', key: 'nav.income', icon: 'trending-up' },
   { href: '/expenses', key: 'nav.expenses', icon: 'trending-down' },
+  { href: '/loans-savings', key: 'nav.loansSavings', icon: 'banknotes' },
   { href: '/insurance-funds', key: 'nav.insuranceFunds', icon: 'shield' },
   { href: '/insights', key: 'nav.insights', icon: 'sparkles' },
   { href: '/settings', key: 'nav.settings', icon: 'settings' },
@@ -29,6 +32,8 @@ function NavIcon({ name }: { name: string }) {
       return <svg className={cn} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>;
     case 'trending-down':
       return <svg className={cn} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>;
+    case 'banknotes':
+      return <svg className={cn} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/></svg>;
     case 'shield':
       return <svg className={cn} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>;
     case 'sparkles':
@@ -45,6 +50,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { t, locale, setLocale } = useTranslation();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [userInfo, setUserInfo] = useState<{ name: string | null; email: string; avatarUrl?: string | null } | null>(null);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
   // Close drawer on route change
   useEffect(() => {
@@ -73,7 +80,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-    if (!token) router.replace('/login');
+    if (!token) { router.replace('/login'); return; }
+    users.me().then((u) => setUserInfo({ name: u.name, email: u.email, avatarUrl: (u as { avatarUrl?: string }).avatarUrl })).catch(() => {});
   }, [router]);
 
   function logout() {
@@ -84,6 +92,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   }
 
   const toggleLocale = () => setLocale(locale === 'he' ? 'en' : 'he');
+
+  const userInitial = userInfo?.name?.charAt(0)?.toUpperCase() || userInfo?.email?.charAt(0)?.toUpperCase() || '?';
+  const userDisplayName = userInfo?.name || userInfo?.email?.split('@')[0] || '';
 
   const sidebarContent = (
     <>
@@ -110,6 +121,49 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           </button>
         </div>
       </div>
+      {/* User profile quick menu */}
+      {userInfo && (
+        <div className="relative px-3 pt-3">
+          <button
+            type="button"
+            onClick={() => setProfileMenuOpen((o) => !o)}
+            className="flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-sm hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          >
+            {userInfo.avatarUrl ? (
+              <img src={userInfo.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover ring-2 ring-primary-200 dark:ring-primary-800" />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-400 to-emerald-400 flex items-center justify-center text-white text-sm font-bold ring-2 ring-primary-200 dark:ring-primary-800">
+                {userInitial}
+              </div>
+            )}
+            <div className="flex-1 min-w-0 text-start">
+              <p className="font-medium truncate text-sm">{userDisplayName}</p>
+              <p className="text-xs text-slate-500 truncate">{userInfo.email}</p>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`shrink-0 text-slate-400 transition-transform ${profileMenuOpen ? 'rotate-180' : ''}`}><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          {profileMenuOpen && (
+            <div className="mt-1 rounded-xl bg-white dark:bg-slate-800 border border-[var(--border)] shadow-lg overflow-hidden animate-fadeIn">
+              <Link
+                href="/settings"
+                onClick={() => setProfileMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                <span>{t('profile.editProfile')}</span>
+              </Link>
+              <Link
+                href="/settings"
+                onClick={() => setProfileMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                <span>{t('profile.uploadAvatar')}</span>
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
@@ -200,6 +254,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <main className="flex-1 p-4 md:p-6 overflow-x-hidden min-h-0">
         {children}
       </main>
+
+      <TipsPanel />
     </div>
   );
 }

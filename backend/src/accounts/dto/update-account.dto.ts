@@ -16,4 +16,8 @@ export class UpdateAccountDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  @IsString()
+  linkedBankAccountId?: string;
 }

@@ -20,6 +20,7 @@ export class AccountsService {
         provider: dto.provider ?? null,
         balance,
         currency: dto.currency ?? 'ILS',
+        linkedBankAccountId: dto.linkedBankAccountId ?? null,
       },
     });
   }

@@ -58,6 +58,7 @@ module.exports = {
       boxShadow: {
         'glow': '0 0 20px rgba(34, 197, 94, 0.15)',
         'glow-lg': '0 0 40px rgba(34, 197, 94, 0.2)',
+        'glow-xl': '0 0 60px rgba(34, 197, 94, 0.3)',
         'card-hover': '0 8px 30px rgba(0, 0, 0, 0.08)',
       },
     },

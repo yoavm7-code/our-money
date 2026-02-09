@@ -24,7 +24,7 @@ export default function SettingsPage() {
   const [accountsList, setAccountsList] = useState<Array<{ id: string; name: string; type: string; balance: string | null }>>([]);
   const [categoriesList, setCategoriesList] = useState<Array<{ id: string; name: string; slug?: string; isIncome: boolean; isDefault?: boolean; excludeFromExpenseTotal?: boolean }>>([]);
   const [loading, setLoading] = useState(true);
-  const [newAccount, setNewAccount] = useState({ name: '', type: 'BANK', balance: '', addBalance: false });
+  const [newAccount, setNewAccount] = useState({ name: '', type: 'BANK', balance: '', addBalance: false, linkedBankAccountId: '' });
   const [adding, setAdding] = useState(false);
   const [msg, setMsg] = useState('');
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -34,7 +34,7 @@ export default function SettingsPage() {
   const [updatingCategoryId, setUpdatingCategoryId] = useState<string | null>(null);
   const [msgCat, setMsgCat] = useState('');
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
-  const [editAccount, setEditAccount] = useState({ name: '', type: 'BANK', balance: '', addBalance: false });
+  const [editAccount, setEditAccount] = useState({ name: '', type: 'BANK', balance: '', addBalance: false, linkedBankAccountId: '' });
   const [updating, setUpdating] = useState(false);
   const [removingCategoryId, setRemovingCategoryId] = useState<string | null>(null);
   const [deletingAccountId, setDeletingAccountId] = useState<string | null>(null);
@@ -61,13 +61,17 @@ export default function SettingsPage() {
     const isBalanceType = BALANCE_TYPES.includes(newAccount.type);
     const balanceToSend = isBalanceType && newAccount.addBalance ? parseFloat(newAccount.balance) || 0 : 0;
     try {
-      await accounts.create({
+      const createBody: { name: string; type: string; balance: number; linkedBankAccountId?: string } = {
         name: newAccount.name.trim(),
         type: newAccount.type,
         balance: balanceToSend,
-      });
+      };
+      if (newAccount.type === 'CREDIT_CARD' && newAccount.linkedBankAccountId) {
+        createBody.linkedBankAccountId = newAccount.linkedBankAccountId;
+      }
+      await accounts.create(createBody);
       setMsg(t('settings.accountAdded'));
-      setNewAccount({ name: '', type: 'BANK', balance: '', addBalance: false });
+      setNewAccount({ name: '', type: 'BANK', balance: '', addBalance: false, linkedBankAccountId: '' });
       accounts.list().then(setAccountsList).catch(() => {});
     } catch (e) {
       setMsg(e instanceof Error ? e.message : t('common.failedToLoad'));
@@ -101,13 +105,14 @@ export default function SettingsPage() {
 
   async function handleEditAccount(id: string) {
     try {
-      const a = await accounts.get(id) as { id: string; name: string; type: string; balance: string };
+      const a = await accounts.get(id) as { id: string; name: string; type: string; balance: string; linkedBankAccountId?: string };
       setEditingAccountId(id);
       setEditAccount({
         name: a.name,
         type: a.type,
         balance: String(Number(a.balance ?? 0)),
         addBalance: BALANCE_TYPES.includes(a.type) && Number(a.balance ?? 0) !== 0,
+        linkedBankAccountId: a.linkedBankAccountId ?? '',
       });
     } catch {
       setMsg(t('common.failedToLoad'));
@@ -122,11 +127,15 @@ export default function SettingsPage() {
     const isBalanceType = BALANCE_TYPES.includes(editAccount.type);
     const balanceToSend = isBalanceType && editAccount.addBalance ? parseFloat(editAccount.balance) || 0 : 0;
     try {
-      await accounts.update(editingAccountId, {
+      const updateBody: { name: string; type: string; balance?: number; linkedBankAccountId?: string | null } = {
         name: editAccount.name.trim(),
         type: editAccount.type,
         balance: isBalanceType ? balanceToSend : undefined,
-      });
+      };
+      if (editAccount.type === 'CREDIT_CARD') {
+        updateBody.linkedBankAccountId = editAccount.linkedBankAccountId || null;
+      }
+      await accounts.update(editingAccountId, updateBody);
       setMsg(t('settings.accountUpdated'));
       setEditingAccountId(null);
       accounts.list().then(setAccountsList).catch(() => {});
@@ -339,6 +348,22 @@ export default function SettingsPage() {
                 <option value="CASH">{t('settings.cash')}</option>
               </select>
             </div>
+            {newAccount.type === 'CREDIT_CARD' && (
+              <div className="w-full">
+                <label className="block text-sm font-medium mb-1">{t('settings.linkedBankAccount')}</label>
+                <select
+                  className="input"
+                  value={newAccount.linkedBankAccountId}
+                  onChange={(e) => setNewAccount((a) => ({ ...a, linkedBankAccountId: e.target.value }))}
+                >
+                  <option value="">{t('settings.noLinkedAccount')}</option>
+                  {accountsList.filter((a) => a.type === 'BANK').map((a) => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-slate-500 mt-1">{t('settings.linkedBankAccountHint')}</p>
+              </div>
+            )}
             {BALANCE_TYPES.includes(newAccount.type) && (
               <>
                 <div className="flex items-center gap-2">
@@ -430,6 +455,22 @@ export default function SettingsPage() {
                     <option value="CASH">{t('settings.cash')}</option>
                   </select>
                 </div>
+                {editAccount.type === 'CREDIT_CARD' && (
+                  <div>
+                    <label className="block text-sm font-medium mb-1">{t('settings.linkedBankAccount')}</label>
+                    <select
+                      className="input w-full"
+                      value={editAccount.linkedBankAccountId}
+                      onChange={(e) => setEditAccount((a) => ({ ...a, linkedBankAccountId: e.target.value }))}
+                    >
+                      <option value="">{t('settings.noLinkedAccount')}</option>
+                      {accountsList.filter((a) => a.type === 'BANK' && a.id !== editingAccountId).map((a) => (
+                        <option key={a.id} value={a.id}>{a.name}</option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-slate-500 mt-1">{t('settings.linkedBankAccountHint')}</p>
+                  </div>
+                )}
                 {BALANCE_TYPES.includes(editAccount.type) && (
                   <>
                     <div className="flex items-center gap-2">

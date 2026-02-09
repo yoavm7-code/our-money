@@ -58,6 +58,7 @@
     "uploadDocuments": "העלאת מסמכים",
     "income": "הכנסות",
     "expenses": "הוצאות",
+    "loansSavings": "הלוואות וחסכונות",
     "insuranceFunds": "ביטוח וקופות",
     "insights": "תובנות פיננסיות",
     "settings": "הגדרות"
@@ -354,6 +355,7 @@
     "income": "הכנסות",
     "expenses": "הוצאות",
     "noSpendingData": "אין נתוני הוצאות בתקופה זו",
+    "noRecentTransactions": "אין תנועות אחרונות",
     "noTrendData": "אין נתוני מגמות בתקופה זו",
     "fixedExpenses": "הוצאות קבועות",
     "fixedIncome": "הכנסות קבועות",
@@ -460,7 +462,10 @@
     "addAll": "הוסף את כולם",
     "addOnlyNew": "הוסף רק תנועות חדשות",
     "addNone": "לא להוסיף",
-    "importConfirmed": "הייבוא אושר."
+    "importConfirmed": "הייבוא אושר.",
+    "addUploadSlot": "הוסף מקור נוסף להעלאה",
+    "slotNumber": "מקור #{{n}}",
+    "addNewSource": "הוסף מקור חדש"
   },
   "income": {
     "title": "הכנסות",
@@ -528,7 +533,10 @@
     "excludeFromExpenseTotal": "לא לכלול בחישוב הוצאות",
     "excludeFromExpenseTotalHint": "שימושי לחיובי אשראי – מונע כפילות אם מעלים גם דפי חיוב.",
     "categoryRemoved": "הקטגוריה הוסרה.",
-    "confirmRemoveCategory": "להסיר את הקטגוריה? תנועות ששויכו אליה יעברו ל'ללא קטגוריה'."
+    "confirmRemoveCategory": "להסיר את הקטגוריה? תנועות ששויכו אליה יעברו ל'ללא קטגוריה'.",
+    "linkedBankAccount": "חשבון בנק מקושר",
+    "noLinkedAccount": "ללא קישור",
+    "linkedBankAccountHint": "מאיזה חשבון בנק יורדים חיובי הכרטיס? קישור זה מאפשר לחבר בין הוצאות אשראי ליתרה הכוללת."
   },
   "transactionsPage": {
     "search": "חיפוש תנועות…",
@@ -577,10 +585,71 @@
   },
   "insuranceFunds": {
     "title": "ביטוח וקופות",
-    "description": "מעקב אחר פוליסות ביטוח, קופות פנסיה וחשבונות השקעה. הוסף חשבונות בהגדרות כדי לראות אותם כאן. חיבורי API לספקים יגיעו בהמשך.",
-    "noAccounts": "אין עדיין חשבונות ביטוח או השקעות. הוסף חשבון בהגדרות (סוג: ביטוח, פנסיה או השקעות)."
+    "description": "מעקב אחר פוליסות ביטוח, קופות פנסיה וחשבונות השקעה. הוסף חשבונות בהגדרות או ישירות מכאן. חיבורי API לספקים יגיעו בהמשך.",
+    "noAccounts": "אין עדיין חשבונות ביטוח או השקעות. הוסף חשבון חדש.",
+    "addManual": "הוסף ידנית",
+    "editEntry": "עריכת רשומה",
+    "added": "הרשומה נוספה.",
+    "updated": "הרשומה עודכנה.",
+    "namePlaceholder": "למשל: ביטוח חיים כלל",
+    "currentValue": "שווי נוכחי"
   },
   "smartTip": {
     "title": "טיפ חכם"
+  },
+  "profile": {
+    "editProfile": "עריכת פרופיל",
+    "uploadAvatar": "העלאת תמונה"
+  },
+  "tips": {
+    "title": "טיפים פיננסיים",
+    "subtitle": "המלצות מותאמות אישית מהבינה המלאכותית",
+    "generateNew": "ג'נרט טיפים חדשים",
+    "generating": "מייצר טיפים...",
+    "markRead": "סמן כנקרא",
+    "markAllRead": "סמן הכל כנקרא",
+    "loading": "טוען טיפים...",
+    "empty": "אין טיפים כרגע",
+    "emptyHint": "לחץ על 'ג'נרט טיפים חדשים' כדי לקבל המלצות"
+  },
+  "loansSavings": {
+    "title": "הלוואות וחסכונות",
+    "description": "ניהול הלוואות, משכנתאות ויעדי חיסכון. עקוב אחר התקדמות וקבל תמונה מלאה על המצב הפיננסי.",
+    "loans": "הלוואות",
+    "savingsGoals": "חסכונות",
+    "totalDebt": "סה\"כ חוב",
+    "monthlyPayments": "תשלומים חודשיים",
+    "totalSaved": "סה\"כ חסכונות",
+    "savingsTarget": "יעד חסכונות",
+    "addLoan": "הוסף הלוואה",
+    "editLoan": "עריכת הלוואה",
+    "addSaving": "הוסף חיסכון",
+    "editSaving": "עריכת חיסכון",
+    "noLoans": "אין הלוואות. הוסף הלוואה כדי לעקוב אחרי ההתקדמות.",
+    "noSavings": "אין חסכונות. הוסף יעד חיסכון כדי להתחיל.",
+    "loanName": "שם ההלוואה",
+    "loanNamePlaceholder": "למשל: משכנתא, הלוואת רכב",
+    "lender": "מלווה",
+    "lenderPlaceholder": "למשל: בנק הפועלים",
+    "originalAmount": "סכום מקורי",
+    "remainingAmount": "יתרה לתשלום",
+    "interestRate": "ריבית שנתית",
+    "monthlyPaymentLabel": "תשלום חודשי",
+    "startDate": "תאריך התחלה",
+    "endDate": "תאריך סיום",
+    "notes": "הערות",
+    "savingName": "שם החיסכון",
+    "savingNamePlaceholder": "למשל: קרן חירום, חופשה",
+    "currentAmountLabel": "סכום נוכחי",
+    "targetAmountLabel": "סכום יעד",
+    "targetDateLabel": "תאריך יעד",
+    "confirmDelete": "למחוק?",
+    "saved": "נשמר בהצלחה.",
+    "of": "מתוך",
+    "paidOff": "שולם",
+    "monthly": "חודשי",
+    "interest": "ריבית",
+    "target": "יעד",
+    "reached": "הושג"
   }
 }

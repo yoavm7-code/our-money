@@ -18,4 +18,8 @@ export class CreateAccountDto {
   @IsOptional()
   @IsString()
   currency?: string;
+
+  @IsOptional()
+  @IsString()
+  linkedBankAccountId?: string;
 }

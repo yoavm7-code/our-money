@@ -88,9 +88,9 @@ export const accounts = {
       '/api/accounts' + (type ? `?type=${encodeURIComponent(type)}` : ''),
     ),
   get: (id: string) => api<unknown>(`/api/accounts/${id}`),
-  create: (body: { name: string; type: string; provider?: string; balance?: number; currency?: string }) =>
+  create: (body: { name: string; type: string; provider?: string; balance?: number; currency?: string; linkedBankAccountId?: string }) =>
     api<unknown>('/api/accounts', { method: 'POST', body: JSON.stringify(body) }),
-  update: (id: string, body: { name?: string; type?: string; balance?: number; isActive?: boolean }) =>
+  update: (id: string, body: { name?: string; type?: string; balance?: number; isActive?: boolean; linkedBankAccountId?: string | null }) =>
     api<unknown>(`/api/accounts/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   delete: (id: string) => api<unknown>(`/api/accounts/${id}`, { method: 'DELETE' }),
 };
