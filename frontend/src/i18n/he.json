@@ -60,6 +60,7 @@
     "expenses": "הוצאות",
     "loansSavings": "הלוואות וחסכונות",
     "insuranceFunds": "ביטוח וקופות",
+    "forex": "מט\"ח",
     "insights": "תובנות פיננסיות",
     "settings": "הגדרות"
   },
@@ -670,5 +671,32 @@
     "interest": "ריבית",
     "target": "יעד",
     "reached": "הושג"
+  },
+  "forex": {
+    "title": "מט\"ח - שערי חליפין",
+    "subtitle": "שערי מטבעות חיים, המרות ומגמות",
+    "converter": "המרת מטבעות",
+    "amount": "סכום",
+    "from": "ממטבע",
+    "to": "למטבע",
+    "convert": "המר",
+    "result": "תוצאה",
+    "rate": "שער",
+    "swap": "החלף",
+    "rateTable": "שערי מטבעות",
+    "currency": "מטבע",
+    "rateVsILS": "שער מול ₪",
+    "change": "שינוי",
+    "lastUpdated": "עדכון אחרון",
+    "history": "מגמת שער חליפין",
+    "last30Days": "30 יום אחרונים",
+    "last90Days": "90 יום אחרונים",
+    "last6Months": "6 חודשים אחרונים",
+    "lastYear": "שנה אחרונה",
+    "portfolio": "שווי התיק שלי",
+    "portfolioDesc": "היתרה הכוללת שלך במטבעות שונים",
+    "loading": "טוען שערים...",
+    "noData": "אין נתונים זמינים",
+    "fetchError": "שגיאה בטעינת שערים"
   }
 }

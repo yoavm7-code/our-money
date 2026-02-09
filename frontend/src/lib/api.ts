@@ -338,6 +338,20 @@ export type FixedItem = {
   expectedEndDate: string | null;
 };
 
+export const forex = {
+  rates: (base?: string) =>
+    api<{ base: string; date: string; rates: Record<string, number> }>('/api/forex/rates', { params: { base } }),
+  convert: (amount: number, from: string, to: string) =>
+    api<{ from: string; to: string; amount: number; result: number; rate: number; date: string }>('/api/forex/convert', {
+      params: { amount, from, to },
+    }),
+  history: (from: string, to: string, start?: string, end?: string) =>
+    api<{ base: string; target: string; rates: Array<{ date: string; rate: number }> }>('/api/forex/history', {
+      params: { from, to, start, end },
+    }),
+  currencies: () => api<Record<string, string>>('/api/forex/currencies'),
+};
+
 export const dashboard = {
   summary: (from?: string, to?: string, accountId?: string, categoryId?: string) =>
     api<{

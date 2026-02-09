@@ -60,6 +60,7 @@
     "expenses": "Expenses",
     "loansSavings": "Loans & Savings",
     "insuranceFunds": "Insurance & Funds",
+    "forex": "Forex",
     "insights": "Financial Insights",
     "settings": "Settings"
   },
@@ -670,5 +671,32 @@
     "interest": "Interest",
     "target": "Target",
     "reached": "reached"
+  },
+  "forex": {
+    "title": "Forex - Exchange Rates",
+    "subtitle": "Live currency rates, conversions and trends",
+    "converter": "Currency Converter",
+    "amount": "Amount",
+    "from": "From",
+    "to": "To",
+    "convert": "Convert",
+    "result": "Result",
+    "rate": "Rate",
+    "swap": "Swap",
+    "rateTable": "Exchange Rates",
+    "currency": "Currency",
+    "rateVsILS": "Rate vs ILS",
+    "change": "Change",
+    "lastUpdated": "Last updated",
+    "history": "Exchange Rate Trend",
+    "last30Days": "Last 30 days",
+    "last90Days": "Last 90 days",
+    "last6Months": "Last 6 months",
+    "lastYear": "Last year",
+    "portfolio": "My Portfolio Value",
+    "portfolioDesc": "Your total balance in different currencies",
+    "loading": "Loading rates...",
+    "noData": "No data available",
+    "fetchError": "Error loading rates"
   }
 }
