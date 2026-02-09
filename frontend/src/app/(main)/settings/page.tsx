@@ -219,7 +219,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 animate-fadeIn">
       <h1 className="text-2xl font-semibold">{t('settings.title')}</h1>
 
       <div className="card max-w-md">

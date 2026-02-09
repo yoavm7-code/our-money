@@ -65,7 +65,7 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-900 px-4">
-      <div className="card w-full max-w-md relative">
+      <div className="card w-full max-w-md relative animate-scaleIn">
         <button
           type="button"
           onClick={() => setLocale(locale === 'he' ? 'en' : 'he')}
