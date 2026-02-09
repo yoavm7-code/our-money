@@ -175,7 +175,7 @@ export default function DateRangePicker({ from, to, onChange, className = '' }: 
       </div>
 
       {showDropdown && (
-        <div className="absolute top-full mt-2 end-0 z-50 bg-[var(--card)] border border-[var(--border)] rounded-xl shadow-xl p-4 min-w-[320px]">
+        <div className="absolute top-full mt-2 end-0 z-40 bg-[var(--card)] border border-[var(--border)] rounded-xl shadow-xl p-4 min-w-[320px]">
           {/* Recent */}
           <div className="mb-4">
             <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">{t('dateRange.recent')}</p>

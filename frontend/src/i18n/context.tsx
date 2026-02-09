@@ -1,6 +1,8 @@
 'use client';
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useMemo, useState, useEffect } from 'react';
+import heJson from './he.json';
+import enJson from './en.json';
 
 export type Locale = 'he' | 'en';
 
@@ -32,29 +34,23 @@ type LanguageContextValue = {
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 
-const translationsCache: Record<Locale, Translations | null> = { he: null, en: null };
+const translations: Record<Locale, Translations> = {
+  he: heJson as Translations,
+  en: enJson as Translations,
+};
 
-async function loadTranslations(locale: Locale): Promise<Translations> {
-  if (translationsCache[locale]) return translationsCache[locale]!;
-  const mod = await import(`./${locale}.json`);
-  const data = mod.default as Translations;
-  translationsCache[locale] = data;
-  return data;
+function getStoredLocale(): Locale {
+  if (typeof window === 'undefined') return 'he';
+  const stored = localStorage.getItem(STORAGE_KEY) as Locale | null;
+  return (stored === 'he' || stored === 'en') ? stored : 'he';
 }
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>('he');
-  const [dict, setDict] = useState<Translations | null>(null);
+  const [locale, setLocaleState] = useState<Locale>(getStoredLocale);
+
+  const dict = translations[locale];
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem(STORAGE_KEY) as Locale | null;
-      if (stored === 'he' || stored === 'en') setLocaleState(stored);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadTranslations(locale).then(setDict);
     if (typeof window !== 'undefined') localStorage.setItem(STORAGE_KEY, locale);
   }, [locale]);
 
@@ -62,7 +58,6 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
   const t = useCallback(
     (key: string, vars?: Record<string, string | number>): string => {
-      if (!dict) return key;
       const value = getNested(dict as Record<string, unknown>, key);
       const str = value ?? key;
       return vars ? interpolate(str, vars) : str;
