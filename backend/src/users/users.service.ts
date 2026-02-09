@@ -41,6 +41,22 @@ export class UsersService {
     return u ?? null;
   }
 
+  async getDashboardConfig(id: string) {
+    const u = await this.prisma.user.findUnique({
+      where: { id },
+      select: { dashboardConfig: true },
+    });
+    return (u?.dashboardConfig as Record<string, unknown>) ?? null;
+  }
+
+  async saveDashboardConfig(id: string, config: unknown) {
+    await this.prisma.user.update({
+      where: { id },
+      data: { dashboardConfig: config as any },
+    });
+    return { ok: true };
+  }
+
   async update(id: string, dto: { name?: string; email?: string; password?: string; countryCode?: string | null }) {
     const data: { name?: string | null; email?: string; passwordHash?: string; countryCode?: string | null } = {};
     if (dto.name !== undefined) data.name = dto.name.trim() || null;

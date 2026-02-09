@@ -20,4 +20,17 @@ export class UsersController {
   ) {
     return this.usersService.update(user.id, body);
   }
+
+  @Get('me/dashboard-config')
+  async getDashboardConfig(@CurrentUser() user: { id: string }) {
+    return this.usersService.getDashboardConfig(user.id);
+  }
+
+  @Put('me/dashboard-config')
+  async saveDashboardConfig(
+    @CurrentUser() user: { id: string },
+    @Body() body: { widgets: unknown[] },
+  ) {
+    return this.usersService.saveDashboardConfig(user.id, body);
+  }
 }

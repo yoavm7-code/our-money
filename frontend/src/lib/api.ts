@@ -63,6 +63,23 @@ export const users = {
       method: 'PUT',
       body: JSON.stringify(body),
     }),
+  getDashboardConfig: () =>
+    api<{ widgets: WidgetConfig[] } | null>('/api/users/me/dashboard-config'),
+  saveDashboardConfig: (config: { widgets: WidgetConfig[] }) =>
+    api<{ ok: boolean }>('/api/users/me/dashboard-config', {
+      method: 'PUT',
+      body: JSON.stringify(config),
+    }),
+};
+
+export type WidgetConfig = {
+  id: string;
+  type: 'stat' | 'bar-chart' | 'pie-chart' | 'fixed-list' | 'recent-tx';
+  metric?: string;
+  variant?: string;
+  title?: string;
+  color?: string;
+  size: 'sm' | 'md' | 'lg';
 };
 
 export const accounts = {
