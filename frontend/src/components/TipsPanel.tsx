@@ -21,6 +21,7 @@ const SECTION_ICONS: Record<string, string> = {
 };
 
 const STORAGE_KEY = 'our-money-read-tips';
+const HIDDEN_KEY = 'our-money-tips-hidden';
 
 function getReadTips(): Set<string> {
   if (typeof window === 'undefined') return new Set();
@@ -38,6 +39,7 @@ function saveReadTips(ids: Set<string>) {
 export default function TipsPanel() {
   const { t, locale } = useTranslation();
   const [open, setOpen] = useState(false);
+  const [hidden, setHidden] = useState(true); // start hidden, reveal after mount
   const [tips, setTips] = useState<Tip[]>([]);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -45,6 +47,13 @@ export default function TipsPanel() {
 
   useEffect(() => {
     setReadIds(getReadTips());
+    // Load hidden state from localStorage
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(HIDDEN_KEY);
+      setHidden(stored === 'true');
+    } else {
+      setHidden(false);
+    }
   }, []);
 
   const fetchTips = useCallback(async (force = false) => {
@@ -95,6 +104,16 @@ export default function TipsPanel() {
     if (tips.length === 0) fetchTips();
   };
 
+  const handleHide = () => {
+    setHidden(true);
+    if (typeof window !== 'undefined') localStorage.setItem(HIDDEN_KEY, 'true');
+  };
+
+  const handleShow = () => {
+    setHidden(false);
+    if (typeof window !== 'undefined') localStorage.setItem(HIDDEN_KEY, 'false');
+  };
+
   const handleGenerate = async () => {
     setGenerating(true);
     // Clear session cache to force refresh
@@ -128,22 +147,52 @@ export default function TipsPanel() {
 
   return (
     <>
-      {/* Floating button */}
-      <button
-        type="button"
-        onClick={handleOpen}
-        className="fixed bottom-6 end-6 z-30 w-14 h-14 rounded-full bg-gradient-to-br from-primary-500 to-emerald-500 text-white shadow-glow-lg hover:shadow-glow-xl hover:scale-105 transition-all duration-200 flex items-center justify-center group"
-        title={t('tips.title')}
-      >
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-        </svg>
-        {unreadCount > 0 && (
-          <span className="absolute -top-1 -end-1 w-5 h-5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center animate-bounce">
-            {unreadCount > 9 ? '9+' : unreadCount}
-          </span>
-        )}
-      </button>
+      {/* Floating button - full or minimized */}
+      {hidden ? (
+        /* Minimized tab - small vertical tab on the edge */
+        <button
+          type="button"
+          onClick={handleShow}
+          className="fixed bottom-6 end-0 z-30 px-1.5 py-3 rounded-s-lg bg-gradient-to-b from-primary-500 to-emerald-500 text-white shadow-md hover:shadow-lg hover:px-2 transition-all duration-200 flex flex-col items-center gap-1 opacity-70 hover:opacity-100"
+          title={t('tips.show')}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+          </svg>
+          {unreadCount > 0 && (
+            <span className="w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
+        </button>
+      ) : (
+        <div className="fixed bottom-6 end-6 z-30 flex items-center gap-1 group">
+          <button
+            type="button"
+            onClick={handleOpen}
+            className="w-14 h-14 rounded-full bg-gradient-to-br from-primary-500 to-emerald-500 text-white shadow-glow-lg hover:shadow-glow-xl hover:scale-105 transition-all duration-200 flex items-center justify-center"
+            title={t('tips.title')}
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+            </svg>
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -end-1 w-5 h-5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center animate-bounce">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
+          {/* Hide button - appears on hover */}
+          <button
+            type="button"
+            onClick={handleHide}
+            className="absolute -top-2 -start-2 w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center hover:bg-slate-300 dark:hover:bg-slate-600"
+            title={t('tips.hide')}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      )}
 
       {/* Panel overlay */}
       {open && (

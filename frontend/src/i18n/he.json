@@ -335,6 +335,14 @@
   "ZM": "Zambia",
   "ZW": "Zimbabwe"
 },
+  "accountType": {
+    "BANK": "חשבון בנק",
+    "CREDIT_CARD": "כ.אשראי",
+    "INSURANCE": "ביטוח",
+    "PENSION": "פנסיה",
+    "INVESTMENT": "השקעות",
+    "CASH": "מזומן"
+  },
   "insightsPage": {
     "title": "תובנות פיננסיות",
     "subtitle": "המערכת מנתחת את הנתונים שלך ומציעה המלצות מותאמות אישית",
@@ -394,7 +402,8 @@
     "metric_netSavings": "חיסכון נטו",
     "metric_transactionCount": "מספר תנועות",
     "metric_fixedExpensesSum": "סכום הוצאות קבועות",
-    "metric_fixedIncomeSum": "סכום הכנסות קבועות"
+    "metric_fixedIncomeSum": "סכום הכנסות קבועות",
+    "clickToShowDetails": "לחץ לפירוט"
   },
   "transactions": {
     "title": "תנועות",
@@ -619,7 +628,8 @@
   },
   "profile": {
     "editProfile": "עריכת פרופיל",
-    "uploadAvatar": "העלאת תמונה"
+    "uploadAvatar": "העלאת תמונה",
+    "avatarMaxSize": "עד 2MB"
   },
   "tips": {
     "title": "טיפים פיננסיים",
@@ -630,7 +640,9 @@
     "markAllRead": "סמן הכל כנקרא",
     "loading": "טוען טיפים...",
     "empty": "אין טיפים כרגע",
-    "emptyHint": "לחץ על 'ג'נרט טיפים חדשים' כדי לקבל המלצות"
+    "emptyHint": "לחץ על 'ג'נרט טיפים חדשים' כדי לקבל המלצות",
+    "hide": "הסתר טיפים",
+    "show": "הצג טיפים"
   },
   "loansSavings": {
     "title": "הלוואות וחסכונות",

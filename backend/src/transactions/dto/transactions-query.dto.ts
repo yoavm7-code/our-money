@@ -23,6 +23,10 @@ export class TransactionsQueryDto {
   search?: string;
 
   @IsOptional()
+  @IsString()
+  type?: 'income' | 'expense';
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)

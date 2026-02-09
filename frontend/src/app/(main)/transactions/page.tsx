@@ -17,7 +17,7 @@ type Tx = {
   description: string;
   amount: string;
   category?: { id: string; name: string; slug?: string } | null;
-  account?: { id?: string; name: string } | null;
+  account?: { id?: string; name: string; type?: string } | null;
   totalAmount?: string | null;
   installmentCurrent?: number | null;
   installmentTotal?: number | null;
@@ -739,7 +739,16 @@ export default function TransactionsPage() {
                         </button>
                       </div>
                     </td>
-                    <td className="py-2 px-2 text-end">{tx.account?.name ?? '–'}</td>
+                    <td className="py-2 px-2 text-end">
+                      {tx.account ? (
+                        <>
+                          {tx.account.name}
+                          {tx.account.type && (
+                            <span className="text-xs text-slate-500 dark:text-slate-400"> ({t(`accountType.${tx.account.type}`)})</span>
+                          )}
+                        </>
+                      ) : '–'}
+                    </td>
                     <td className="py-2 px-2 text-sm text-slate-600 text-end">
                       {tx.installmentCurrent != null && tx.installmentTotal != null ? (
                         <span dir="ltr">

@@ -181,6 +181,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
                 <span>{avatarUploading ? '...' : t('profile.uploadAvatar')}</span>
+                <span className="text-xs text-slate-400 ms-auto">{t('profile.avatarMaxSize')}</span>
               </button>
               <input
                 ref={avatarInputRef}

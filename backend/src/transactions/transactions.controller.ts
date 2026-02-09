@@ -70,6 +70,7 @@ export class TransactionsController {
     @Query('accountId') accountId?: string,
     @Query('categoryId') categoryId?: string,
     @Query('search') search?: string,
+    @Query('type') type?: 'income' | 'expense',
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit?: number,
   ) {
@@ -79,6 +80,7 @@ export class TransactionsController {
       accountId,
       categoryId,
       search,
+      type,
       page: page ?? 1,
       limit: limit ?? 20,
     };

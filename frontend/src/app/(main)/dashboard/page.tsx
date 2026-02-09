@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { dashboard, accounts, categories, users, type FixedItem, type WidgetConfig } from '@/lib/api';
+import { dashboard, accounts, categories, users, transactions as txApi, type FixedItem, type WidgetConfig } from '@/lib/api';
 import { useTranslation } from '@/i18n/context';
 import DateRangePicker from '@/components/DateRangePicker';
 import SmartTip from '@/components/SmartTip';
@@ -133,6 +133,15 @@ export default function DashboardPage() {
   const [fixedIncomeLoading, setFixedIncomeLoading] = useState(false);
   const [recentTx, setRecentTx] = useState<RecentTxData | null>(null);
 
+  // Stat card detail modal
+  type DetailTx = { id: string; date: string; description: string; amount: number; category?: { name?: string; slug?: string } | null; account?: { name?: string; type?: string } | null };
+  const [detailMetric, setDetailMetric] = useState<string | null>(null);
+  const [detailTxs, setDetailTxs] = useState<DetailTx[]>([]);
+  const [detailTotal, setDetailTotal] = useState(0);
+  const [detailPage, setDetailPage] = useState(1);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const DETAIL_LIMIT = 20;
+
   // Widget config
   const [widgets, setWidgets] = useState<WidgetConfig[]>(DEFAULT_WIDGETS);
   const [editMode, setEditMode] = useState(false);
@@ -253,6 +262,37 @@ export default function DashboardPage() {
     return t(`dashboard.metric_${metric}`);
   };
 
+  /* ─── Stat card detail handler ─── */
+  const openStatDetail = useCallback(async (metric: string, pg = 1) => {
+    setDetailMetric(metric);
+    setDetailPage(pg);
+    setDetailLoading(true);
+    try {
+      const typeFilter: 'income' | 'expense' | undefined =
+        metric === 'income' || metric === 'fixedIncomeSum' ? 'income'
+        : metric === 'expenses' || metric === 'fixedExpensesSum' ? 'expense'
+        : undefined;
+      const res = await txApi.list({
+        from: from || undefined,
+        to: to || undefined,
+        accountId: accountId || undefined,
+        categoryId: categoryId || undefined,
+        type: typeFilter,
+        page: pg,
+        limit: DETAIL_LIMIT,
+      });
+      setDetailTxs((res.items ?? []) as DetailTx[]);
+      setDetailTotal(res.total ?? 0);
+    } catch {
+      setDetailTxs([]);
+      setDetailTotal(0);
+    } finally {
+      setDetailLoading(false);
+    }
+  }, [from, to, accountId, categoryId]);
+
+  const closeStatDetail = () => { setDetailMetric(null); setDetailTxs([]); setDetailTotal(0); setDetailPage(1); };
+
   /* ─── DnD handler ─── */
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -306,13 +346,22 @@ export default function DashboardPage() {
           : metric === 'expenses' || metric === 'fixedExpensesSum' ? 'text-red-600 dark:text-red-400'
           : metric === 'netSavings' ? (value >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400')
           : '';
+        const isClickable = ['income', 'expenses', 'totalBalance', 'netSavings', 'transactionCount', 'fixedExpensesSum', 'fixedIncomeSum'].includes(metric);
         return (
-          <div className="pt-1">
+          <button
+            type="button"
+            className={`pt-1 w-full text-start ${isClickable ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+            onClick={isClickable && !editMode ? () => openStatDetail(metric) : undefined}
+            title={isClickable ? t('dashboard.clickToShowDetails') : undefined}
+          >
             <p className="text-sm text-slate-500 dark:text-slate-400">{label}</p>
             <p className={`text-2xl font-bold mt-1 ${colorClass}`}>
               {isCurrency ? formatCurrency(value, locale) : value.toLocaleString()}
             </p>
-          </div>
+            {isClickable && !editMode && (
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{t('dashboard.clickToShowDetails')}</p>
+            )}
+          </button>
         );
       }
 
@@ -565,6 +614,87 @@ export default function DashboardPage() {
       )}
 
       <SmartTip />
+
+      {/* Stat card detail modal */}
+      {detailMetric && (
+        <div className="modal-overlay" onClick={closeStatDetail}>
+          <div
+            className="bg-[var(--card)] rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col animate-scaleIn"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
+              <div>
+                <h3 className="font-semibold text-lg">{getMetricLabel(detailMetric)}</h3>
+                <p className="text-xs text-slate-500">{from} — {to}</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeStatDetail}
+                className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 min-h-0">
+              {detailLoading ? (
+                <div className="flex items-center justify-center py-12 gap-2 text-slate-500">
+                  <span className="h-6 w-6 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
+                  <span className="text-sm">{t('common.loading')}</span>
+                </div>
+              ) : detailTxs.length === 0 ? (
+                <p className="text-center py-8 text-slate-500 text-sm">{t('dashboard.noRecentTransactions')}</p>
+              ) : (
+                <ul className="space-y-1">
+                  {detailTxs.map((tx) => {
+                    const isIncome = tx.amount > 0;
+                    const catSlug = tx.category?.slug;
+                    const catKey = catSlug ? `categories.${catSlug}` : '';
+                    const catLabel = catKey ? (t(catKey) !== catKey ? t(catKey) : tx.category?.name) : tx.category?.name;
+                    return (
+                      <li key={tx.id} className="flex items-center justify-between py-2.5 border-b border-[var(--border)] last:border-0 gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate">{tx.description}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            {new Date(tx.date + 'T00:00:00').toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-IL', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            {catLabel && <span> · {catLabel}</span>}
+                            {tx.account?.name && <span> · {tx.account.name}</span>}
+                          </p>
+                        </div>
+                        <span className={`text-sm font-semibold whitespace-nowrap ${isIncome ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                          {isIncome ? '+' : ''}{formatCurrency(tx.amount, locale)}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+            {detailTotal > DETAIL_LIMIT && (
+              <div className="flex items-center justify-center gap-3 p-3 border-t border-[var(--border)]">
+                <button
+                  type="button"
+                  className="btn-secondary text-sm py-1.5 px-3"
+                  disabled={detailPage <= 1 || detailLoading}
+                  onClick={() => openStatDetail(detailMetric, detailPage - 1)}
+                >
+                  {t('common.previous')}
+                </button>
+                <span className="text-sm text-slate-500">
+                  {t('common.page')} {detailPage} {t('common.of')} {Math.ceil(detailTotal / DETAIL_LIMIT)}
+                </span>
+                <button
+                  type="button"
+                  className="btn-secondary text-sm py-1.5 px-3"
+                  disabled={detailPage >= Math.ceil(detailTotal / DETAIL_LIMIT) || detailLoading}
+                  onClick={() => openStatDetail(detailMetric, detailPage + 1)}
+                >
+                  {t('common.next')}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Widget settings modal */}
       {editingWidget && (

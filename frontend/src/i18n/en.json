@@ -335,6 +335,14 @@
   "ZM": "Zambia",
   "ZW": "Zimbabwe"
 },
+  "accountType": {
+    "BANK": "Bank",
+    "CREDIT_CARD": "Credit Card",
+    "INSURANCE": "Insurance",
+    "PENSION": "Pension",
+    "INVESTMENT": "Investment",
+    "CASH": "Cash"
+  },
   "insightsPage": {
     "title": "Financial Insights",
     "subtitle": "The system analyzes your data and offers personalized recommendations",
@@ -394,7 +402,8 @@
     "metric_netSavings": "Net savings",
     "metric_transactionCount": "Transaction count",
     "metric_fixedExpensesSum": "Fixed expenses total",
-    "metric_fixedIncomeSum": "Fixed income total"
+    "metric_fixedIncomeSum": "Fixed income total",
+    "clickToShowDetails": "Click for details"
   },
   "transactions": {
     "title": "Transactions",
@@ -619,7 +628,8 @@
   },
   "profile": {
     "editProfile": "Edit profile",
-    "uploadAvatar": "Upload photo"
+    "uploadAvatar": "Upload photo",
+    "avatarMaxSize": "Max 2MB"
   },
   "tips": {
     "title": "Financial Tips",
@@ -630,7 +640,9 @@
     "markAllRead": "Mark all read",
     "loading": "Loading tips...",
     "empty": "No tips available",
-    "emptyHint": "Click 'Generate new tips' to get recommendations"
+    "emptyHint": "Click 'Generate new tips' to get recommendations",
+    "hide": "Hide tips",
+    "show": "Show tips"
   },
   "loansSavings": {
     "title": "Loans & Savings",

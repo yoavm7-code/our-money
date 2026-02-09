@@ -174,11 +174,14 @@ export class TransactionsService {
       date?: { gte?: Date; lte?: Date };
       accountId?: string;
       categoryId?: string;
+      amount?: { gt?: number; lt?: number };
       OR?: Array<{ description?: { contains: string; mode: 'insensitive' } }>;
     } = {
       householdId,
       ...(query.accountId && { accountId: query.accountId }),
       ...(query.categoryId && { categoryId: query.categoryId }),
+      ...(query.type === 'income' && { amount: { gt: 0 } }),
+      ...(query.type === 'expense' && { amount: { lt: 0 } }),
     };
     if (query.search && query.search.trim()) {
       const term = query.search.trim();

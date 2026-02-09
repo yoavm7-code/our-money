@@ -128,7 +128,7 @@ export const categories = {
 };
 
 export const transactions = {
-  list: (params?: { from?: string; to?: string; accountId?: string; categoryId?: string; search?: string; page?: number; limit?: number }) => {
+  list: (params?: { from?: string; to?: string; accountId?: string; categoryId?: string; search?: string; type?: 'income' | 'expense'; page?: number; limit?: number }) => {
     const p = params ?? {};
     const query = new URLSearchParams();
     if (p.from != null && p.from !== '') query.set('from', String(p.from));
@@ -136,6 +136,7 @@ export const transactions = {
     if (p.accountId != null && p.accountId !== '') query.set('accountId', String(p.accountId));
     if (p.categoryId != null && p.categoryId !== '') query.set('categoryId', String(p.categoryId));
     if (p.search != null && p.search !== '') query.set('search', String(p.search));
+    if (p.type) query.set('type', p.type);
     query.set('page', String(p.page ?? 1));
     query.set('limit', String(p.limit ?? 20));
     const qs = query.toString();
