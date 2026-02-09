@@ -40,6 +40,7 @@ export const WIDGET_TYPES = [
   { type: 'pie-chart' as const, labelKey: 'dashboard.widgetPieChart' },
   { type: 'fixed-list' as const, labelKey: 'dashboard.widgetFixedList' },
   { type: 'recent-tx' as const, labelKey: 'dashboard.widgetRecentTx' },
+  { type: 'forex-accounts' as const, labelKey: 'dashboard.widgetForexAccounts' },
 ];
 
 export const ACCENT_COLORS = [

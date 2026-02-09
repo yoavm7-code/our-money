@@ -17,6 +17,10 @@ export class CreateAccountDto {
 
   @IsOptional()
   @IsString()
+  balanceDate?: string;
+
+  @IsOptional()
+  @IsString()
   currency?: string;
 
   @IsOptional()

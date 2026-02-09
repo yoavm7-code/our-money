@@ -14,6 +14,10 @@ export class UpdateAccountDto {
   balance?: number;
 
   @IsOptional()
+  @IsString()
+  balanceDate?: string;
+
+  @IsOptional()
   @IsBoolean()
   isActive?: boolean;
 

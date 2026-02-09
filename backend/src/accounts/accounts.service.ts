@@ -4,7 +4,7 @@ import { AccountType } from '@prisma/client';
 import { CreateAccountDto } from './dto/create-account.dto';
 import { UpdateAccountDto } from './dto/update-account.dto';
 
-const BALANCE_ACCOUNT_TYPES: AccountType[] = ['BANK', 'INVESTMENT', 'PENSION', 'INSURANCE', 'CASH'];
+const BALANCE_ACCOUNT_TYPES: AccountType[] = ['BANK', 'CREDIT_CARD', 'INVESTMENT', 'PENSION', 'INSURANCE', 'CASH'];
 
 @Injectable()
 export class AccountsService {
@@ -19,6 +19,7 @@ export class AccountsService {
         type: dto.type as AccountType,
         provider: dto.provider ?? null,
         balance,
+        balanceDate: dto.balanceDate ? new Date(dto.balanceDate) : null,
         currency: dto.currency ?? 'ILS',
         linkedBankAccountId: dto.linkedBankAccountId ?? null,
       },
@@ -64,9 +65,13 @@ export class AccountsService {
   }
 
   async update(householdId: string, id: string, dto: UpdateAccountDto) {
+    const data: Record<string, unknown> = { ...dto };
+    if (dto.balanceDate !== undefined) {
+      data.balanceDate = dto.balanceDate ? new Date(dto.balanceDate) : null;
+    }
     return this.prisma.account.updateMany({
       where: { id, householdId },
-      data: dto as Record<string, unknown>,
+      data,
     });
   }
 

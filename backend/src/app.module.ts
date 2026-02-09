@@ -14,6 +14,7 @@ import { LoansModule } from './loans/loans.module';
 import { SavingsModule } from './savings/savings.module';
 import { TwoFactorModule } from './two-factor/two-factor.module';
 import { ForexModule } from './forex/forex.module';
+import { GoalsModule } from './goals/goals.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { ForexModule } from './forex/forex.module';
     SavingsModule,
     TwoFactorModule,
     ForexModule,
+    GoalsModule,
   ],
 })
 export class AppModule {}

@@ -35,7 +35,7 @@ export class DashboardService {
     const [accountsRaw, transactions] = await Promise.all([
       this.prisma.account.findMany({
         where: { householdId, isActive: true, ...(accountId && { id: accountId }) },
-        select: { id: true, name: true, type: true, balance: true, currency: true },
+        select: { id: true, name: true, type: true, balance: true, balanceDate: true, currency: true },
       }),
       this.prisma.transaction.findMany({
         where: txWhere,
@@ -44,26 +44,52 @@ export class DashboardService {
       }),
     ]);
 
+    // Calculate balance up to the filter end date (not all time)
     const accountIds = accountsRaw.map((a) => a.id);
     const sums = accountIds.length > 0
       ? await this.prisma.transaction.groupBy({
           by: ['accountId'],
-          where: { accountId: { in: accountIds } },
+          where: {
+            accountId: { in: accountIds },
+            date: { lte: toDate },
+          },
           _sum: { amount: true },
         })
       : [];
     const sumByAccount = new Map(sums.map((s) => [s.accountId, Number(s._sum.amount ?? 0)]));
 
+    // Also calculate sums only for transactions after balanceDate (if set) up to toDate
     const accounts = accountsRaw.map((a) => {
       const initial = Number(a.balance ?? 0);
+      const showBalance = BALANCE_ACCOUNT_TYPES.includes(a.type as AccountType);
+      if (!showBalance) return { ...a, balance: null };
+      // If balanceDate is set, we need transactions from balanceDate to toDate only
+      // The groupBy above sums ALL tx up to toDate, so we use it as-is when no balanceDate
       const txSum = sumByAccount.get(a.id) ?? 0;
       const calculated = initial + txSum;
-      const showBalance = BALANCE_ACCOUNT_TYPES.includes(a.type as AccountType);
-      return {
-        ...a,
-        balance: showBalance ? calculated : null,
-      };
+      return { ...a, balance: calculated };
     });
+
+    // For date-filtered balance, recalculate per-account if balanceDate is set
+    const balanceDateAccountIds = accountsRaw
+      .filter((a) => a.balanceDate && BALANCE_ACCOUNT_TYPES.includes(a.type as AccountType))
+      .map((a) => a.id);
+    if (balanceDateAccountIds.length > 0) {
+      // For accounts with balanceDate, sum only transactions AFTER balanceDate up to toDate
+      for (const acct of accounts) {
+        const raw = accountsRaw.find((a) => a.id === acct.id);
+        if (!raw?.balanceDate || acct.balance === null) continue;
+        const bDate = new Date(raw.balanceDate);
+        const filteredSum = await this.prisma.transaction.aggregate({
+          where: {
+            accountId: acct.id,
+            date: { gt: bDate, lte: toDate },
+          },
+          _sum: { amount: true },
+        });
+        acct.balance = Number(raw.balance ?? 0) + Number(filteredSum._sum.amount ?? 0);
+      }
+    }
 
     const totalBalance = accounts
       .filter((a) => BALANCE_ACCOUNT_TYPES.includes(a.type as AccountType))

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { dashboard, accounts, categories, users, transactions as txApi, type FixedItem, type WidgetConfig } from '@/lib/api';
+import { dashboard, accounts, categories, users, transactions as txApi, forex, type FixedItem, type WidgetConfig, type ForexAccountItem } from '@/lib/api';
 import { useTranslation } from '@/i18n/context';
 import DateRangePicker from '@/components/DateRangePicker';
 import SmartTip from '@/components/SmartTip';
@@ -133,6 +133,10 @@ export default function DashboardPage() {
   const [fixedIncomeLoading, setFixedIncomeLoading] = useState(false);
   const [recentTx, setRecentTx] = useState<RecentTxData | null>(null);
 
+  // Forex accounts for widget
+  const [forexAccounts, setForexAccounts] = useState<ForexAccountItem[]>([]);
+  const [forexRates, setForexRates] = useState<Record<string, number>>({});
+
   // Stat card detail modal
   type DetailTx = { id: string; date: string; description: string; amount: number; category?: { name?: string; slug?: string } | null; account?: { name?: string; type?: string } | null };
   const [detailMetric, setDetailMetric] = useState<string | null>(null);
@@ -188,6 +192,9 @@ export default function DashboardPage() {
     accounts.list().then((a) => setAccountsList(a)).catch(() => {});
     categories.list().then((c) => setCategoriesList(c)).catch(() => {});
     dashboard.recentTransactions().then(setRecentTx).catch(() => {});
+    // Load forex accounts for dashboard widget
+    forex.accounts.list().then(setForexAccounts).catch(() => {});
+    forex.rates('ILS').then((d) => setForexRates(d.rates)).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -509,6 +516,55 @@ export default function DashboardPage() {
               </ul>
             ) : (
               <p className="text-slate-500 text-sm py-4 text-center">{t('dashboard.noRecentTransactions')}</p>
+            )}
+          </>
+        );
+      }
+
+      case 'forex-accounts': {
+        const FOREX_FLAGS: Record<string, string> = {
+          USD: '🇺🇸', EUR: '🇪🇺', GBP: '🇬🇧', JPY: '🇯🇵', CHF: '🇨🇭', CAD: '🇨🇦',
+          AUD: '🇦🇺', CNY: '🇨🇳', THB: '🇹🇭', TRY: '🇹🇷', ILS: '🇮🇱',
+        };
+        const FOREX_SYMS: Record<string, string> = {
+          ILS: '₪', USD: '$', EUR: '€', GBP: '£', JPY: '¥', CHF: 'Fr',
+        };
+        const totalILS = forexAccounts.reduce((sum, a) => {
+          const bal = Number(a.balance);
+          if (a.currency === 'ILS') return sum + bal;
+          const rate = forexRates[a.currency];
+          return sum + (rate ? bal / rate : 0);
+        }, 0);
+        return (
+          <>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-semibold">{w.title || t('dashboard.forexAccounts')}</h2>
+              <a href="/forex" className="text-sm text-primary-600 dark:text-primary-400 hover:underline">
+                {t('dashboard.viewAll')}
+              </a>
+            </div>
+            {forexAccounts.length > 0 ? (
+              <>
+                <div className="text-xs text-slate-500 mb-3">
+                  {t('forex.totalValue')}: <span className="font-semibold text-sm text-slate-700 dark:text-slate-200">{FOREX_SYMS.ILS}{totalILS.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
+                </div>
+                <ul className="space-y-2">
+                  {forexAccounts.slice(0, 5).map((a) => (
+                    <li key={a.id} className="flex items-center justify-between py-1.5 border-b border-[var(--border)] last:border-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{FOREX_FLAGS[a.currency] || '💱'}</span>
+                        <div>
+                          <p className="text-sm font-medium">{a.name}</p>
+                          {a.provider && <p className="text-xs text-slate-500">{a.provider}</p>}
+                        </div>
+                      </div>
+                      <span className="font-semibold text-sm">{FOREX_SYMS[a.currency] || ''}{Number(a.balance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              <p className="text-slate-500 text-sm py-4 text-center">{t('forex.noAccounts')}</p>
             )}
           </>
         );

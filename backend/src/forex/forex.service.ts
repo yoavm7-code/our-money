@@ -1,4 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { CreateForexAccountDto } from './dto/create-forex-account.dto';
+import { UpdateForexAccountDto } from './dto/update-forex-account.dto';
+import { CreateForexTransferDto } from './dto/create-forex-transfer.dto';
+import { UpdateForexTransferDto } from './dto/update-forex-transfer.dto';
 
 interface RateCache {
   rates: Record<string, number>;
@@ -13,6 +18,99 @@ const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 export class ForexService {
   private readonly logger = new Logger(ForexService.name);
   private cache = new Map<string, RateCache>();
+
+  constructor(private prisma: PrismaService) {}
+
+  // ─── Forex Accounts CRUD ───
+
+  async createAccount(householdId: string, dto: CreateForexAccountDto) {
+    return this.prisma.forexAccount.create({
+      data: { householdId, ...dto },
+    });
+  }
+
+  async findAllAccounts(householdId: string) {
+    return this.prisma.forexAccount.findMany({
+      where: { householdId, isActive: true },
+      include: { _count: { select: { transfers: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async findOneAccount(householdId: string, id: string) {
+    return this.prisma.forexAccount.findFirst({
+      where: { id, householdId },
+      include: { _count: { select: { transfers: true } } },
+    });
+  }
+
+  async updateAccount(householdId: string, id: string, dto: UpdateForexAccountDto) {
+    return this.prisma.forexAccount.updateMany({
+      where: { id, householdId },
+      data: dto,
+    }).then(() => this.findOneAccount(householdId, id));
+  }
+
+  async removeAccount(householdId: string, id: string) {
+    return this.prisma.forexAccount.deleteMany({ where: { id, householdId } });
+  }
+
+  // ─── Forex Transfers CRUD ───
+
+  async createTransfer(householdId: string, dto: CreateForexTransferDto) {
+    const transfer = await this.prisma.forexTransfer.create({
+      data: {
+        householdId,
+        forexAccountId: dto.forexAccountId || null,
+        type: dto.type,
+        fromCurrency: dto.fromCurrency,
+        toCurrency: dto.toCurrency,
+        fromAmount: dto.fromAmount,
+        toAmount: dto.toAmount,
+        exchangeRate: dto.exchangeRate,
+        fee: dto.fee,
+        date: new Date(dto.date),
+        description: dto.description,
+        notes: dto.notes,
+      },
+      include: { forexAccount: { select: { id: true, name: true, currency: true } } },
+    });
+    // Update account balance if linked
+    if (dto.forexAccountId) {
+      const delta = dto.type === 'SELL' ? -dto.fromAmount : dto.toAmount;
+      await this.prisma.forexAccount.update({
+        where: { id: dto.forexAccountId },
+        data: { balance: { increment: delta } },
+      });
+    }
+    return transfer;
+  }
+
+  async findAllTransfers(householdId: string, forexAccountId?: string) {
+    return this.prisma.forexTransfer.findMany({
+      where: { householdId, ...(forexAccountId && { forexAccountId }) },
+      include: { forexAccount: { select: { id: true, name: true, currency: true } } },
+      orderBy: { date: 'desc' },
+    });
+  }
+
+  async updateTransfer(householdId: string, id: string, dto: UpdateForexTransferDto) {
+    await this.prisma.forexTransfer.updateMany({
+      where: { id, householdId },
+      data: {
+        ...dto,
+        ...(dto.date && { date: new Date(dto.date) }),
+      },
+    });
+    return this.prisma.forexTransfer.findFirst({
+      where: { id, householdId },
+      include: { forexAccount: { select: { id: true, name: true, currency: true } } },
+    });
+  }
+
+  async removeTransfer(householdId: string, id: string) {
+    return this.prisma.forexTransfer.deleteMany({ where: { id, householdId } });
+  }
 
   /**
    * Get latest exchange rates for a base currency.

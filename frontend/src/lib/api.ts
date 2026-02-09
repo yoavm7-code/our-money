@@ -94,7 +94,7 @@ export const twoFactor = {
 
 export type WidgetConfig = {
   id: string;
-  type: 'stat' | 'bar-chart' | 'pie-chart' | 'fixed-list' | 'recent-tx';
+  type: 'stat' | 'bar-chart' | 'pie-chart' | 'fixed-list' | 'recent-tx' | 'forex-accounts';
   metric?: string;
   variant?: string;
   title?: string;
@@ -104,13 +104,13 @@ export type WidgetConfig = {
 
 export const accounts = {
   list: (type?: string) =>
-    api<Array<{ id: string; name: string; type: string; balance: string; currency: string }>>(
+    api<Array<{ id: string; name: string; type: string; balance: string; balanceDate?: string | null; currency: string }>>(
       '/api/accounts' + (type ? `?type=${encodeURIComponent(type)}` : ''),
     ),
   get: (id: string) => api<unknown>(`/api/accounts/${id}`),
-  create: (body: { name: string; type: string; provider?: string; balance?: number; currency?: string; linkedBankAccountId?: string }) =>
+  create: (body: { name: string; type: string; provider?: string; balance?: number; balanceDate?: string; currency?: string; linkedBankAccountId?: string }) =>
     api<unknown>('/api/accounts', { method: 'POST', body: JSON.stringify(body) }),
-  update: (id: string, body: { name?: string; type?: string; balance?: number; isActive?: boolean; linkedBankAccountId?: string | null }) =>
+  update: (id: string, body: { name?: string; type?: string; balance?: number; balanceDate?: string | null; isActive?: boolean; linkedBankAccountId?: string | null }) =>
     api<unknown>(`/api/accounts/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   delete: (id: string) => api<unknown>(`/api/accounts/${id}`, { method: 'DELETE' }),
 };
@@ -339,6 +339,33 @@ export type FixedItem = {
   expectedEndDate: string | null;
 };
 
+export type ForexAccountItem = {
+  id: string;
+  name: string;
+  currency: string;
+  balance: string;
+  provider: string | null;
+  accountNum: string | null;
+  notes: string | null;
+  isActive: boolean;
+  _count?: { transfers: number };
+};
+
+export type ForexTransferItem = {
+  id: string;
+  type: 'BUY' | 'SELL' | 'TRANSFER';
+  fromCurrency: string;
+  toCurrency: string;
+  fromAmount: string;
+  toAmount: string;
+  exchangeRate: string;
+  fee: string | null;
+  date: string;
+  description: string | null;
+  notes: string | null;
+  forexAccount: { id: string; name: string; currency: string } | null;
+};
+
 export const forex = {
   rates: (base?: string) =>
     api<{ base: string; date: string; rates: Record<string, number> }>('/api/forex/rates', { params: { base } }),
@@ -351,6 +378,53 @@ export const forex = {
       params: { from, to, start, end },
     }),
   currencies: () => api<Record<string, string>>('/api/forex/currencies'),
+  accounts: {
+    list: () => api<ForexAccountItem[]>('/api/forex/accounts'),
+    get: (id: string) => api<ForexAccountItem>(`/api/forex/accounts/${id}`),
+    create: (body: { name: string; currency: string; balance?: number; provider?: string; accountNum?: string; notes?: string }) =>
+      api<ForexAccountItem>('/api/forex/accounts', { method: 'POST', body: JSON.stringify(body) }),
+    update: (id: string, body: { name?: string; currency?: string; balance?: number; provider?: string; accountNum?: string; notes?: string; isActive?: boolean }) =>
+      api<ForexAccountItem>(`/api/forex/accounts/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+    delete: (id: string) => api<unknown>(`/api/forex/accounts/${id}`, { method: 'DELETE' }),
+  },
+  transfers: {
+    list: (accountId?: string) =>
+      api<ForexTransferItem[]>('/api/forex/transfers' + (accountId ? `?accountId=${accountId}` : '')),
+    create: (body: { forexAccountId?: string; type: string; fromCurrency: string; toCurrency: string; fromAmount: number; toAmount: number; exchangeRate: number; fee?: number; date: string; description?: string; notes?: string }) =>
+      api<ForexTransferItem>('/api/forex/transfers', { method: 'POST', body: JSON.stringify(body) }),
+    update: (id: string, body: Record<string, unknown>) =>
+      api<ForexTransferItem>(`/api/forex/transfers/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+    delete: (id: string) => api<unknown>(`/api/forex/transfers/${id}`, { method: 'DELETE' }),
+  },
+};
+
+export type GoalItem = {
+  id: string;
+  name: string;
+  targetAmount: number;
+  currentAmount: number;
+  targetDate: string | null;
+  icon: string | null;
+  color: string | null;
+  priority: number;
+  monthlyTarget: number | null;
+  currency: string;
+  notes: string | null;
+  progress: number;
+  remainingAmount: number;
+  monthsRemaining: number | null;
+  aiTips: string | null;
+};
+
+export const goals = {
+  list: () => api<GoalItem[]>('/api/goals'),
+  get: (id: string) => api<GoalItem>(`/api/goals/${id}`),
+  create: (body: { name: string; targetAmount: number; currentAmount?: number; targetDate?: string; icon?: string; color?: string; priority?: number; monthlyTarget?: number; currency?: string; notes?: string }) =>
+    api<unknown>('/api/goals', { method: 'POST', body: JSON.stringify(body) }),
+  update: (id: string, body: { name?: string; targetAmount?: number; currentAmount?: number; targetDate?: string; icon?: string; color?: string; priority?: number; monthlyTarget?: number; currency?: string; notes?: string; isActive?: boolean }) =>
+    api<unknown>(`/api/goals/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  delete: (id: string) => api<unknown>(`/api/goals/${id}`, { method: 'DELETE' }),
+  aiTips: (id: string) => api<{ tips: string }>(`/api/goals/${id}/ai-tips`, { method: 'POST' }),
 };
 
 export const dashboard = {

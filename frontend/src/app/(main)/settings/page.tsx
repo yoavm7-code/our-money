@@ -16,15 +16,15 @@ const ACCOUNT_TYPE_KEYS: Record<string, string> = {
   CASH: 'settings.cash',
 };
 
-const BALANCE_TYPES = ['BANK', 'INVESTMENT', 'PENSION', 'INSURANCE', 'CASH'];
+const BALANCE_TYPES = ['BANK', 'CREDIT_CARD', 'INVESTMENT', 'PENSION', 'INSURANCE', 'CASH'];
 
 export default function SettingsPage() {
   const { t } = useTranslation();
   const [user, setUser] = useState<{ email: string; name: string | null; countryCode?: string | null } | null>(null);
-  const [accountsList, setAccountsList] = useState<Array<{ id: string; name: string; type: string; balance: string | null }>>([]);
+  const [accountsList, setAccountsList] = useState<Array<{ id: string; name: string; type: string; balance: string | null; balanceDate?: string | null }>>([]);
   const [categoriesList, setCategoriesList] = useState<Array<{ id: string; name: string; slug?: string; isIncome: boolean; isDefault?: boolean; excludeFromExpenseTotal?: boolean }>>([]);
   const [loading, setLoading] = useState(true);
-  const [newAccount, setNewAccount] = useState({ name: '', type: 'BANK', balance: '', addBalance: false, linkedBankAccountId: '' });
+  const [newAccount, setNewAccount] = useState({ name: '', type: 'BANK', balance: '', balanceDate: '', addBalance: false, linkedBankAccountId: '' });
   const [adding, setAdding] = useState(false);
   const [msg, setMsg] = useState('');
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -34,7 +34,7 @@ export default function SettingsPage() {
   const [updatingCategoryId, setUpdatingCategoryId] = useState<string | null>(null);
   const [msgCat, setMsgCat] = useState('');
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
-  const [editAccount, setEditAccount] = useState({ name: '', type: 'BANK', balance: '', addBalance: false, linkedBankAccountId: '' });
+  const [editAccount, setEditAccount] = useState({ name: '', type: 'BANK', balance: '', balanceDate: '', addBalance: false, linkedBankAccountId: '' });
   const [updating, setUpdating] = useState(false);
   const [removingCategoryId, setRemovingCategoryId] = useState<string | null>(null);
   const [deletingAccountId, setDeletingAccountId] = useState<string | null>(null);
@@ -71,17 +71,20 @@ export default function SettingsPage() {
     const isBalanceType = BALANCE_TYPES.includes(newAccount.type);
     const balanceToSend = isBalanceType && newAccount.addBalance ? parseFloat(newAccount.balance) || 0 : 0;
     try {
-      const createBody: { name: string; type: string; balance: number; linkedBankAccountId?: string } = {
+      const createBody: { name: string; type: string; balance: number; balanceDate?: string; linkedBankAccountId?: string } = {
         name: newAccount.name.trim(),
         type: newAccount.type,
         balance: balanceToSend,
       };
+      if (isBalanceType && newAccount.addBalance && newAccount.balanceDate) {
+        createBody.balanceDate = newAccount.balanceDate;
+      }
       if (newAccount.type === 'CREDIT_CARD' && newAccount.linkedBankAccountId) {
         createBody.linkedBankAccountId = newAccount.linkedBankAccountId;
       }
       await accounts.create(createBody);
       setMsg(t('settings.accountAdded'));
-      setNewAccount({ name: '', type: 'BANK', balance: '', addBalance: false, linkedBankAccountId: '' });
+      setNewAccount({ name: '', type: 'BANK', balance: '', balanceDate: '', addBalance: false, linkedBankAccountId: '' });
       accounts.list().then(setAccountsList).catch(() => {});
     } catch (e) {
       setMsg(e instanceof Error ? e.message : t('common.failedToLoad'));
@@ -115,12 +118,14 @@ export default function SettingsPage() {
 
   async function handleEditAccount(id: string) {
     try {
-      const a = await accounts.get(id) as { id: string; name: string; type: string; balance: string; linkedBankAccountId?: string };
+      const a = await accounts.get(id) as { id: string; name: string; type: string; balance: string; balanceDate?: string | null; linkedBankAccountId?: string };
       setEditingAccountId(id);
+      const bDate = a.balanceDate ? new Date(a.balanceDate).toISOString().slice(0, 10) : '';
       setEditAccount({
         name: a.name,
         type: a.type,
         balance: String(Number(a.balance ?? 0)),
+        balanceDate: bDate,
         addBalance: BALANCE_TYPES.includes(a.type) && Number(a.balance ?? 0) !== 0,
         linkedBankAccountId: a.linkedBankAccountId ?? '',
       });
@@ -137,11 +142,14 @@ export default function SettingsPage() {
     const isBalanceType = BALANCE_TYPES.includes(editAccount.type);
     const balanceToSend = isBalanceType && editAccount.addBalance ? parseFloat(editAccount.balance) || 0 : 0;
     try {
-      const updateBody: { name: string; type: string; balance?: number; linkedBankAccountId?: string | null } = {
+      const updateBody: { name: string; type: string; balance?: number; balanceDate?: string | null; linkedBankAccountId?: string | null } = {
         name: editAccount.name.trim(),
         type: editAccount.type,
         balance: isBalanceType ? balanceToSend : undefined,
       };
+      if (isBalanceType && editAccount.addBalance) {
+        updateBody.balanceDate = editAccount.balanceDate || null;
+      }
       if (editAccount.type === 'CREDIT_CARD') {
         updateBody.linkedBankAccountId = editAccount.linkedBankAccountId || null;
       }
@@ -525,16 +533,27 @@ export default function SettingsPage() {
                   <label htmlFor="add-balance" className="text-sm">{t('settings.addInitialBalance')}</label>
                 </div>
                 {newAccount.addBalance && (
-                  <div className="w-28">
-                    <label className="block text-sm font-medium mb-1">{t('settings.initialBalance')}</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      className="input"
-                      value={newAccount.balance}
-                      onChange={(e) => setNewAccount((a) => ({ ...a, balance: e.target.value }))}
-                      placeholder="0"
-                    />
+                  <div className="flex items-end gap-3 flex-wrap">
+                    <div className="w-28">
+                      <label className="block text-sm font-medium mb-1">{t('settings.initialBalance')}</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        className="input"
+                        value={newAccount.balance}
+                        onChange={(e) => setNewAccount((a) => ({ ...a, balance: e.target.value }))}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div className="w-40">
+                      <label className="block text-sm font-medium mb-1">{t('settings.balanceDate')}</label>
+                      <input
+                        type="date"
+                        className="input"
+                        value={newAccount.balanceDate}
+                        onChange={(e) => setNewAccount((a) => ({ ...a, balanceDate: e.target.value }))}
+                      />
+                    </div>
                   </div>
                 )}
               </>
@@ -632,17 +651,29 @@ export default function SettingsPage() {
                       <label htmlFor="edit-add-balance" className="text-sm">{t('settings.addInitialBalance')}</label>
                     </div>
                     {editAccount.addBalance && (
-                      <div>
-                        <label className="block text-sm font-medium mb-1">{t('settings.initialBalance')}</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          className="input w-full"
-                          value={editAccount.balance}
-                          onChange={(e) => setEditAccount((a) => ({ ...a, balance: e.target.value }))}
-                          placeholder="0"
-                        />
-                      </div>
+                      <>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">{t('settings.initialBalance')}</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            className="input w-full"
+                            value={editAccount.balance}
+                            onChange={(e) => setEditAccount((a) => ({ ...a, balance: e.target.value }))}
+                            placeholder="0"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium mb-1">{t('settings.balanceDate')}</label>
+                          <input
+                            type="date"
+                            className="input w-full"
+                            value={editAccount.balanceDate}
+                            onChange={(e) => setEditAccount((a) => ({ ...a, balanceDate: e.target.value }))}
+                          />
+                          <p className="text-xs text-slate-500 mt-1">{t('settings.balanceDateHint')}</p>
+                        </div>
+                      </>
                     )}
                   </>
                 )}
