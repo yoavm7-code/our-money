@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { dashboard, accounts, categories, type FixedItem } from '@/lib/api';
 import { useTranslation } from '@/i18n/context';
 import DateRangePicker from '@/components/DateRangePicker';
+import SmartTip from '@/components/SmartTip';
 import {
   BarChart,
   Bar,
@@ -17,35 +18,34 @@ import {
   Legend,
 } from 'recharts';
 
-// Distinct colors per category slug for the pie chart
 const CATEGORY_COLORS: Record<string, string> = {
-  credit_charges: '#ef4444',   // red
-  transfers: '#f97316',        // orange
-  standing_order: '#f59e0b',   // amber
-  loan_payment: '#eab308',     // yellow
-  loan_interest: '#d97706',    // dark amber
-  pension: '#84cc16',          // lime
-  insurance: '#22c55e',        // green
-  utilities: '#14b8a6',        // teal
-  groceries: '#06b6d4',        // cyan
-  transport: '#0ea5e9',        // sky
-  healthcare: '#3b82f6',       // blue
-  dining: '#6366f1',           // indigo
-  shopping: '#8b5cf6',         // violet
-  entertainment: '#a855f7',    // purple
-  education: '#d946ef',        // fuchsia
-  bank_fees: '#ec4899',        // pink
-  subscriptions: '#f43f5e',    // rose
-  childcare: '#fb923c',        // orange-light
-  pets: '#a3e635',             // lime-light
-  gifts: '#2dd4bf',            // teal-light
-  savings: '#38bdf8',          // sky-light
-  investment: '#818cf8',       // indigo-light
-  salary: '#34d399',           // emerald
-  income: '#4ade80',           // green-light
-  rent: '#fb7185',             // rose-light
-  online_shopping: '#c084fc',  // purple-light
-  other: '#94a3b8',            // slate
+  credit_charges: '#ef4444',
+  transfers: '#f97316',
+  standing_order: '#f59e0b',
+  loan_payment: '#eab308',
+  loan_interest: '#d97706',
+  pension: '#84cc16',
+  insurance: '#22c55e',
+  utilities: '#14b8a6',
+  groceries: '#06b6d4',
+  transport: '#0ea5e9',
+  healthcare: '#3b82f6',
+  dining: '#6366f1',
+  shopping: '#8b5cf6',
+  entertainment: '#a855f7',
+  education: '#d946ef',
+  bank_fees: '#ec4899',
+  subscriptions: '#f43f5e',
+  childcare: '#fb923c',
+  pets: '#a3e635',
+  gifts: '#2dd4bf',
+  savings: '#38bdf8',
+  investment: '#818cf8',
+  salary: '#34d399',
+  income: '#4ade80',
+  rent: '#fb7185',
+  online_shopping: '#c084fc',
+  other: '#94a3b8',
 };
 const FALLBACK_COLORS = [
   '#ef4444', '#f97316', '#f59e0b', '#84cc16', '#22c55e',
@@ -142,13 +142,12 @@ export default function DashboardPage() {
 
   if (error && !summary) {
     return (
-      <div className="rounded-lg bg-red-50 dark:bg-red-900/20 p-4 text-red-700 dark:text-red-300">
+      <div className="rounded-2xl bg-red-50 dark:bg-red-900/20 p-4 text-red-700 dark:text-red-300 animate-fadeIn">
         {error}
       </div>
     );
   }
 
-  const KNOWN_SLUGS = ['groceries', 'transport', 'utilities', 'rent', 'insurance', 'healthcare', 'dining', 'shopping', 'entertainment', 'other', 'salary', 'income', 'credit_charges', 'transfers', 'fees', 'subscriptions', 'education', 'pets', 'gifts', 'childcare', 'savings', 'pension', 'investment', 'bank_fees', 'online_shopping', 'loan_payment', 'loan_interest', 'standing_order', 'finance', 'unknown'];
   const getCatName = (name: string | undefined, slug: string | undefined) => {
     if (slug) {
       const tr = t('categories.' + slug);
@@ -163,11 +162,7 @@ export default function DashboardPage() {
       const color = c.category?.color
         ?? (slug ? CATEGORY_COLORS[slug] : undefined)
         ?? FALLBACK_COLORS[i % FALLBACK_COLORS.length];
-      return {
-        name: getCatName(c.category?.name, slug),
-        value: c.total,
-        color,
-      };
+      return { name: getCatName(c.category?.name, slug), value: c.total, color };
     }) ?? [];
 
   const incomePieData =
@@ -176,20 +171,16 @@ export default function DashboardPage() {
       const color = c.category?.color
         ?? (slug ? CATEGORY_COLORS[slug] : undefined)
         ?? FALLBACK_COLORS[i % FALLBACK_COLORS.length];
-      return {
-        name: getCatName(c.category?.name, slug),
-        value: c.total,
-        color,
-      };
+      return { name: getCatName(c.category?.name, slug), value: c.total, color };
     }) ?? [];
 
   const barData = trends ?? [];
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 animate-fadeIn">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold">{t('dashboard.title')}</h1>
-        <div className="flex flex-wrap items-center gap-4">
+        <h1 className="text-2xl font-bold">{t('dashboard.title')}</h1>
+        <div className="flex flex-wrap items-center gap-3">
           <DateRangePicker from={from} to={to} onChange={handleDateRangeChange} />
           <select
             className="input w-auto min-w-[160px]"
@@ -218,25 +209,30 @@ export default function DashboardPage() {
 
       {summary && (
         <>
+          {/* Summary cards with gradient accents */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="card">
-              <p className="text-sm text-slate-500 dark:text-slate-400">{t('dashboard.totalBalance')}</p>
-              <p className="text-2xl font-semibold mt-1">{formatCurrency(summary.totalBalance, locale)}</p>
+            <div className="card animate-slideUp stagger-1 relative overflow-hidden">
+              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-500 to-indigo-500" />
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{t('dashboard.totalBalance')}</p>
+              <p className="text-2xl font-bold mt-1">{formatCurrency(summary.totalBalance, locale)}</p>
             </div>
-            <div className="card">
-              <p className="text-sm text-slate-500 dark:text-slate-400">{t('dashboard.incomePeriod')}</p>
-              <p className="text-2xl font-semibold mt-1 text-green-600 dark:text-green-400">
+            <div className="card animate-slideUp stagger-2 relative overflow-hidden">
+              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-500 to-green-400" />
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{t('dashboard.incomePeriod')}</p>
+              <p className="text-2xl font-bold mt-1 text-green-600 dark:text-green-400">
                 {formatCurrency(summary.income, locale)}
               </p>
             </div>
-            <div className="card">
-              <p className="text-sm text-slate-500 dark:text-slate-400">{t('dashboard.expensesPeriod')}</p>
-              <p className="text-2xl font-semibold mt-1 text-red-600 dark:text-red-400">
+            <div className="card animate-slideUp stagger-3 relative overflow-hidden">
+              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-red-500 to-rose-400" />
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{t('dashboard.expensesPeriod')}</p>
+              <p className="text-2xl font-bold mt-1 text-red-600 dark:text-red-400">
                 {formatCurrency(summary.expenses, locale)}
               </p>
             </div>
           </div>
 
+          {/* Fixed expenses / income */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="card">
               <button
@@ -247,16 +243,16 @@ export default function DashboardPage() {
               >
                 <div>
                   <p className="text-sm text-slate-500 dark:text-slate-400">{t('dashboard.fixedExpenses')}</p>
-                  <p className="text-xl font-semibold mt-1 text-red-600 dark:text-red-400">
+                  <p className="text-xl font-bold mt-1 text-red-600 dark:text-red-400">
                     {formatCurrency(summary.fixedExpensesSum ?? 0, locale)}
                   </p>
                 </div>
-                <span className={`shrink-0 transition-transform ${fixedExpensesOpen ? 'rotate-180' : ''}`}>
+                <span className={`shrink-0 transition-transform duration-300 ${fixedExpensesOpen ? 'rotate-180' : ''}`}>
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>
                 </span>
               </button>
               {fixedExpensesOpen && (
-                <div className="mt-4 pt-4 border-t border-[var(--border)]">
+                <div className="mt-4 pt-4 border-t border-[var(--border)] animate-slideDown">
                   {fixedExpensesLoading ? (
                     <div className="flex items-center justify-center py-6 gap-2 text-slate-500">
                       <span className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
@@ -295,16 +291,16 @@ export default function DashboardPage() {
               >
                 <div>
                   <p className="text-sm text-slate-500 dark:text-slate-400">{t('dashboard.fixedIncome')}</p>
-                  <p className="text-xl font-semibold mt-1 text-green-600 dark:text-green-400">
+                  <p className="text-xl font-bold mt-1 text-green-600 dark:text-green-400">
                     {formatCurrency(summary.fixedIncomeSum ?? 0, locale)}
                   </p>
                 </div>
-                <span className={`shrink-0 transition-transform ${fixedIncomeOpen ? 'rotate-180' : ''}`}>
+                <span className={`shrink-0 transition-transform duration-300 ${fixedIncomeOpen ? 'rotate-180' : ''}`}>
                   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>
                 </span>
               </button>
               {fixedIncomeOpen && (
-                <div className="mt-4 pt-4 border-t border-[var(--border)]">
+                <div className="mt-4 pt-4 border-t border-[var(--border)] animate-slideDown">
                   {fixedIncomeLoading ? (
                     <div className="flex items-center justify-center py-6 gap-2 text-slate-500">
                       <span className="h-5 w-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
@@ -328,8 +324,9 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {/* Trends chart */}
           <div className="card">
-            <h2 className="font-medium mb-4">{t('dashboard.trendsOverTime')}</h2>
+            <h2 className="font-semibold mb-4">{t('dashboard.trendsOverTime')}</h2>
             {barData.length > 0 ? (
               <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={barData} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
@@ -338,9 +335,10 @@ export default function DashboardPage() {
                   <Tooltip
                     formatter={(v: number) => formatCurrency(v, locale)}
                     labelFormatter={(l) => l}
+                    contentStyle={{ borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--card)' }}
                   />
-                  <Bar dataKey="income" fill="#22c55e" name={t('dashboard.income')} radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="expenses" fill="#ef4444" name={t('dashboard.expenses')} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="income" fill="#22c55e" name={t('dashboard.income')} radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="expenses" fill="#ef4444" name={t('dashboard.expenses')} radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -348,27 +346,19 @@ export default function DashboardPage() {
             )}
           </div>
 
+          {/* Pie charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="card">
-              <h2 className="font-medium mb-4">{t('dashboard.spendingByCategory')}</h2>
+              <h2 className="font-semibold mb-4">{t('dashboard.spendingByCategory')}</h2>
               {pieData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={320}>
                   <PieChart>
-                    <Pie
-                      data={pieData}
-                      cx="40%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={95}
-                      paddingAngle={2}
-                      dataKey="value"
-                      nameKey="name"
-                    >
+                    <Pie data={pieData} cx="40%" cy="50%" innerRadius={60} outerRadius={95} paddingAngle={2} dataKey="value" nameKey="name">
                       {pieData.map((entry, i) => (
                         <Cell key={i} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(v: number) => formatCurrency(v, locale)} />
+                    <Tooltip formatter={(v: number) => formatCurrency(v, locale)} contentStyle={{ borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--card)' }} />
                     <Legend layout="vertical" align="right" verticalAlign="middle" wrapperStyle={{ paddingRight: 8 }} />
                   </PieChart>
                 </ResponsiveContainer>
@@ -377,25 +367,16 @@ export default function DashboardPage() {
               )}
             </div>
             <div className="card">
-              <h2 className="font-medium mb-4">{t('dashboard.incomeByCategory')}</h2>
+              <h2 className="font-semibold mb-4">{t('dashboard.incomeByCategory')}</h2>
               {incomePieData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={320}>
                   <PieChart>
-                    <Pie
-                      data={incomePieData}
-                      cx="40%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={95}
-                      paddingAngle={2}
-                      dataKey="value"
-                      nameKey="name"
-                    >
+                    <Pie data={incomePieData} cx="40%" cy="50%" innerRadius={60} outerRadius={95} paddingAngle={2} dataKey="value" nameKey="name">
                       {incomePieData.map((entry, i) => (
                         <Cell key={i} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(v: number) => formatCurrency(v, locale)} />
+                    <Tooltip formatter={(v: number) => formatCurrency(v, locale)} contentStyle={{ borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--card)' }} />
                     <Legend layout="vertical" align="right" verticalAlign="middle" wrapperStyle={{ paddingRight: 8 }} />
                   </PieChart>
                 </ResponsiveContainer>
@@ -405,15 +386,13 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {/* Accounts list */}
           {summary.accounts?.length > 0 && (
             <div className="card">
-              <h2 className="font-medium mb-4">{t('common.accounts')}</h2>
+              <h2 className="font-semibold mb-4">{t('common.accounts')}</h2>
               <ul className="space-y-2">
                 {summary.accounts.map((a) => (
-                  <li
-                    key={a.id}
-                    className="flex justify-between items-center py-2 border-b border-[var(--border)] last:border-0"
-                  >
+                  <li key={a.id} className="flex justify-between items-center py-2 border-b border-[var(--border)] last:border-0">
                     <span>{a.name}</span>
                     <span className="font-medium">
                       {a.balance != null ? formatCurrency(Number(a.balance), locale) : '–'}
@@ -425,6 +404,8 @@ export default function DashboardPage() {
           )}
         </>
       )}
+
+      <SmartTip />
     </div>
   );
 }

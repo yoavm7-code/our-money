@@ -159,8 +159,8 @@ export default function UploadPage() {
   const extractedList = pendingReview?.document?.extractedJson ?? [];
 
   return (
-    <div className="space-y-8">
-      <h1 className="text-2xl font-semibold">{t('upload.title')}</h1>
+    <div className="space-y-8 animate-fadeIn">
+      <h1 className="text-2xl font-bold">{t('upload.title')}</h1>
       <p className="text-slate-600 dark:text-slate-400">
         {t('upload.description')}
       </p>
@@ -311,8 +311,8 @@ export default function UploadPage() {
       )}
 
       {pendingReview && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="duplicate-review-title">
-          <div className="bg-[var(--card)] rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="duplicate-review-title">
+          <div className="bg-[var(--card)] rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col animate-scaleIn" onClick={(e) => e.stopPropagation()}>
             <h2 id="duplicate-review-title" className="font-semibold text-lg p-4 border-b border-[var(--border)]">
               {t('upload.duplicateReviewTitle')}
             </h2>

@@ -245,7 +245,7 @@ export default function InsightsPage() {
   );
 
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
+    <div className="space-y-6 max-w-2xl mx-auto animate-fadeIn">
       <div className="text-center mb-2">
         <h1 className="text-2xl font-bold">{t('insightsPage.title')}</h1>
         <p className="text-slate-500 dark:text-slate-400 mt-1.5 text-sm">

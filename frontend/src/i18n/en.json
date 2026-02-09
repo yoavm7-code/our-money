@@ -28,7 +28,9 @@
     "rowsPerPage": "Rows per page",
     "page": "Page",
     "of": "of",
-    "file": "File"
+    "file": "File",
+    "close": "Close",
+    "menu": "Menu"
   },
   "dateRange": {
     "today": "Today",
@@ -540,5 +542,8 @@
     "title": "Insurance & Funds",
     "description": "Track insurance policies, pension funds, and investment accounts. Add accounts in Settings to see them here. API connectors for providers can be added later.",
     "noAccounts": "No insurance or investment accounts yet. Add an account in Settings (type: Insurance, Pension, or Investment)."
+  },
+  "smartTip": {
+    "title": "Smart Tip"
   }
 }

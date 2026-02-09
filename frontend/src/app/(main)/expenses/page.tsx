@@ -90,8 +90,8 @@ export default function ExpensesPage() {
   }
 
   return (
-    <div className="space-y-8">
-      <h1 className="text-2xl font-semibold">{t('expenses.title')}</h1>
+    <div className="space-y-8 animate-fadeIn">
+      <h1 className="text-2xl font-bold">{t('expenses.title')}</h1>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="card">
           <p className="text-sm text-slate-500 dark:text-slate-400">{t('expenses.expensesThisPeriod')}</p>

@@ -374,7 +374,7 @@ export default function TransactionsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fadeIn">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold">{t('transactions.title')}</h1>
         <button type="button" className="btn-primary" onClick={() => setShowAddTx(true)}>
@@ -677,8 +677,8 @@ export default function TransactionsPage() {
       </div>
 
       {showAddCategory && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => { setShowAddCategory(false); setAddCategoryForTxId(null); setNewCategoryName(''); }}>
-          <div className="bg-[var(--card)] rounded-xl shadow-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={() => { setShowAddCategory(false); setAddCategoryForTxId(null); setNewCategoryName(''); }}>
+          <div className="bg-[var(--card)] rounded-2xl shadow-2xl max-w-sm w-full p-6 animate-scaleIn" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-medium mb-4">{t('transactions.addCategoryTitle')}</h3>
             <form onSubmit={handleAddCategory} className="space-y-4">
               <div>
@@ -711,8 +711,8 @@ export default function TransactionsPage() {
       )}
 
       {showAddTx && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setShowAddTx(false)}>
-          <div className="bg-[var(--card)] rounded-xl shadow-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={() => setShowAddTx(false)}>
+          <div className="bg-[var(--card)] rounded-2xl shadow-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto animate-scaleIn" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-medium mb-4">{t('transactionsPage.addTransaction')}</h3>
             <form onSubmit={handleAddTransaction} className="space-y-4">
               <div>
@@ -821,8 +821,8 @@ export default function TransactionsPage() {
       )}
 
       {editingTxId && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setEditingTxId(null)}>
-          <div className="bg-[var(--card)] rounded-xl shadow-xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={() => setEditingTxId(null)}>
+          <div className="bg-[var(--card)] rounded-2xl shadow-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto animate-scaleIn" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-medium mb-4">{t('transactionsPage.editTransaction')}</h3>
             <form onSubmit={handleSaveEditTx} className="space-y-4">
               <div>
