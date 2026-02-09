@@ -4,6 +4,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 import { AccountType } from '@prisma/client';
 
 const BALANCE_ACCOUNT_TYPES: AccountType[] = ['BANK', 'CREDIT_CARD', 'INVESTMENT', 'PENSION', 'INSURANCE', 'CASH'];
+const TOTAL_BALANCE_TYPES: AccountType[] = ['BANK'];
 
 @Injectable()
 export class DashboardService {
@@ -92,7 +93,7 @@ export class DashboardService {
     }
 
     const totalBalance = accounts
-      .filter((a) => BALANCE_ACCOUNT_TYPES.includes(a.type as AccountType))
+      .filter((a) => TOTAL_BALANCE_TYPES.includes(a.type as AccountType))
       .reduce((sum, a) => sum + Number(a.balance), 0);
     const income = transactions
       .filter((t) => Number(t.amount) > 0)

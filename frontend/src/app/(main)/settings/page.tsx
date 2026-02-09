@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { users, accounts, categories, twoFactor } from '@/lib/api';
 import { COUNTRY_CODES } from '@/lib/countries';
 import { useTranslation } from '@/i18n/context';
+import AvatarCropper from '@/components/AvatarCropper';
 
 const KNOWN_CATEGORY_SLUGS = ['groceries', 'transport', 'utilities', 'rent', 'insurance', 'healthcare', 'dining', 'shopping', 'entertainment', 'other', 'salary', 'income', 'credit_charges', 'transfers', 'fees', 'subscriptions', 'education', 'pets', 'gifts', 'childcare', 'savings', 'pension', 'investment', 'bank_fees', 'online_shopping', 'loan_payment', 'loan_interest', 'standing_order', 'finance', 'unknown'];
 
@@ -20,7 +21,7 @@ const BALANCE_TYPES = ['BANK', 'CREDIT_CARD', 'INVESTMENT', 'PENSION', 'INSURANC
 
 export default function SettingsPage() {
   const { t } = useTranslation();
-  const [user, setUser] = useState<{ email: string; name: string | null; countryCode?: string | null } | null>(null);
+  const [user, setUser] = useState<{ email: string; name: string | null; countryCode?: string | null; avatarUrl?: string | null } | null>(null);
   const [accountsList, setAccountsList] = useState<Array<{ id: string; name: string; type: string; balance: string | null; balanceDate?: string | null }>>([]);
   const [categoriesList, setCategoriesList] = useState<Array<{ id: string; name: string; slug?: string; isIncome: boolean; isDefault?: boolean; excludeFromExpenseTotal?: boolean }>>([]);
   const [loading, setLoading] = useState(true);
@@ -41,6 +42,9 @@ export default function SettingsPage() {
   const [editingProfile, setEditingProfile] = useState(false);
   const [profileForm, setProfileForm] = useState({ name: '', email: '', password: '', countryCode: '' });
   const [updatingProfile, setUpdatingProfile] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarCropFile, setAvatarCropFile] = useState<File | null>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   // 2FA state
   const [twoFAEnabled, setTwoFAEnabled] = useState(false);
@@ -54,7 +58,7 @@ export default function SettingsPage() {
   useEffect(() => {
     Promise.all([users.me(), accounts.list(), categories.list(), twoFactor.status()])
       .then(([u, a, c, tfa]) => {
-        setUser(u);
+        setUser({ email: u.email, name: u.name, countryCode: u.countryCode, avatarUrl: u.avatarUrl });
         setAccountsList(a);
         setCategoriesList(c);
         setTwoFAEnabled(tfa.enabled);
@@ -244,6 +248,28 @@ export default function SettingsPage() {
     setEditingProfile(true);
   }
 
+  function handleAvatarFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarCropFile(file);
+    if (avatarInputRef.current) avatarInputRef.current.value = '';
+  }
+
+  async function handleAvatarCrop(blob: Blob) {
+    setAvatarCropFile(null);
+    setAvatarUploading(true);
+    try {
+      const file = new File([blob], 'avatar.png', { type: 'image/png' });
+      const result = await users.uploadAvatar(file);
+      setUser((u) => u ? { ...u, avatarUrl: result.avatarUrl } : u);
+      setMsg(t('profile.avatarUpdated'));
+    } catch (err) {
+      setMsg(err instanceof Error ? err.message : t('common.failedToLoad'));
+    } finally {
+      setAvatarUploading(false);
+    }
+  }
+
   async function handleDeleteAccount(id: string) {
     if (!confirm(t('settings.confirmDeleteAccount'))) return;
     setDeletingAccountId(id);
@@ -298,14 +324,42 @@ export default function SettingsPage() {
 
       <div className="card max-w-md">
         <h2 className="font-medium mb-4">{t('settings.profile')}</h2>
-        <p className="text-slate-600 dark:text-slate-400 mb-2">
-          {user?.email} {user?.name && `(${user.name})`}
-          {user?.countryCode && (
-            <span className="block mt-1">
-              {t('settings.country')}: {t(`countries.${user.countryCode}`)}
-            </span>
-          )}
-        </p>
+        <div className="flex items-center gap-4 mb-3">
+          <div className="relative group">
+            {user?.avatarUrl ? (
+              <img src={user.avatarUrl} alt="" className="w-16 h-16 rounded-full object-cover ring-2 ring-primary-500/30" />
+            ) : (
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-xl font-bold ring-2 ring-primary-500/30">
+                {user?.name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || '?'}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={avatarUploading}
+              className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+              title={t('profile.uploadAvatar')}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+            </button>
+          </div>
+          <div>
+            <p className="font-medium">{user?.name || user?.email?.split('@')[0]}</p>
+            <p className="text-sm text-slate-500">{user?.email}</p>
+            {user?.countryCode && (
+              <p className="text-xs text-slate-500 mt-0.5">
+                {t('settings.country')}: {t(`countries.${user.countryCode}`)}
+              </p>
+            )}
+          </div>
+        </div>
+        <input
+          ref={avatarInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          className="hidden"
+          onChange={handleAvatarFileSelect}
+        />
         <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">{t('settings.countryWhy')}</p>
         <button
           type="button"
@@ -321,6 +375,28 @@ export default function SettingsPage() {
           <div className="bg-[var(--card)] rounded-xl shadow-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-medium mb-4">{t('settings.editProfile')}</h3>
             <form onSubmit={handleUpdateProfile} className="space-y-4">
+              {/* Avatar upload in edit modal */}
+              <div className="flex items-center gap-4">
+                <div className="relative group">
+                  {user?.avatarUrl ? (
+                    <img src={user.avatarUrl} alt="" className="w-14 h-14 rounded-full object-cover ring-2 ring-primary-500/30" />
+                  ) : (
+                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-lg font-bold ring-2 ring-primary-500/30">
+                      {user?.name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || '?'}
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={avatarUploading}
+                  className="text-sm text-primary-600 hover:underline flex items-center gap-1.5"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                  {avatarUploading ? t('common.loading') : t('profile.uploadAvatar')}
+                  <span className="text-xs text-slate-400">{t('profile.avatarMaxSize')}</span>
+                </button>
+              </div>
               <div>
                 <label className="block text-sm font-medium mb-1">{t('settings.displayName')}</label>
                 <input
@@ -690,6 +766,15 @@ export default function SettingsPage() {
           </div>
         )}
       </div>
+
+      {/* Avatar cropper modal */}
+      {avatarCropFile && (
+        <AvatarCropper
+          file={avatarCropFile}
+          onCrop={handleAvatarCrop}
+          onCancel={() => setAvatarCropFile(null)}
+        />
+      )}
 
       <div className="card max-w-lg">
         <h2 className="font-medium mb-4">{t('common.categories')}</h2>

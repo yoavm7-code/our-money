@@ -634,7 +634,11 @@
   "profile": {
     "editProfile": "Edit profile",
     "uploadAvatar": "Upload photo",
-    "avatarMaxSize": "Max 2MB"
+    "avatarMaxSize": "Max 2MB",
+    "cropAvatar": "Adjust profile picture",
+    "cropHint": "Drag to move, scroll or slider to zoom",
+    "cropConfirm": "Save photo",
+    "avatarUpdated": "Profile picture updated."
   },
   "tips": {
     "title": "Financial Tips",

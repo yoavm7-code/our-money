@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useTranslation } from '@/i18n/context';
 import { users } from '@/lib/api';
 import TipsPanel from '@/components/TipsPanel';
+import AvatarCropper from '@/components/AvatarCropper';
 
 const navItems: { href: string; key: string; icon: string }[] = [
   { href: '/dashboard', key: 'nav.dashboard', icon: 'grid' },
@@ -59,13 +60,21 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const [userInfo, setUserInfo] = useState<{ name: string | null; email: string; avatarUrl?: string | null } | null>(null);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
+  const [avatarCropFile, setAvatarCropFile] = useState<File | null>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
-  const handleAvatarUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setAvatarCropFile(file);
+    if (avatarInputRef.current) avatarInputRef.current.value = '';
+  }, []);
+
+  const handleAvatarCrop = useCallback(async (blob: Blob) => {
+    setAvatarCropFile(null);
     setAvatarUploading(true);
     try {
+      const file = new File([blob], 'avatar.png', { type: 'image/png' });
       const result = await users.uploadAvatar(file);
       setUserInfo((prev) => prev ? { ...prev, avatarUrl: result.avatarUrl } : prev);
       setProfileMenuOpen(false);
@@ -73,7 +82,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       alert(err instanceof Error ? err.message : 'Upload failed');
     } finally {
       setAvatarUploading(false);
-      if (avatarInputRef.current) avatarInputRef.current.value = '';
     }
   }, []);
 
@@ -193,7 +201,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 type="file"
                 accept="image/jpeg,image/png,image/webp,image/gif"
                 className="hidden"
-                onChange={handleAvatarUpload}
+                onChange={handleAvatarFileSelect}
               />
             </div>
           )}
@@ -295,6 +303,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </main>
 
       <TipsPanel />
+
+      {/* Avatar cropper modal */}
+      {avatarCropFile && (
+        <AvatarCropper
+          file={avatarCropFile}
+          onCrop={handleAvatarCrop}
+          onCancel={() => setAvatarCropFile(null)}
+        />
+      )}
     </div>
   );
 }

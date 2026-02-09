@@ -704,7 +704,11 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
               <div>
                 <h3 className="font-semibold text-lg">{getMetricLabel(detailMetric)}</h3>
-                <p className="text-xs text-slate-500">{from} — {to}</p>
+                <p className="text-xs text-slate-500" dir="ltr">
+                  {from ? new Date(from + 'T00:00:00').toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-IL', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}
+                  {' — '}
+                  {to ? new Date(to + 'T00:00:00').toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-IL', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}
+                </p>
               </div>
               <button
                 type="button"
@@ -734,7 +738,7 @@ export default function DashboardPage() {
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium truncate">{tx.description}</p>
                           <p className="text-xs text-slate-500 dark:text-slate-400">
-                            {new Date(tx.date + 'T00:00:00').toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-IL', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            {new Date(String(tx.date).slice(0, 10) + 'T00:00:00').toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-IL', { day: 'numeric', month: 'short', year: 'numeric' })}
                             {catLabel && <span> · {catLabel}</span>}
                             {tx.account?.name && <span> · {tx.account.name}</span>}
                           </p>

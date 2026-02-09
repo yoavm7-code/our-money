@@ -634,7 +634,11 @@
   "profile": {
     "editProfile": "עריכת פרופיל",
     "uploadAvatar": "העלאת תמונה",
-    "avatarMaxSize": "עד 2MB"
+    "avatarMaxSize": "עד 2MB",
+    "cropAvatar": "התאמת תמונת פרופיל",
+    "cropHint": "גרור להזיז, גלגל עכבר או סליידר לשינוי גודל",
+    "cropConfirm": "שמור תמונה",
+    "avatarUpdated": "תמונת הפרופיל עודכנה."
   },
   "tips": {
     "title": "טיפים פיננסיים",
