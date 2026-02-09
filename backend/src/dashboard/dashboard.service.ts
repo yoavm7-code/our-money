@@ -251,6 +251,32 @@ export class DashboardService {
     return result;
   }
 
+  async getRecentTransactions(householdId: string, limit = 5) {
+    const rows = await this.prisma.transaction.findMany({
+      where: { householdId },
+      orderBy: { date: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        date: true,
+        description: true,
+        amount: true,
+        category: { select: { name: true, slug: true, color: true } },
+        account: { select: { name: true } },
+      },
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      date: r.date instanceof Date ? r.date.toISOString().slice(0, 10) : String(r.date).slice(0, 10),
+      description: r.description,
+      amount: Number(r.amount),
+      categoryName: r.category?.name ?? null,
+      categorySlug: r.category?.slug ?? null,
+      categoryColor: r.category?.color ?? null,
+      accountName: r.account?.name ?? null,
+    }));
+  }
+
   async getFixedIncome(householdId: string): Promise<FixedItem[]> {
     const rows = await this.prisma.transaction.findMany({
       where: { householdId, isRecurring: true, amount: { gt: 0 } },

@@ -359,7 +359,9 @@
     "fixedIncome": "הכנסות קבועות",
     "showDetail": "הצג פירוט",
     "installmentOf": "תשלום {{current}} מתוך {{total}}",
-    "expectedEnd": "צפוי להסתיים ב־{{date}}"
+    "expectedEnd": "צפוי להסתיים ב־{{date}}",
+    "recentTransactions": "תנועות אחרונות",
+    "viewAll": "הצג הכל"
   },
   "transactions": {
     "title": "תנועות",

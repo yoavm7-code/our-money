@@ -359,7 +359,9 @@
     "fixedIncome": "Fixed income",
     "showDetail": "Show detail",
     "installmentOf": "Payment {{current}} of {{total}}",
-    "expectedEnd": "Expected to end {{date}}"
+    "expectedEnd": "Expected to end {{date}}",
+    "recentTransactions": "Recent Transactions",
+    "viewAll": "View all"
   },
   "transactions": {
     "title": "Transactions",

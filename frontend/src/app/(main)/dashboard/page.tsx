@@ -80,6 +80,7 @@ export default function DashboardPage() {
   const [fixedIncomeList, setFixedIncomeList] = useState<FixedItem[] | null>(null);
   const [fixedExpensesLoading, setFixedExpensesLoading] = useState(false);
   const [fixedIncomeLoading, setFixedIncomeLoading] = useState(false);
+  const [recentTx, setRecentTx] = useState<Awaited<ReturnType<typeof dashboard.recentTransactions>> | null>(null);
 
   useEffect(() => {
     const now = new Date();
@@ -91,6 +92,7 @@ export default function DashboardPage() {
   useEffect(() => {
     accounts.list().then((a) => setAccountsList(a)).catch(() => {});
     categories.list().then((c) => setCategoriesList(c)).catch(() => {});
+    dashboard.recentTransactions().then(setRecentTx).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -386,19 +388,36 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Accounts list */}
-          {summary.accounts?.length > 0 && (
+          {/* Recent transactions */}
+          {recentTx && recentTx.length > 0 && (
             <div className="card">
-              <h2 className="font-semibold mb-4">{t('common.accounts')}</h2>
-              <ul className="space-y-2">
-                {summary.accounts.map((a) => (
-                  <li key={a.id} className="flex justify-between items-center py-2 border-b border-[var(--border)] last:border-0">
-                    <span>{a.name}</span>
-                    <span className="font-medium">
-                      {a.balance != null ? formatCurrency(Number(a.balance), locale) : '–'}
-                    </span>
-                  </li>
-                ))}
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-semibold">{t('dashboard.recentTransactions')}</h2>
+                <a href="/transactions" className="text-sm text-primary-600 dark:text-primary-400 hover:underline">
+                  {t('dashboard.viewAll')}
+                </a>
+              </div>
+              <ul className="space-y-1">
+                {recentTx.map((tx) => {
+                  const isIncome = tx.amount > 0;
+                  const catKey = tx.categorySlug ? `categories.${tx.categorySlug}` : '';
+                  const catLabel = catKey ? (t(catKey) !== catKey ? t(catKey) : tx.categoryName) : tx.categoryName;
+                  return (
+                    <li key={tx.id} className="flex items-center justify-between py-2 border-b border-[var(--border)] last:border-0 gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium truncate">{tx.description}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {new Date(tx.date + 'T00:00:00').toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-IL', { day: 'numeric', month: 'short' })}
+                          {catLabel && <span> · {catLabel}</span>}
+                          {tx.accountName && <span> · {tx.accountName}</span>}
+                        </p>
+                      </div>
+                      <span className={`text-sm font-semibold whitespace-nowrap ${isIncome ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                        {isIncome ? '+' : ''}{formatCurrency(tx.amount, locale)}
+                      </span>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}

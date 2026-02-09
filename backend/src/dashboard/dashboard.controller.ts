@@ -33,6 +33,11 @@ export class DashboardController {
     return this.dashboardService.getTrends(householdId, start, end, groupBy || 'month', accountId, categoryId);
   }
 
+  @Get('recent-transactions')
+  getRecentTransactions(@HouseholdId() householdId: string) {
+    return this.dashboardService.getRecentTransactions(householdId);
+  }
+
   @Get('fixed-expenses')
   getFixedExpenses(@HouseholdId() householdId: string) {
     return this.dashboardService.getFixedExpenses(householdId);

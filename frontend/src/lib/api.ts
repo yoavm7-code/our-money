@@ -328,4 +328,15 @@ export const dashboard = {
     }),
   fixedExpenses: () => api<FixedItem[]>('/api/dashboard/fixed-expenses'),
   fixedIncome: () => api<FixedItem[]>('/api/dashboard/fixed-income'),
+  recentTransactions: () =>
+    api<Array<{
+      id: string;
+      date: string;
+      description: string;
+      amount: number;
+      categoryName: string | null;
+      categorySlug: string | null;
+      categoryColor: string | null;
+      accountName: string | null;
+    }>>('/api/dashboard/recent-transactions'),
 };
