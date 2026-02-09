@@ -346,6 +346,8 @@
     "incomePeriod": "הכנסות (תקופה)",
     "expensesPeriod": "הוצאות (תקופה)",
     "spendingByCategory": "הוצאות לפי קטגוריה",
+    "incomeByCategory": "הכנסות לפי קטגוריה",
+    "noIncomeData": "אין נתוני הכנסות בתקופה זו",
     "trendsOverTime": "מגמות לאורך זמן",
     "income": "הכנסות",
     "expenses": "הוצאות",

@@ -301,7 +301,8 @@ export const dashboard = {
       fixedIncomeSum?: number;
       period: { from: string; to: string };
       accounts: Array<{ id: string; name: string; type: string; balance: string }>;
-      spendingByCategory: Array<{ categoryId: string; category: { name: string; color: string | null }; total: number }>;
+      spendingByCategory: Array<{ categoryId: string; category: { name: string; slug?: string; color: string | null }; total: number }>;
+      incomeByCategory: Array<{ categoryId: string; category: { name: string; slug?: string; color: string | null }; total: number }>;
       transactionCount: number;
     }>('/api/dashboard/summary', {
       params: {

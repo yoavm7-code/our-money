@@ -113,6 +113,36 @@ export class DashboardService {
       }))
       .sort((a, b) => b.total - a.total);
 
+    // Income by category
+    const incomeByCategoryWhere = {
+      householdId,
+      date: { gte: fromDate, lte: toDate },
+      amount: { gt: 0 },
+      ...(accountId && { accountId }),
+      ...(categoryId && { categoryId }),
+    };
+    const byIncomeCategory = await this.prisma.transaction.groupBy({
+      by: ['categoryId'],
+      where: incomeByCategoryWhere,
+      _sum: { amount: true },
+    });
+    const incomeCategoryIds = [...new Set(byIncomeCategory.map((c) => c.categoryId).filter(Boolean))] as string[];
+    const incomeCategories = incomeCategoryIds.length
+      ? await this.prisma.category.findMany({
+          where: { id: { in: incomeCategoryIds } },
+          select: { id: true, name: true, slug: true, color: true, icon: true },
+        })
+      : [];
+    const incomeCatMap = new Map(incomeCategories.map((c) => [c.id, c]));
+    const incomeByCategory = byIncomeCategory
+      .filter((c) => c.categoryId)
+      .map((c) => ({
+        categoryId: c.categoryId,
+        category: incomeCatMap.get(c.categoryId!),
+        total: Number((c._sum.amount as Decimal) || 0),
+      }))
+      .sort((a, b) => b.total - a.total);
+
     const fixedExpensesSum = transactions
       .filter((t) => Number(t.amount) < 0 && !isExcludedExpense(t.categoryId))
       .reduce((sum, t) => sum + (t.isRecurring ? Math.abs(Number(t.amount)) : 0), 0);
@@ -129,6 +159,7 @@ export class DashboardService {
       period: { from: fromDate.toISOString().slice(0, 10), to: toDate.toISOString().slice(0, 10) },
       accounts,
       spendingByCategory,
+      incomeByCategory,
       transactionCount: transactions.length,
     };
   }

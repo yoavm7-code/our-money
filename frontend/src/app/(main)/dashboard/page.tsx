@@ -170,6 +170,19 @@ export default function DashboardPage() {
       };
     }) ?? [];
 
+  const incomePieData =
+    summary?.incomeByCategory?.map((c, i) => {
+      const slug = c.category?.slug;
+      const color = c.category?.color
+        ?? (slug ? CATEGORY_COLORS[slug] : undefined)
+        ?? FALLBACK_COLORS[i % FALLBACK_COLORS.length];
+      return {
+        name: getCatName(c.category?.name, slug),
+        value: c.total,
+        color,
+      };
+    }) ?? [];
+
   const barData = trends ?? [];
 
   return (
@@ -315,6 +328,26 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          <div className="card">
+            <h2 className="font-medium mb-4">{t('dashboard.trendsOverTime')}</h2>
+            {barData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={barData} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
+                  <XAxis dataKey="period" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `${v / 1000}k`} />
+                  <Tooltip
+                    formatter={(v: number) => formatCurrency(v, locale)}
+                    labelFormatter={(l) => l}
+                  />
+                  <Bar dataKey="income" fill="#22c55e" name={t('dashboard.income')} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="expenses" fill="#ef4444" name={t('dashboard.expenses')} radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-slate-500 py-8 text-center">{t('dashboard.noTrendData')}</p>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="card">
               <h2 className="font-medium mb-4">{t('dashboard.spendingByCategory')}</h2>
@@ -344,22 +377,30 @@ export default function DashboardPage() {
               )}
             </div>
             <div className="card">
-              <h2 className="font-medium mb-4">{t('dashboard.trendsOverTime')}</h2>
-              {barData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={280}>
-                  <BarChart data={barData} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
-                    <XAxis dataKey="period" tick={{ fontSize: 12 }} />
-                    <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `${v / 1000}k`} />
-                    <Tooltip
-                      formatter={(v: number) => formatCurrency(v, locale)}
-                      labelFormatter={(l) => l}
-                    />
-                    <Bar dataKey="income" fill="#22c55e" name={t('dashboard.income')} radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="expenses" fill="#ef4444" name={t('dashboard.expenses')} radius={[4, 4, 0, 0]} />
-                  </BarChart>
+              <h2 className="font-medium mb-4">{t('dashboard.incomeByCategory')}</h2>
+              {incomePieData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={320}>
+                  <PieChart>
+                    <Pie
+                      data={incomePieData}
+                      cx="40%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={95}
+                      paddingAngle={2}
+                      dataKey="value"
+                      nameKey="name"
+                    >
+                      {incomePieData.map((entry, i) => (
+                        <Cell key={i} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(v: number) => formatCurrency(v, locale)} />
+                    <Legend layout="vertical" align="right" verticalAlign="middle" wrapperStyle={{ paddingRight: 8 }} />
+                  </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <p className="text-slate-500 py-8 text-center">{t('dashboard.noTrendData')}</p>
+                <p className="text-slate-500 py-8 text-center">{t('dashboard.noIncomeData')}</p>
               )}
             </div>
           </div>

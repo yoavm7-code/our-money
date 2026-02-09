@@ -346,6 +346,8 @@
     "incomePeriod": "Income (period)",
     "expensesPeriod": "Expenses (period)",
     "spendingByCategory": "Spending by category",
+    "incomeByCategory": "Income by category",
+    "noIncomeData": "No income data in this period",
     "trendsOverTime": "Trends over time",
     "income": "Income",
     "expenses": "Expenses",
