@@ -21,8 +21,8 @@ const navItems: { href: string; key: string; icon: string }[] = [
   { href: '/settings', key: 'nav.settings', icon: 'settings' },
 ];
 
-function NavIcon({ name, className }: { name: string; className?: string }) {
-  const cn = className || 'w-5 h-5';
+function NavIcon({ name }: { name: string }) {
+  const cn = 'w-5 h-5';
   switch (name) {
     case 'grid':
       return <svg className={cn} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>;
@@ -122,16 +122,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const sidebarContent = (
     <>
-      {/* Logo / brand */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
-        <Link href="/dashboard" className="text-lg font-bold text-white tracking-tight">
+      <div className="flex items-center justify-between p-5 border-b border-[var(--border)]">
+        <Link href="/dashboard" className="text-lg font-bold gradient-text">
           {t('common.appName')}
         </Link>
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={toggleLocale}
-            className="text-xs font-medium px-2.5 py-1.5 rounded-lg border border-white/15 text-[#a0a3bd] hover:text-white hover:border-white/25 transition-colors hidden md:inline-flex"
+            className="text-xs font-medium px-2.5 py-1.5 rounded-lg border border-[var(--border)] hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors hidden md:inline-flex"
             title={locale === 'he' ? 'English' : 'עברית'}
           >
             {locale === 'he' ? 'EN' : 'HE'}
@@ -139,41 +138,40 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <button
             type="button"
             onClick={() => setDrawerOpen(false)}
-            className="p-1.5 rounded-lg text-[#a0a3bd] hover:text-white hover:bg-white/10 transition-colors md:hidden"
+            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors md:hidden"
             aria-label="Close menu"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
       </div>
-
-      {/* User profile section */}
+      {/* User profile quick menu */}
       {userInfo && (
-        <div className="relative px-3 pt-4 pb-2">
+        <div className="relative px-3 pt-3">
           <button
             type="button"
             onClick={() => setProfileMenuOpen((o) => !o)}
-            className="flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-sm hover:bg-white/8 transition-colors"
+            className="flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-sm hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >
             {userInfo.avatarUrl ? (
-              <img src={userInfo.avatarUrl} alt="" className="w-9 h-9 rounded-full object-cover ring-2 ring-emerald-500/50" />
+              <img src={userInfo.avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover ring-2 ring-primary-200 dark:ring-primary-800" />
             ) : (
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-sm font-bold ring-2 ring-emerald-500/50">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary-400 to-emerald-400 flex items-center justify-center text-white text-sm font-bold ring-2 ring-primary-200 dark:ring-primary-800">
                 {userInitial}
               </div>
             )}
             <div className="flex-1 min-w-0 text-start">
-              <p className="font-medium truncate text-sm text-white">{userDisplayName}</p>
-              <p className="text-xs text-[#a0a3bd] truncate">{userInfo.email}</p>
+              <p className="font-medium truncate text-sm">{userDisplayName}</p>
+              <p className="text-xs text-slate-500 truncate">{userInfo.email}</p>
             </div>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`shrink-0 text-[#a0a3bd] transition-transform ${profileMenuOpen ? 'rotate-180' : ''}`}><polyline points="6 9 12 15 18 9"/></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`shrink-0 text-slate-400 transition-transform ${profileMenuOpen ? 'rotate-180' : ''}`}><polyline points="6 9 12 15 18 9"/></svg>
           </button>
           {profileMenuOpen && (
-            <div className="mt-1 rounded-xl bg-[#252540] border border-white/10 shadow-lg overflow-hidden animate-fadeIn">
+            <div className="mt-1 rounded-xl bg-white dark:bg-slate-800 border border-[var(--border)] shadow-lg overflow-hidden animate-fadeIn">
               <Link
                 href="/settings"
                 onClick={() => setProfileMenuOpen(false)}
-                className="flex items-center gap-3 px-4 py-2.5 text-sm text-[#a0a3bd] hover:text-white hover:bg-white/8 transition-colors"
+                className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                 <span>{t('profile.editProfile')}</span>
@@ -182,11 +180,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 type="button"
                 onClick={() => avatarInputRef.current?.click()}
                 disabled={avatarUploading}
-                className="flex items-center gap-3 px-4 py-2.5 text-sm text-[#a0a3bd] hover:text-white hover:bg-white/8 transition-colors w-full text-start"
+                className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors w-full text-start"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
                 <span>{avatarUploading ? '...' : t('profile.uploadAvatar')}</span>
-                <span className="text-xs text-[#6b6d85] ms-auto">{t('profile.avatarMaxSize')}</span>
+                <span className="text-xs text-slate-400 ms-auto">{t('profile.avatarMaxSize')}</span>
               </button>
               <input
                 ref={avatarInputRef}
@@ -199,9 +197,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           )}
         </div>
       )}
-
-      {/* Navigation */}
-      <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto">
+      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
           return (
@@ -210,8 +206,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               href={item.href}
               className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150 ${
                 isActive
-                  ? 'bg-emerald-500/15 text-emerald-400'
-                  : 'text-[#a0a3bd] hover:bg-white/5 hover:text-white'
+                  ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
               }`}
             >
               <NavIcon name={item.icon} />
@@ -220,13 +216,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           );
         })}
       </nav>
-
-      {/* Footer actions */}
-      <div className="p-3 border-t border-white/10">
+      <div className="p-3 border-t border-[var(--border)]">
         <button
           type="button"
           onClick={toggleLocale}
-          className="flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-sm text-[#a0a3bd] hover:bg-white/5 hover:text-white transition-all duration-150 md:hidden mb-1"
+          className="flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-sm text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-150 md:hidden mb-1"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
           <span>{locale === 'he' ? 'English' : 'עברית'}</span>
@@ -234,7 +228,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <button
           type="button"
           onClick={logout}
-          className="flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-sm text-[#a0a3bd] hover:bg-white/5 hover:text-red-400 transition-all duration-150"
+          className="flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-sm text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-red-600 dark:hover:text-red-400 transition-all duration-150"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
           <span>{t('common.signOut')}</span>
@@ -277,10 +271,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         />
       )}
 
-      {/* Sidebar: drawer on mobile, fixed on desktop - DARK THEME */}
+      {/* Sidebar: drawer on mobile, fixed on desktop */}
       <aside
         className={`
-          fixed inset-y-0 start-0 z-50 w-72 bg-[var(--sidebar-bg)]
+          fixed inset-y-0 start-0 z-50 w-72 bg-[var(--card)] border-e border-[var(--border)]
           transform transition-transform duration-300 ease-out
           ${drawerOpen ? 'translate-x-0 rtl:-translate-x-0' : 'ltr:-translate-x-full rtl:translate-x-full'}
           md:relative md:z-auto md:w-60 md:!translate-x-0

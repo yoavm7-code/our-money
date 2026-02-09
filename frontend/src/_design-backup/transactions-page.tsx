@@ -26,30 +26,6 @@ type Tx = {
 
 const KNOWN_SLUGS = ['groceries', 'transport', 'utilities', 'rent', 'insurance', 'healthcare', 'dining', 'shopping', 'entertainment', 'other', 'salary', 'income', 'credit_charges', 'transfers', 'fees', 'subscriptions', 'education', 'pets', 'gifts', 'childcare', 'savings', 'pension', 'investment', 'bank_fees', 'online_shopping', 'loan_payment', 'loan_interest', 'standing_order', 'finance', 'unknown'];
 
-const CATEGORY_ICON_COLORS: Record<string, string> = {
-  groceries: '#22c55e', transport: '#3b82f6', utilities: '#f59e0b',
-  rent: '#ef4444', insurance: '#8b5cf6', healthcare: '#ec4899',
-  dining: '#f97316', shopping: '#a855f7', entertainment: '#06b6d4',
-  salary: '#10b981', income: '#10b981', credit_charges: '#ef4444',
-  transfers: '#6366f1', fees: '#94a3b8', subscriptions: '#f43f5e',
-  education: '#0ea5e9', pets: '#84cc16', gifts: '#d946ef',
-  childcare: '#fb923c', savings: '#14b8a6', pension: '#22c55e',
-  investment: '#3b82f6', bank_fees: '#94a3b8', online_shopping: '#a855f7',
-  loan_payment: '#ef4444', loan_interest: '#f59e0b', standing_order: '#6366f1',
-  finance: '#3b82f6', other: '#94a3b8', unknown: '#94a3b8',
-};
-
-const CATEGORY_ICONS: Record<string, string> = {
-  groceries: '🛒', transport: '🚗', utilities: '💡', rent: '🏠',
-  insurance: '🛡️', healthcare: '🏥', dining: '🍽️', shopping: '🛍️',
-  entertainment: '🎬', salary: '💰', income: '💰', credit_charges: '💳',
-  transfers: '↔️', fees: '🏦', subscriptions: '📱', education: '📚',
-  pets: '🐾', gifts: '🎁', childcare: '👶', savings: '🏦',
-  pension: '📊', investment: '📈', bank_fees: '🏦', online_shopping: '🛒',
-  loan_payment: '💸', loan_interest: '📊', standing_order: '🔄',
-  finance: '💹', other: '📄', unknown: '📄',
-};
-
 function getCategoryDisplayName(name: string, slug: string | undefined, t: (k: string) => string): string {
   // Always try to translate first
   if (slug) {
@@ -689,7 +665,7 @@ export default function TransactionsPage() {
             )}
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b-2 border-[var(--border)]">
+                <tr className="border-b border-[var(--border)]">
                   <th className="py-3 px-2 w-10 text-center">
                     <input
                       type="checkbox"
@@ -698,20 +674,20 @@ export default function TransactionsPage() {
                       className="rounded"
                     />
                   </th>
-                  <th className="text-end py-3 px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('common.date')}</th>
-                  <th className="text-end py-3 px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('common.description')}</th>
-                  <th className="text-end py-3 px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('common.category')}</th>
-                  <th className="text-end py-3 px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('common.account')}</th>
-                  <th className="text-end py-3 px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('transactions.payments')}</th>
-                  <th className="text-end py-3 px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">{t('common.amount')}</th>
+                  <th className="text-end py-3 px-2">{t('common.date')}</th>
+                  <th className="text-end py-3 px-2">{t('common.description')}</th>
+                  <th className="text-end py-3 px-2">{t('common.category')}</th>
+                  <th className="text-end py-3 px-2">{t('common.account')}</th>
+                  <th className="text-end py-3 px-2 text-sm text-slate-600">{t('transactions.payments')}</th>
+                  <th className="text-end py-3 px-2">{t('common.amount')}</th>
                   <th className="text-center py-3 px-2 w-12" title={t('transactions.recurring')} aria-label={t('transactions.recurring')}></th>
                   <th className="text-center py-3 px-2 w-20" aria-label={t('common.delete')}></th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((tx) => (
-                  <tr key={tx.id} className="border-b border-[var(--border)] last:border-0 hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
-                    <td className="py-3 px-2">
+                  <tr key={tx.id} className="border-b border-[var(--border)] last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                    <td className="py-2 px-2">
                       <input
                         type="checkbox"
                         checked={selectedIds.has(tx.id)}
@@ -719,38 +695,20 @@ export default function TransactionsPage() {
                         className="rounded"
                       />
                     </td>
-                    <td className="py-3 px-2 text-end text-sm text-slate-600 dark:text-slate-400">
+                    <td className="py-2 px-2 text-end">
                       {(tx.displayDate ?? tx.date) && (
                         <span className="block">
                           {new Date(tx.displayDate ?? tx.date).toLocaleDateString()}
                           {tx.firstPaymentDate && tx.firstPaymentDate !== (tx.displayDate ?? tx.date) && (
-                            <span className="block text-xs text-slate-400 dark:text-slate-500" title={t('transactions.firstChargeDate')}>
+                            <span className="block text-xs text-slate-500 dark:text-slate-400" title={t('transactions.firstChargeDate')}>
                               {t('transactions.firstChargeDate')}: {new Date(tx.firstPaymentDate).toLocaleDateString()}
                             </span>
                           )}
                         </span>
                       )}
                     </td>
-                    <td className="py-3 px-2 text-end">
-                      <div className="flex items-center gap-2.5 justify-end">
-                        <span className="font-medium text-sm">{tx.description}</span>
-                        {(() => {
-                          const slug = tx.category?.slug || 'other';
-                          const bgColor = CATEGORY_ICON_COLORS[slug] || '#94a3b8';
-                          const icon = CATEGORY_ICONS[slug] || '📄';
-                          return (
-                            <span
-                              className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-sm shrink-0"
-                              style={{ backgroundColor: bgColor + '20', color: bgColor }}
-                              title={tx.category?.name || slug}
-                            >
-                              {icon}
-                            </span>
-                          );
-                        })()}
-                      </div>
-                    </td>
-                    <td className="py-3 px-2 text-end">
+                    <td className="py-2 px-2 text-end">{tx.description}</td>
+                    <td className="py-2 px-2 text-end">
                       <div className="flex items-center gap-1 justify-end">
                         <select
                           className="input py-1 px-2 text-sm min-w-[120px]"
@@ -807,13 +765,13 @@ export default function TransactionsPage() {
                     </td>
                     <td
                       dir="ltr"
-                      className={`py-3 px-2 text-right font-semibold whitespace-nowrap ${
+                      className={`py-2 px-2 text-right font-medium whitespace-nowrap ${
                         Number(tx.amount) >= 0 ? 'text-green-600' : 'text-red-600'
                       }`}
                     >
-                      {Number(tx.amount) >= 0 ? '+' : ''}{formatCurrency(Number(tx.amount), locale)}
+                      {formatCurrency(Number(tx.amount), locale)}
                     </td>
-                    <td className="py-3 px-2 w-12 text-center">
+                    <td className="py-2 px-2 w-12 text-center">
                       <button
                         type="button"
                         className={`p-1.5 rounded border transition-colors ${

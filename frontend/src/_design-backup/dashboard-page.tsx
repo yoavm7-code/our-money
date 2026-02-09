@@ -65,29 +65,15 @@ type SummaryData = Awaited<ReturnType<typeof dashboard.summary>>;
 type TrendsData = Awaited<ReturnType<typeof dashboard.trends>>;
 type RecentTxData = Awaited<ReturnType<typeof dashboard.recentTransactions>>;
 
-/* ─── Stat card background class helper ─── */
-function getStatCardClass(metric?: string): string {
-  switch (metric) {
-    case 'totalBalance': return 'stat-card-blue';
-    case 'income': case 'fixedIncomeSum': return 'stat-card-green';
-    case 'expenses': case 'fixedExpensesSum': return 'stat-card-red';
-    case 'netSavings': return 'stat-card-purple';
-    case 'transactionCount': return 'stat-card-amber';
-    default: return '';
-  }
-}
-
 /* ─── Sortable widget wrapper ─── */
 function SortableWidget({
-  id, editMode, onEdit, children, size, statMetric, widgetType,
+  id, editMode, onEdit, children, color, size,
 }: {
   id: string; editMode: boolean; onEdit: () => void;
-  children: React.ReactNode; size: string;
-  statMetric?: string; widgetType?: string;
+  children: React.ReactNode; color?: string; size: string;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const colSpan = size === 'lg' ? 'col-span-full' : size === 'md' ? 'sm:col-span-2 lg:col-span-1' : '';
-  const statBgClass = widgetType === 'stat' ? getStatCardClass(statMetric) : '';
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -98,13 +84,14 @@ function SortableWidget({
     <div
       ref={setNodeRef}
       style={style}
-      className={`card relative overflow-hidden ${colSpan} ${statBgClass} ${editMode ? 'ring-2 ring-primary-300 dark:ring-primary-700 cursor-grab' : ''}`}
+      className={`card relative overflow-hidden ${colSpan} ${editMode ? 'ring-2 ring-primary-300 dark:ring-primary-700 cursor-grab' : ''}`}
     >
+      {color && <div className="absolute inset-x-0 top-0 h-1" style={{ background: color }} />}
       {editMode && (
         <>
           <button
             type="button"
-            className="absolute top-2 end-2 z-10 w-7 h-7 rounded-full bg-white/80 dark:bg-slate-700 flex items-center justify-center hover:bg-white dark:hover:bg-slate-600 transition-colors shadow-sm"
+            className="absolute top-2 end-2 z-10 w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors"
             onClick={onEdit}
             title="Edit"
           >
@@ -113,7 +100,7 @@ function SortableWidget({
           <div
             {...attributes}
             {...listeners}
-            className="absolute top-2 start-2 z-10 w-7 h-7 rounded-full bg-white/80 dark:bg-slate-700 flex items-center justify-center cursor-grab active:cursor-grabbing shadow-sm"
+            className="absolute top-2 start-2 z-10 w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center cursor-grab active:cursor-grabbing"
             title="Drag"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/></svg>
@@ -362,14 +349,11 @@ export default function DashboardPage() {
         const label = w.title || getMetricLabel(metric);
         const isCurrency = metric !== 'transactionCount';
         const colorClass =
-          metric === 'income' || metric === 'fixedIncomeSum' ? 'text-green-700 dark:text-green-400'
-          : metric === 'expenses' || metric === 'fixedExpensesSum' ? 'text-red-700 dark:text-red-400'
-          : metric === 'netSavings' ? (value >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400')
-          : metric === 'totalBalance' ? 'text-blue-700 dark:text-blue-400'
-          : 'text-amber-700 dark:text-amber-400';
+          metric === 'income' || metric === 'fixedIncomeSum' ? 'text-green-600 dark:text-green-400'
+          : metric === 'expenses' || metric === 'fixedExpensesSum' ? 'text-red-600 dark:text-red-400'
+          : metric === 'netSavings' ? (value >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400')
+          : '';
         const isClickable = ['income', 'expenses', 'totalBalance', 'netSavings', 'transactionCount', 'fixedExpensesSum', 'fixedIncomeSum'].includes(metric);
-        const isUp = metric === 'income' || metric === 'fixedIncomeSum' || metric === 'totalBalance' || (metric === 'netSavings' && value >= 0);
-        const trendColor = isUp ? 'text-green-600' : 'text-red-600';
         return (
           <button
             type="button"
@@ -377,19 +361,13 @@ export default function DashboardPage() {
             onClick={isClickable && !editMode ? () => openStatDetail(metric) : undefined}
             title={isClickable ? t('dashboard.clickToShowDetails') : undefined}
           >
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-slate-600 dark:text-slate-400">{label}</p>
-              <span className={`${trendColor}`}>
-                {isUp ? (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
-                ) : (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>
-                )}
-              </span>
-            </div>
-            <p className={`text-2xl font-bold mt-2 ${colorClass}`}>
+            <p className="text-sm text-slate-500 dark:text-slate-400">{label}</p>
+            <p className={`text-2xl font-bold mt-1 ${colorClass}`}>
               {isCurrency ? formatCurrency(value, locale) : value.toLocaleString()}
             </p>
+            {isClickable && !editMode && (
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">{t('dashboard.clickToShowDetails')}</p>
+            )}
           </button>
         );
       }
@@ -680,9 +658,8 @@ export default function DashboardPage() {
                   id={w.id}
                   editMode={editMode}
                   onEdit={() => setEditingWidget(w)}
+                  color={w.color}
                   size={w.size}
-                  statMetric={w.metric}
-                  widgetType={w.type}
                 >
                   {renderWidget(w)}
                 </SortableWidget>

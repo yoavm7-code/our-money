@@ -3,14 +3,10 @@
 @tailwind utilities;
 
 :root {
-  --foreground: #1a1a2e;
-  --background: #f0f1f3;
+  --foreground: #0f172a;
+  --background: #f8fafc;
   --card: #ffffff;
-  --border: #e5e7eb;
-  --sidebar-bg: #1a1a2e;
-  --sidebar-border: rgba(255, 255, 255, 0.08);
-  --sidebar-text: #a0a3bd;
-  --sidebar-active: #22c55e;
+  --border: #e2e8f0;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -40,20 +36,14 @@ body {
 
 @layer components {
   .card {
-    @apply rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5
+    @apply rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-sm
     transition-all duration-200;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
   }
 
   .card-hover {
-    @apply rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5
+    @apply rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-sm
     transition-all duration-200
-    hover:-translate-y-0.5;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
-  }
-
-  .card-hover:hover {
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+    hover:shadow-card-hover hover:-translate-y-0.5;
   }
 
   .btn-primary {
@@ -92,42 +82,6 @@ body {
 
   .gradient-text {
     @apply bg-gradient-to-r from-primary-600 to-emerald-500 bg-clip-text text-transparent;
-  }
-
-  /* Stat card colored backgrounds */
-  .stat-card-green {
-    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-    border-color: #bbf7d0;
-  }
-
-  .stat-card-red {
-    background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
-    border-color: #fca5a5;
-  }
-
-  .stat-card-blue {
-    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-    border-color: #bfdbfe;
-  }
-
-  .stat-card-purple {
-    background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
-    border-color: #c4b5fd;
-  }
-
-  .stat-card-amber {
-    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
-    border-color: #fde68a;
-  }
-
-  .stat-card-pink {
-    background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%);
-    border-color: #f9a8d4;
-  }
-
-  .stat-card-teal {
-    background: linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%);
-    border-color: #99f6e4;
   }
 }
 
