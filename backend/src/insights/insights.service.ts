@@ -133,6 +133,20 @@ export class InsightsService {
       })
       .sort((a, b) => b.total - a.total);
 
+    // Fetch user's learned categorization rules for personalized insights
+    const categoryRules = await this.prisma.categoryRule.findMany({
+      where: { householdId, isActive: true },
+      orderBy: { priority: 'desc' },
+      take: 20,
+      include: { category: { select: { name: true, slug: true } } },
+    });
+    const userPatterns = categoryRules.map((r) => ({
+      pattern: r.pattern,
+      categoryName: r.category.name,
+      categorySlug: r.category.slug,
+      priority: r.priority,
+    }));
+
     return {
       totalBalance,
       accounts,
@@ -143,6 +157,7 @@ export class InsightsService {
       fixedExpensesMonthly,
       fixedIncomeMonthly,
       spendingByCategory,
+      userPatterns,
     };
   }
 
@@ -577,6 +592,11 @@ ${langInstruction}${this.getCountryContext(countryCode)}`;
         : `  • ${c.name}: ${c.total.toLocaleString('he-IL')} ₪ (${c.count} תנועות)`,
     ).join('\n');
 
+    // User's learned categorization patterns
+    const patternLines = (data.userPatterns ?? []).slice(0, 15).map((p) =>
+      `  • "${p.pattern}" → ${p.categoryName}`,
+    ).join('\n');
+
     const countryLine = countryCode ? `User's country (ISO): ${countryCode.toUpperCase().slice(0, 2)}\n\n` : '';
     if (isEn) {
       return `${countryLine}## My household data (last 6 months)
@@ -599,6 +619,7 @@ ${monthly || 'No data'}
 
 ### Top spending categories (6 months total):
 ${catLines || 'No category data'}
+${patternLines ? `\n### User's categorization preferences (learned from corrections):\n${patternLines}` : ''}
 
 ---
 
@@ -625,6 +646,7 @@ ${monthly || 'אין נתונים'}
 
 ### קטגוריות הוצאה מובילות (סה"כ 6 חודשים):
 ${catLines || 'אין נתוני קטגוריות'}
+${patternLines ? `\n### העדפות קטגוריזציה של המשתמש (נלמדו מתיקונים):\n${patternLines}` : ''}
 
 ---
 

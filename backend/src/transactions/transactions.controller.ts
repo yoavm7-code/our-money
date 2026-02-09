@@ -46,6 +46,22 @@ export class TransactionsController {
     return this.transactionsService.removeMany(householdId, body.ids ?? []);
   }
 
+  @Post('bulk-update')
+  bulkUpdate(
+    @HouseholdId() householdId: string,
+    @Body() body: { ids: string[]; updates: { categoryId?: string | null; date?: string; description?: string } },
+  ) {
+    return this.transactionsService.bulkUpdate(householdId, body.ids ?? [], body.updates ?? {});
+  }
+
+  @Post('bulk-flip-sign')
+  bulkFlipSign(
+    @HouseholdId() householdId: string,
+    @Body() body: { ids: string[] },
+  ) {
+    return this.transactionsService.bulkFlipSign(householdId, body.ids ?? []);
+  }
+
   @Get()
   findAll(
     @HouseholdId() householdId: string,

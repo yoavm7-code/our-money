@@ -91,6 +91,8 @@ export default function TransactionsPage() {
   const [deleting, setDeleting] = useState(false);
   const [updatingRecurringId, setUpdatingRecurringId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [bulkCategoryId, setBulkCategoryId] = useState('');
+  const [bulkUpdating, setBulkUpdating] = useState(false);
   const fetchIdRef = useRef(0);
 
   useEffect(() => {
@@ -205,8 +207,8 @@ export default function TransactionsPage() {
     }
   };
 
-  const handleCategoryChange = async (txId: string, categoryId: string) => {
-    if (categoryId === '__add__') {
+  const handleCategoryChange = async (txId: string, newCatId: string) => {
+    if (newCatId === '__add__') {
       setAddCategoryForTxId(txId);
       setShowAddCategory(true);
       return;
@@ -214,8 +216,13 @@ export default function TransactionsPage() {
     setUpdatingCategoryId(txId);
     setError('');
     try {
-      await txApi.updateCategory(txId, categoryId || null);
-      setRefreshKey((k) => k + 1);
+      await txApi.updateCategory(txId, newCatId || null);
+      const cat = newCatId ? categoriesForSelect.find((c) => c.id === newCatId) : null;
+      setItems((prev) => prev.map((item) =>
+        item.id === txId
+          ? { ...item, category: cat ? { id: cat.id, name: cat.name, slug: cat.slug } : null }
+          : item,
+      ));
     } catch (e) {
       setError(e instanceof Error ? e.message : t('transactions.categoryUpdateFailed'));
     } finally {
@@ -300,7 +307,12 @@ export default function TransactionsPage() {
       const res = await txApi.suggestCategory(tx.description.trim());
       if (res.categoryId) {
         await txApi.updateCategory(tx.id, res.categoryId);
-        setRefreshKey((k) => k + 1);
+        const cat = categoriesForSelect.find((c) => c.id === res.categoryId);
+        setItems((prev) => prev.map((item) =>
+          item.id === tx.id
+            ? { ...item, category: cat ? { id: cat.id, name: cat.name, slug: cat.slug } : null }
+            : item,
+        ));
       }
     } catch {
       setError(t('common.failedToLoad'));
@@ -333,6 +345,75 @@ export default function TransactionsPage() {
       setError(t('common.failedToLoad'));
     } finally {
       setFlippingTxId(null);
+    }
+  }
+
+  async function handleBulkCategoryUpdate() {
+    const ids = Array.from(selectedIds);
+    if (!ids.length || !bulkCategoryId) return;
+    setBulkUpdating(true);
+    setError('');
+    try {
+      await txApi.bulkUpdate(ids, { categoryId: bulkCategoryId });
+      const cat = categoriesForSelect.find((c) => c.id === bulkCategoryId);
+      setItems((prev) => prev.map((item) =>
+        selectedIds.has(item.id)
+          ? { ...item, category: cat ? { id: cat.id, name: cat.name, slug: cat.slug } : null }
+          : item,
+      ));
+      setSelectedIds(new Set());
+      setBulkCategoryId('');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('common.failedToLoad'));
+    } finally {
+      setBulkUpdating(false);
+    }
+  }
+
+  async function handleBulkFlipSign() {
+    const ids = Array.from(selectedIds);
+    if (!ids.length) return;
+    setBulkUpdating(true);
+    setError('');
+    try {
+      await txApi.bulkFlipSign(ids);
+      setItems((prev) => prev.map((item) =>
+        selectedIds.has(item.id)
+          ? { ...item, amount: String(-Number(item.amount)) }
+          : item,
+      ));
+      setSelectedIds(new Set());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('common.failedToLoad'));
+    } finally {
+      setBulkUpdating(false);
+    }
+  }
+
+  async function handleBulkSuggestCategory() {
+    const selected = items.filter((item) => selectedIds.has(item.id));
+    if (!selected.length) return;
+    setBulkUpdating(true);
+    setError('');
+    try {
+      for (const tx of selected) {
+        if (!tx.description.trim()) continue;
+        const res = await txApi.suggestCategory(tx.description.trim());
+        if (res.categoryId) {
+          await txApi.updateCategory(tx.id, res.categoryId);
+          const cat = categoriesForSelect.find((c) => c.id === res.categoryId);
+          setItems((prev) => prev.map((item) =>
+            item.id === tx.id
+              ? { ...item, category: cat ? { id: cat.id, name: cat.name, slug: cat.slug } : null }
+              : item,
+          ));
+        }
+      }
+      setSelectedIds(new Set());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t('common.failedToLoad'));
+    } finally {
+      setBulkUpdating(false);
     }
   }
 
@@ -476,25 +557,73 @@ export default function TransactionsPage() {
         ) : (
           <>
             {selectedIds.size > 0 && (
-              <div className="flex items-center gap-4 mb-4 pb-4 border-b border-[var(--border)]">
-                <span className="text-sm text-slate-600">
-                  {t('transactions.selectedCount', { count: selectedIds.size })}
-                </span>
-                <button
-                  type="button"
-                  className="btn-primary bg-red-600 hover:bg-red-700"
-                  disabled={deleting}
-                  onClick={handleBulkDelete}
-                >
-                  {deleting ? t('transactions.deleting') : t('transactions.deleteSelected')}
-                </button>
-                <button
-                  type="button"
-                  className="btn-secondary text-sm"
-                  onClick={() => setSelectedIds(new Set())}
-                >
-                  {t('transactions.clearSelection')}
-                </button>
+              <div className="mb-4 pb-4 border-b border-[var(--border)] space-y-3">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    {t('transactions.selectedCount', { count: selectedIds.size })}
+                  </span>
+                  <div className="flex-1" />
+                  <button
+                    type="button"
+                    className="btn-secondary text-xs py-1.5 px-3"
+                    onClick={() => { setSelectedIds(new Set()); setBulkCategoryId(''); }}
+                  >
+                    {t('transactions.clearSelection')}
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Bulk category update */}
+                  <select
+                    className="input py-1.5 px-2 text-sm min-w-[140px] w-auto"
+                    value={bulkCategoryId}
+                    onChange={(e) => setBulkCategoryId(e.target.value)}
+                    disabled={bulkUpdating}
+                  >
+                    <option value="">{t('transactions.chooseCategoryForBulk')}</option>
+                    {categoriesForSelect.map((c) => (
+                      <option key={c.id} value={c.id}>{getCategoryDisplayName(c.name, c.slug, t)}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    className="btn-primary text-xs py-1.5 px-3"
+                    disabled={!bulkCategoryId || bulkUpdating}
+                    onClick={handleBulkCategoryUpdate}
+                  >
+                    {bulkUpdating ? t('transactions.updating') : t('transactions.bulkApply')}
+                  </button>
+                  <div className="w-px h-6 bg-[var(--border)] mx-1" />
+                  {/* Bulk AI suggest */}
+                  <button
+                    type="button"
+                    className="btn-secondary text-xs py-1.5 px-3"
+                    disabled={bulkUpdating}
+                    onClick={handleBulkSuggestCategory}
+                    title={t('transactions.bulkSuggestCategory')}
+                  >
+                    {bulkUpdating ? '…' : t('transactions.bulkSuggestCategory')}
+                  </button>
+                  {/* Bulk flip sign */}
+                  <button
+                    type="button"
+                    className="btn-secondary text-xs py-1.5 px-3"
+                    disabled={bulkUpdating}
+                    onClick={handleBulkFlipSign}
+                    title={t('transactions.bulkFlipSign')}
+                  >
+                    {t('transactions.bulkFlipSign')}
+                  </button>
+                  <div className="w-px h-6 bg-[var(--border)] mx-1" />
+                  {/* Bulk delete */}
+                  <button
+                    type="button"
+                    className="btn-primary bg-red-600 hover:bg-red-700 text-xs py-1.5 px-3"
+                    disabled={deleting || bulkUpdating}
+                    onClick={handleBulkDelete}
+                  >
+                    {deleting ? t('transactions.deleting') : t('transactions.deleteSelected')}
+                  </button>
+                </div>
               </div>
             )}
             <table className="w-full text-sm">

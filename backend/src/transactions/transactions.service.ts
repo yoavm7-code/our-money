@@ -344,4 +344,52 @@ export class TransactionsService {
     });
     return { count: result.count };
   }
+
+  async bulkUpdate(
+    householdId: string,
+    ids: string[],
+    updates: { categoryId?: string | null; date?: string; description?: string },
+  ) {
+    if (!ids?.length) return { count: 0 };
+    const data: Record<string, unknown> = {};
+    if (updates.categoryId !== undefined) data.categoryId = updates.categoryId || null;
+    if (updates.date) {
+      const s = String(updates.date).trim().slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) data.date = new Date(s + 'T00:00:00.000Z');
+    }
+    if (updates.description !== undefined) data.description = updates.description;
+    if (Object.keys(data).length === 0) return { count: 0 };
+    const result = await this.prisma.transaction.updateMany({
+      where: { id: { in: ids }, householdId },
+      data,
+    });
+    // Learn from bulk category assignment
+    if (updates.categoryId && result.count > 0) {
+      const txs = await this.prisma.transaction.findMany({
+        where: { id: { in: ids }, householdId },
+        select: { description: true },
+      });
+      for (const tx of txs) {
+        if (tx.description) {
+          await this.rulesService.learnFromCorrection(householdId, tx.description, updates.categoryId);
+        }
+      }
+    }
+    return { count: result.count };
+  }
+
+  async bulkFlipSign(householdId: string, ids: string[]) {
+    if (!ids?.length) return { count: 0 };
+    const txs = await this.prisma.transaction.findMany({
+      where: { id: { in: ids }, householdId },
+      select: { id: true, amount: true },
+    });
+    for (const tx of txs) {
+      await this.prisma.transaction.update({
+        where: { id: tx.id },
+        data: { amount: -Number(tx.amount) },
+      });
+    }
+    return { count: txs.length };
+  }
 }

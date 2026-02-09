@@ -5,7 +5,39 @@ import { PrismaService } from '../prisma/prisma.service';
 export class RulesService {
   constructor(private prisma: PrismaService) {}
 
-  /** Suggest category for a description using rules (and later AI). */
+  /**
+   * Extract the core merchant/pattern from a transaction description.
+   * Strips noise (dates, amounts, branch numbers, legal suffixes) and keeps
+   * the meaningful business/merchant name for reuse as a matching pattern.
+   */
+  private extractPattern(description: string): string {
+    let s = description.trim();
+    // Remove dates (DD/MM/YYYY, DD.MM.YY, etc.)
+    s = s.replace(/\d{1,2}[\/\.]\d{1,2}[\/\.]\d{2,4}/g, ' ');
+    // Remove standalone numbers (amounts, branch numbers, IDs)
+    s = s.replace(/\b\d{1,3}(?:[,\.]\d{3})*(?:[,\.]\d{2})?\b/g, ' ');
+    s = s.replace(/\b\d+\b/g, ' ');
+    // Remove common legal/business suffixes
+    s = s.replace(/בע["\u05F4]?מ/g, ' ');
+    s = s.replace(/\bבע\s+מ\b/g, ' ');
+    s = s.replace(/\bLTD\.?\b/gi, ' ');
+    s = s.replace(/\bINC\.?\b/gi, ' ');
+    s = s.replace(/\bCO\.?\b/gi, ' ');
+    // Remove branch/location indicators
+    s = s.replace(/סניף\s*/g, ' ');
+    // Clean up punctuation and whitespace
+    s = s.replace(/[*#_=;"'()]+/g, ' ');
+    s = s.replace(/\s+/g, ' ').trim();
+    // Remove trailing/leading dashes and colons
+    s = s.replace(/^[\s\-:.,]+/, '').replace(/[\s\-:.,]+$/, '').trim();
+    // Take meaningful words (2+ chars), up to first 4
+    const words = s.split(/\s+/).filter((w) => w.length >= 2);
+    const pattern = words.slice(0, 4).join(' ');
+    if (pattern.length < 2) return description.trim().slice(0, 50);
+    return pattern.slice(0, 50);
+  }
+
+  /** Suggest category for a description using learned rules. */
   async suggestCategory(householdId: string, description: string): Promise<string | null> {
     const rules = await this.prisma.categoryRule.findMany({
       where: { householdId, isActive: true },
@@ -27,24 +59,62 @@ export class RulesService {
       }
       if (match) return rule.categoryId;
     }
+    // Second pass: try matching the extracted pattern of the description against rules
+    const descPattern = this.extractPattern(description).toUpperCase();
+    if (descPattern.length >= 2) {
+      for (const rule of rules) {
+        const rulePattern = rule.pattern.toUpperCase();
+        if (rule.patternType === 'contains') {
+          // Check if the extracted pattern contains the rule pattern, or vice versa
+          if (descPattern.includes(rulePattern) || rulePattern.includes(descPattern)) {
+            return rule.categoryId;
+          }
+        }
+      }
+    }
     return null;
   }
 
-  /** Learn from user correction: create or strengthen a rule. */
+  /** Learn from user correction: create or strengthen a rule.
+   *  Extracts the core merchant/keyword from the description for better reuse. */
   async learnFromCorrection(
     householdId: string,
     description: string,
     categoryId: string,
   ): Promise<void> {
+    const pattern = this.extractPattern(description);
+    if (!pattern || pattern.length < 2) return;
+
+    // Check for existing rule with same pattern (case-insensitive)
     const existing = await this.prisma.categoryRule.findFirst({
-      where: { householdId, categoryId, pattern: description.trim().slice(0, 50) },
+      where: {
+        householdId,
+        pattern: { equals: pattern, mode: 'insensitive' },
+      },
     });
-    if (existing) return;
+
+    if (existing) {
+      if (existing.categoryId === categoryId) {
+        // Same category – reinforce by bumping priority
+        await this.prisma.categoryRule.update({
+          where: { id: existing.id },
+          data: { priority: existing.priority + 5 },
+        });
+      } else {
+        // Different category – user is correcting; update the rule
+        await this.prisma.categoryRule.update({
+          where: { id: existing.id },
+          data: { categoryId, priority: existing.priority + 5 },
+        });
+      }
+      return;
+    }
+
     await this.prisma.categoryRule.create({
       data: {
         householdId,
         categoryId,
-        pattern: description.trim().slice(0, 80),
+        pattern,
         patternType: 'contains',
         priority: 10,
       },

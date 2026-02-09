@@ -126,6 +126,16 @@ export const transactions = {
       method: 'POST',
       body: JSON.stringify({ ids }),
     }),
+  bulkUpdate: (ids: string[], updates: { categoryId?: string | null; date?: string; description?: string }) =>
+    api<{ count: number }>('/api/transactions/bulk-update', {
+      method: 'POST',
+      body: JSON.stringify({ ids, updates }),
+    }),
+  bulkFlipSign: (ids: string[]) =>
+    api<{ count: number }>('/api/transactions/bulk-flip-sign', {
+      method: 'POST',
+      body: JSON.stringify({ ids }),
+    }),
 };
 
 export type DocumentWithCount = {
