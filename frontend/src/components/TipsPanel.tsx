@@ -52,26 +52,39 @@ export default function TipsPanel() {
     setLoading(true);
     const readSet = getReadTips();
     const fetched: Tip[] = [];
-    for (const section of INSIGHT_SECTIONS) {
-      try {
-        const res = await insights.getSection(section, locale);
-        if (res.content) {
-          const lines = res.content.split('\n').map((l) => l.trim()).filter(Boolean);
-          for (const line of lines) {
-            if (line.startsWith('#')) continue;
-            if (line.endsWith(':')) continue;
-            let cleaned = line.replace(/^[•\-*]\s*/, '').replace(/^\d+[.)]\s*/, '').replace(/\*\*/g, '').trim();
-            if (cleaned.length < 15) continue;
-            if (cleaned.length > 250) {
-              const sentenceEnd = cleaned.slice(0, 250).lastIndexOf('.');
-              cleaned = sentenceEnd > 60 ? cleaned.slice(0, sentenceEnd + 1) : cleaned.slice(0, 247) + '...';
-            }
-            const id = `${section}-${fetched.length}`;
-            fetched.push({ id, section, content: cleaned, read: readSet.has(id) });
+    try {
+      // Fetch all sections in parallel with per-request timeout
+      const withTimeout = <T,>(p: Promise<T>, ms: number): Promise<T> =>
+        Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
+
+      const results = await withTimeout(
+        Promise.allSettled(
+          INSIGHT_SECTIONS.map(async (section) => {
+            const res = await withTimeout(insights.getSection(section, locale), 10000);
+            return { section, content: res.content };
+          }),
+        ),
+        30000, // overall 30s timeout
+      );
+
+      for (const result of results) {
+        if (result.status !== 'fulfilled' || !result.value.content) continue;
+        const { section, content } = result.value;
+        const lines = content.split('\n').map((l: string) => l.trim()).filter(Boolean);
+        for (const line of lines) {
+          if (line.startsWith('#')) continue;
+          if (line.endsWith(':')) continue;
+          let cleaned = line.replace(/^[•\-*]\s*/, '').replace(/^\d+[.)]\s*/, '').replace(/\*\*/g, '').trim();
+          if (cleaned.length < 15) continue;
+          if (cleaned.length > 250) {
+            const sentenceEnd = cleaned.slice(0, 250).lastIndexOf('.');
+            cleaned = sentenceEnd > 60 ? cleaned.slice(0, sentenceEnd + 1) : cleaned.slice(0, 247) + '...';
           }
+          const id = `${section}-${fetched.length}`;
+          fetched.push({ id, section, content: cleaned, read: readSet.has(id) });
         }
-      } catch { /* skip */ }
-    }
+      }
+    } catch { /* timeout or all failed */ }
     setTips(fetched);
     setReadIds(readSet);
     setLoading(false);
