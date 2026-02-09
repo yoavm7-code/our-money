@@ -27,6 +27,7 @@ export default function UploadPage() {
   const [files, setFiles] = useState<File[]>([]);
   const [accountId, setAccountId] = useState('');
   const [accountsList, setAccountsList] = useState<Array<{ id: string; name: string }>>([]);
+  const [accountsLoaded, setAccountsLoaded] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [recent, setRecent] = useState<Array<{ id: string; fileName: string; status: string; uploadedAt: string; _count?: { transactions: number }; extractedCount?: number }>>([]);
@@ -35,7 +36,7 @@ export default function UploadPage() {
   const [confirmingImport, setConfirmingImport] = useState(false);
 
   useEffect(() => {
-    accounts.list().then((a) => setAccountsList(a)).catch(() => {});
+    accounts.list().then((a) => setAccountsList(a)).catch(() => {}).finally(() => setAccountsLoaded(true));
     documents.list().then((r) => setRecent(r)).catch(() => {});
   }, []);
 
@@ -167,7 +168,7 @@ export default function UploadPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1">{t('upload.account')}</label>
-            {accountsList.length === 0 ? (
+            {accountsLoaded && accountsList.length === 0 ? (
               <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
                 <p className="text-sm text-amber-800 dark:text-amber-200 mb-2">
                   {t('upload.noAccountsYet')}
@@ -250,13 +251,13 @@ export default function UploadPage() {
               <div className="flex items-center gap-3">
                 <div className="flex-1 h-3 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
                   <div
-                    className="h-full bg-primary-500 transition-all duration-300 ease-out"
+                    className="h-full bg-primary-500 transition-all duration-500 ease-out"
                     style={{
                       width:
                         progress.phase === 'upload'
-                          ? `${progress.uploadPercent}%`
+                          ? `${Math.round(progress.uploadPercent * 0.5)}%`
                           : progress.phase === 'processing'
-                            ? '60%'
+                            ? '75%'
                             : '100%',
                     }}
                   />
