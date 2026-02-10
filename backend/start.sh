@@ -14,6 +14,7 @@ sleep 5
 # Ignores errors if migration is not in failed state
 npx prisma migrate resolve --rolled-back 20260129000000_add_installment_fields || true
 npx prisma migrate resolve --rolled-back 20260129100000_fix_installment_amounts || true
+npx prisma migrate resolve --rolled-back 20260210120000_add_budgets_recurring_indexes || true
 
 npx prisma migrate deploy
 exec npm run start

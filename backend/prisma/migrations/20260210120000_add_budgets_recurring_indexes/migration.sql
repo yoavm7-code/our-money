@@ -1,8 +1,8 @@
--- Add index on User.householdId for faster household lookups (if not exists)
+-- Add index on User.householdId for faster household lookups
 CREATE INDEX IF NOT EXISTS "User_household_id_idx" ON "User"("household_id");
 
--- CreateTable
-CREATE TABLE "Budget" (
+-- CreateTable (idempotent)
+CREATE TABLE IF NOT EXISTS "Budget" (
     "id" TEXT NOT NULL,
     "household_id" TEXT NOT NULL,
     "category_id" TEXT NOT NULL,
@@ -15,8 +15,8 @@ CREATE TABLE "Budget" (
     CONSTRAINT "Budget_pkey" PRIMARY KEY ("id")
 );
 
--- CreateTable
-CREATE TABLE "RecurringPattern" (
+-- CreateTable (idempotent)
+CREATE TABLE IF NOT EXISTS "RecurringPattern" (
     "id" TEXT NOT NULL,
     "household_id" TEXT NOT NULL,
     "description" TEXT NOT NULL,
@@ -35,20 +35,30 @@ CREATE TABLE "RecurringPattern" (
     CONSTRAINT "RecurringPattern_pkey" PRIMARY KEY ("id")
 );
 
--- CreateIndex
-CREATE INDEX "Budget_household_id_idx" ON "Budget"("household_id");
+-- CreateIndex (idempotent)
+CREATE INDEX IF NOT EXISTS "Budget_household_id_idx" ON "Budget"("household_id");
 
--- CreateIndex
-CREATE UNIQUE INDEX "Budget_household_id_category_id_key" ON "Budget"("household_id", "category_id");
+-- CreateIndex (idempotent)
+CREATE UNIQUE INDEX IF NOT EXISTS "Budget_household_id_category_id_key" ON "Budget"("household_id", "category_id");
 
--- CreateIndex
-CREATE INDEX "RecurringPattern_household_id_idx" ON "RecurringPattern"("household_id");
+-- CreateIndex (idempotent)
+CREATE INDEX IF NOT EXISTS "RecurringPattern_household_id_idx" ON "RecurringPattern"("household_id");
 
--- AddForeignKey
-ALTER TABLE "Budget" ADD CONSTRAINT "Budget_household_id_fkey" FOREIGN KEY ("household_id") REFERENCES "Household"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+-- AddForeignKey (idempotent - only add if not exists)
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Budget_household_id_fkey') THEN
+    ALTER TABLE "Budget" ADD CONSTRAINT "Budget_household_id_fkey" FOREIGN KEY ("household_id") REFERENCES "Household"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
 
--- AddForeignKey
-ALTER TABLE "Budget" ADD CONSTRAINT "Budget_category_id_fkey" FOREIGN KEY ("category_id") REFERENCES "Category"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Budget_category_id_fkey') THEN
+    ALTER TABLE "Budget" ADD CONSTRAINT "Budget_category_id_fkey" FOREIGN KEY ("category_id") REFERENCES "Category"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
 
--- AddForeignKey
-ALTER TABLE "RecurringPattern" ADD CONSTRAINT "RecurringPattern_household_id_fkey" FOREIGN KEY ("household_id") REFERENCES "Household"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'RecurringPattern_household_id_fkey') THEN
+    ALTER TABLE "RecurringPattern" ADD CONSTRAINT "RecurringPattern_household_id_fkey" FOREIGN KEY ("household_id") REFERENCES "Household"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
