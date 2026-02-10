@@ -46,6 +46,8 @@ export const WIDGET_TYPES = [
   { type: 'recent-tx' as const, labelKey: 'dashboard.widgetRecentTx' },
   { type: 'forex-accounts' as const, labelKey: 'dashboard.widgetForexAccounts' },
   { type: 'goals' as const, labelKey: 'dashboard.widgetGoals' },
+  { type: 'budgets' as const, labelKey: 'dashboard.widgetBudgets' },
+  { type: 'recurring' as const, labelKey: 'dashboard.widgetRecurring' },
 ];
 
 export const ACCENT_COLORS = [

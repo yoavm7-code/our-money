@@ -18,8 +18,16 @@ function getNested(obj: Record<string, unknown>, path: string): string | undefin
   return typeof current === 'string' ? current : undefined;
 }
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 function interpolate(str: string, vars: Record<string, string | number>): string {
-  return str.replace(/\{\{(\w+)\}\}/g, (_, key) => String(vars[key] ?? `{{${key}}}`));
+  return str.replace(/\{\{(\w+)\}\}/g, (_, key) => {
+    const val = vars[key];
+    if (val === undefined) return `{{${key}}}`;
+    return typeof val === 'number' ? String(val) : escapeHtml(String(val));
+  });
 }
 
 type Translations = Record<string, unknown>;
