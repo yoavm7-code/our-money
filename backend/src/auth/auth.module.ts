@@ -8,8 +8,7 @@ import { JwtStrategy } from './jwt.strategy';
 import { UsersModule } from '../users/users.module';
 import { CaptchaModule } from '../captcha/captcha.module';
 import { TwoFactorModule } from '../two-factor/two-factor.module';
-
-const DEFAULT_JWT_SECRET = 'dev-secret-change-in-production';
+import { DEFAULT_JWT_SECRET } from './constants';
 
 @Module({
   imports: [
@@ -31,5 +30,3 @@ const DEFAULT_JWT_SECRET = 'dev-secret-change-in-production';
   exports: [AuthService, JwtModule],
 })
 export class AuthModule {}
-
-export { DEFAULT_JWT_SECRET };

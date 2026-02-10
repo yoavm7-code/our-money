@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Delete, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { BudgetsService } from './budgets.service';
+import { UpsertBudgetDto } from './dto/upsert-budget.dto';
 
 @Controller('api/budgets')
 @UseGuards(AuthGuard('jwt'))
@@ -13,7 +14,7 @@ export class BudgetsController {
   }
 
   @Post()
-  async upsert(@Req() req: any, @Body() body: { categoryId: string; amount: number }) {
+  async upsert(@Req() req: any, @Body() body: UpsertBudgetDto) {
     return this.service.upsert(req.user.householdId, body);
   }
 
