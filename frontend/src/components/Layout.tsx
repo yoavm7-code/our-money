@@ -122,6 +122,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     users.me().then((u) => setUserInfo({ name: u.name, email: u.email, avatarUrl: (u as { avatarUrl?: string }).avatarUrl })).catch(() => {});
   }, [router]);
 
+  // Listen for avatar changes from settings page
+  useEffect(() => {
+    function onAvatarChanged(e: Event) {
+      const detail = (e as CustomEvent).detail as { avatarUrl: string | null };
+      setUserInfo((prev) => prev ? { ...prev, avatarUrl: detail.avatarUrl } : prev);
+    }
+    window.addEventListener('avatar-changed', onAvatarChanged);
+    return () => window.removeEventListener('avatar-changed', onAvatarChanged);
+  }, []);
+
   function logout() {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('accessToken');

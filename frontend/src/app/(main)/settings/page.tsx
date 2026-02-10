@@ -262,6 +262,7 @@ export default function SettingsPage() {
       const file = new File([blob], 'avatar.png', { type: 'image/png' });
       const result = await users.uploadAvatar(file);
       setUser((u) => u ? { ...u, avatarUrl: result.avatarUrl } : u);
+      window.dispatchEvent(new CustomEvent('avatar-changed', { detail: { avatarUrl: result.avatarUrl } }));
       setMsg(t('profile.avatarUpdated'));
     } catch (err) {
       setMsg(err instanceof Error ? err.message : t('common.failedToLoad'));
@@ -359,6 +360,7 @@ export default function SettingsPage() {
                   try {
                     await users.deleteAvatar();
                     setUser((u) => u ? { ...u, avatarUrl: null } : u);
+                    window.dispatchEvent(new CustomEvent('avatar-changed', { detail: { avatarUrl: null } }));
                   } catch {}
                 }}
               >

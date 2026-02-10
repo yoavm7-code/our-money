@@ -846,6 +846,7 @@
     "lastSeen": "Last seen",
     "confirm": "Confirm",
     "dismiss": "Dismiss",
+    "removePattern": "Remove pattern",
     "confirmed": "Confirmed",
     "detectedPatterns": "Detected Patterns",
     "confirmedPatterns": "Confirmed Patterns",

@@ -237,8 +237,8 @@ export default function RecurringPage() {
                 </span>
               </div>
 
-              {/* Action buttons (only for unconfirmed) */}
-              {!pattern.isConfirmed && (
+              {/* Action buttons */}
+              {!pattern.isConfirmed ? (
                 <div className="flex gap-2 pt-3 border-t border-[var(--border)]">
                   <button
                     type="button"
@@ -270,6 +270,20 @@ export default function RecurringPage() {
                       <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                     </svg>
                     {t('recurring.dismiss')}
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2 pt-3 border-t border-[var(--border)]">
+                  <button
+                    type="button"
+                    className="text-sm text-red-500 hover:text-red-700 transition-colors"
+                    onClick={() => handleDismiss(pattern.id)}
+                    disabled={actionLoading === pattern.id}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="inline -mt-0.5 me-1">
+                      <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                    {t('recurring.removePattern')}
                   </button>
                 </div>
               )}
