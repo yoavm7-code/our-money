@@ -70,6 +70,7 @@
     "insights": "Financial Insights",
     "budgets": "Budgets",
     "recurring": "Recurring",
+    "reports": "Reports",
     "settings": "Settings"
   },
   "login": {
@@ -830,6 +831,55 @@
     "totalBudgeted": "Total budgeted",
     "totalSpent": "Total spent",
     "categoriesOverBudget": "Categories over budget"
+  },
+  "search": {
+    "placeholder": "Search transactions, accounts, categories, pages...",
+    "hint": "Type at least 2 characters to search",
+    "noResults": "No results found",
+    "pages": "Pages",
+    "transactions": "Transactions",
+    "accounts": "Accounts",
+    "categories": "Categories",
+    "navigate": "Navigate",
+    "select": "Select",
+    "close": "Close"
+  },
+  "darkMode": {
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
+  },
+  "alerts": {
+    "title": "Alerts",
+    "noAlerts": "No new alerts",
+    "budgetExceeded": "Budget exceeded",
+    "budgetExceededDesc": "You exceeded the {{category}} budget – spent {{spent}} of {{budget}}",
+    "lowBalance": "Low balance",
+    "lowBalanceDesc": "The balance in {{account}} is low: {{balance}}",
+    "goalDeadline": "Goal deadline approaching",
+    "goalDeadlineDesc": "The goal \"{{goal}}\" ends in {{days}} days – reached {{progress}}%",
+    "unusualExpense": "Unusual expense",
+    "unusualExpenseDesc": "Expense of {{amount}} on \"{{description}}\" exceeds your average",
+    "recurringMissed": "Missing recurring charge",
+    "recurringMissedDesc": "The recurring charge \"{{description}}\" hasn't arrived this month",
+    "markRead": "Mark as read",
+    "clearAll": "Clear all"
+  },
+  "reports": {
+    "title": "Reports",
+    "subtitle": "Export monthly and yearly reports",
+    "exportPdf": "Export PDF",
+    "monthly": "Monthly",
+    "yearly": "Yearly",
+    "selectMonth": "Select month",
+    "selectYear": "Select year",
+    "generating": "Generating report...",
+    "downloadReady": "Report ready for download",
+    "income": "Income",
+    "expenses": "Expenses",
+    "balance": "Balance",
+    "categoryBreakdown": "Category breakdown",
+    "summary": "Summary"
   },
   "recurring": {
     "title": "Recurring Income & Expenses",

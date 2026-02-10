@@ -13,13 +13,11 @@
   --sidebar-active: #22c55e;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground: #f1f5f9;
-    --background: #0f172a;
-    --card: #1e293b;
-    --border: #334155;
-  }
+.dark {
+  --foreground: #f1f5f9;
+  --background: #0f172a;
+  --card: #1e293b;
+  --border: #334155;
 }
 
 html {

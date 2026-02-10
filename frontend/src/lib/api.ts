@@ -494,6 +494,21 @@ export const budgets = {
     ),
 };
 
+// Alerts
+export type AlertItem = {
+  id: string;
+  type: 'budget_exceeded' | 'low_balance' | 'goal_deadline' | 'unusual_expense' | 'recurring_missed';
+  severity: 'warning' | 'info' | 'critical';
+  title: string;
+  description: string;
+  data: Record<string, unknown>;
+  createdAt: string;
+};
+
+export const alerts = {
+  list: () => api<AlertItem[]>('/api/alerts'),
+};
+
 // Recurring patterns
 export type RecurringPatternItem = {
   id: string;

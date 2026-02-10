@@ -28,9 +28,11 @@ export class UsersController {
     @CurrentUser() user: { id: string },
     @Res() res: Response,
   ) {
-    const filePath = await this.usersService.getAvatarPath(user.id);
-    if (!filePath) throw new NotFoundException('No avatar');
-    res.sendFile(filePath);
+    const avatar = await this.usersService.getAvatarData(user.id);
+    if (!avatar) throw new NotFoundException('No avatar');
+    res.set('Content-Type', avatar.mime);
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.send(avatar.data);
   }
 
   @Post('me/avatar')

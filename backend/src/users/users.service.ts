@@ -1,7 +1,5 @@
 import { Injectable, ConflictException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
-import * as fs from 'fs';
-import * as path from 'path';
 import { PrismaService } from '../prisma/prisma.service';
 import { RegisterDto } from '../auth/dto/register.dto';
 
@@ -38,10 +36,18 @@ export class UsersService {
   async findById(id: string) {
     const u = await this.prisma.user.findUnique({
       where: { id },
-      select: { id: true, email: true, name: true, householdId: true, countryCode: true, avatarPath: true },
+      select: { id: true, email: true, name: true, householdId: true, countryCode: true, avatarData: true },
     });
     if (!u) return null;
-    return { ...u, avatarUrl: u.avatarPath ? `/uploads/avatars/${path.basename(u.avatarPath)}?v=${Date.now()}` : null };
+    const hasAvatar = !!u.avatarData;
+    return {
+      id: u.id,
+      email: u.email,
+      name: u.name,
+      householdId: u.householdId,
+      countryCode: u.countryCode,
+      avatarUrl: hasAvatar ? `/api/users/me/avatar?v=${Date.now()}` : null,
+    };
   }
 
   async getDashboardConfig(id: string) {
@@ -81,49 +87,47 @@ export class UsersService {
     const u = await this.prisma.user.update({
       where: { id },
       data,
-      select: { id: true, email: true, name: true, householdId: true, countryCode: true, avatarPath: true },
+      select: { id: true, email: true, name: true, householdId: true, countryCode: true, avatarData: true },
     });
-    return { ...u, avatarUrl: u.avatarPath ? `/uploads/avatars/${path.basename(u.avatarPath)}?v=${Date.now()}` : null };
+    return {
+      id: u.id,
+      email: u.email,
+      name: u.name,
+      householdId: u.householdId,
+      countryCode: u.countryCode,
+      avatarUrl: u.avatarData ? `/api/users/me/avatar?v=${Date.now()}` : null,
+    };
   }
 
   async uploadAvatar(userId: string, file: Express.Multer.File) {
-    const uploadDir = path.resolve(process.env.UPLOAD_DIR || './uploads', 'avatars');
-    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-    const ext = file.originalname.split('.').pop()?.toLowerCase() || 'jpg';
-    const fileName = `${userId}.${ext}`;
-    const filePath = path.join(uploadDir, fileName);
-    // Remove old avatar if different extension
-    const existing = await this.prisma.user.findUnique({ where: { id: userId }, select: { avatarPath: true } });
-    if (existing?.avatarPath && existing.avatarPath !== filePath) {
-      try { fs.unlinkSync(existing.avatarPath); } catch { /* ignore if file missing */ }
-    }
-    try {
-      fs.writeFileSync(filePath, file.buffer);
-    } catch (err) {
-      throw new Error(`Failed to save avatar: ${(err as Error).message}`);
-    }
+    const base64 = file.buffer.toString('base64');
     await this.prisma.user.update({
       where: { id: userId },
-      data: { avatarPath: filePath },
+      data: {
+        avatarData: base64,
+        avatarMime: file.mimetype,
+      },
     });
-    return { avatarUrl: `/uploads/avatars/${fileName}?v=${Date.now()}` };
+    return { avatarUrl: `/api/users/me/avatar?v=${Date.now()}` };
   }
 
   async deleteAvatar(userId: string) {
-    const u = await this.prisma.user.findUnique({ where: { id: userId }, select: { avatarPath: true } });
-    if (u?.avatarPath) {
-      try { fs.unlinkSync(u.avatarPath); } catch { /* ignore if file missing */ }
-    }
     await this.prisma.user.update({
       where: { id: userId },
-      data: { avatarPath: null },
+      data: { avatarData: null, avatarMime: null },
     });
     return { avatarUrl: null };
   }
 
-  async getAvatarPath(userId: string): Promise<string | null> {
-    const u = await this.prisma.user.findUnique({ where: { id: userId }, select: { avatarPath: true } });
-    if (!u?.avatarPath || !fs.existsSync(u.avatarPath)) return null;
-    return u.avatarPath;
+  async getAvatarData(userId: string): Promise<{ data: Buffer; mime: string } | null> {
+    const u = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { avatarData: true, avatarMime: true },
+    });
+    if (!u?.avatarData) return null;
+    return {
+      data: Buffer.from(u.avatarData, 'base64'),
+      mime: u.avatarMime || 'image/png',
+    };
   }
 }

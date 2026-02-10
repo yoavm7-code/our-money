@@ -38,6 +38,14 @@ export class DashboardController {
     return this.dashboardService.getRecentTransactions(householdId);
   }
 
+  @Get('search')
+  search(
+    @HouseholdId() householdId: string,
+    @Query('q') q?: string,
+  ) {
+    return this.dashboardService.search(householdId, q ?? '');
+  }
+
   @Get('fixed-expenses')
   getFixedExpenses(@HouseholdId() householdId: string) {
     return this.dashboardService.getFixedExpenses(householdId);
@@ -46,5 +54,13 @@ export class DashboardController {
   @Get('fixed-income')
   getFixedIncome(@HouseholdId() householdId: string) {
     return this.dashboardService.getFixedIncome(householdId);
+  }
+
+  @Get('report')
+  getReport(
+    @HouseholdId() householdId: string,
+    @Query('month') month?: string,
+  ) {
+    return this.dashboardService.getReport(householdId, month);
   }
 }

@@ -18,6 +18,7 @@ import { ForexModule } from './forex/forex.module';
 import { GoalsModule } from './goals/goals.module';
 import { RecurringModule } from './recurring/recurring.module';
 import { BudgetsModule } from './budgets/budgets.module';
+import { AlertsModule } from './alerts/alerts.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { BudgetsModule } from './budgets/budgets.module';
     GoalsModule,
     RecurringModule,
     BudgetsModule,
+    AlertsModule,
   ],
   providers: [],
 })

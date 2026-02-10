@@ -2,7 +2,6 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
-import * as path from 'path';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -14,10 +13,6 @@ async function bootstrap() {
     crossOriginEmbedderPolicy: false,
     crossOriginResourcePolicy: { policy: 'cross-origin' },
   }));
-
-  // Serve only avatar uploads as static assets (not full uploads dir)
-  const uploadDir = path.resolve(process.env.UPLOAD_DIR || './uploads');
-  app.useStaticAssets(path.join(uploadDir, 'avatars'), { prefix: '/uploads/avatars/' });
 
   app.useGlobalPipes(
     new ValidationPipe({
