@@ -441,6 +441,7 @@ export const dashboard = {
       fixedIncomeSum?: number;
       period: { from: string; to: string };
       accounts: Array<{ id: string; name: string; type: string; balance: string }>;
+      currentAccountBalances: Array<{ id: string; name: string; balance: number }>;
       spendingByCategory: Array<{ categoryId: string; category: { name: string; slug?: string; color: string | null }; total: number }>;
       incomeByCategory: Array<{ categoryId: string; category: { name: string; slug?: string; color: string | null }; total: number }>;
       transactionCount: number;
