@@ -69,6 +69,7 @@ type RecentTxData = Awaited<ReturnType<typeof dashboard.recentTransactions>>;
 /* ─── Stat card background class helper ─── */
 function getStatCardClass(metric?: string): string {
   switch (metric) {
+    case 'currentBalance': return 'stat-card-blue';
     case 'totalBalance': return 'stat-card-blue';
     case 'income': case 'fixedIncomeSum': return 'stat-card-green';
     case 'expenses': case 'fixedExpensesSum': return 'stat-card-red';
@@ -158,6 +159,9 @@ export default function DashboardPage() {
   const [budgetsList, setBudgetsList] = useState<BudgetItem[]>([]);
   // Recurring for widget
   const [recurringList, setRecurringList] = useState<RecurringPatternItem[]>([]);
+
+  // Per-widget account filter for balance widgets
+  const [balanceAccountFilter, setBalanceAccountFilter] = useState<Record<string, string>>({});
 
   // Stat card detail modal
   type DetailTx = { id: string; date: string; description: string; amount: number; category?: { name?: string; slug?: string } | null; account?: { name?: string; type?: string } | null };
@@ -374,7 +378,22 @@ export default function DashboardPage() {
     switch (w.type) {
       case 'stat': {
         const metric = w.metric ?? 'totalBalance';
-        const value = getMetricValue(metric);
+        const isBalanceMetric = metric === 'totalBalance' || metric === 'currentBalance';
+        // For balance metrics, allow per-widget account filtering
+        const selectedAcctId = isBalanceMetric ? balanceAccountFilter[w.id] || '' : '';
+        // Period balance uses accounts (filtered to toDate), current balance uses currentAccountBalances (today)
+        const bankAccounts = metric === 'currentBalance'
+          ? (summary?.currentAccountBalances ?? [])
+          : (summary?.accounts?.filter((a) => a.type === 'BANK') ?? []);
+
+        let value: number;
+        if (isBalanceMetric && selectedAcctId) {
+          const acct = bankAccounts.find((a) => a.id === selectedAcctId);
+          value = acct ? Number(acct.balance ?? 0) : 0;
+        } else {
+          value = getMetricValue(metric);
+        }
+
         const label = w.title || getMetricLabel(metric);
         const isCurrency = metric !== 'transactionCount';
         const colorClass =
@@ -384,17 +403,22 @@ export default function DashboardPage() {
           : metric === 'currentBalance' ? 'text-sky-700 dark:text-sky-400'
           : metric === 'totalBalance' ? 'text-blue-700 dark:text-blue-400'
           : 'text-amber-700 dark:text-amber-400';
-        const isClickable = ['income', 'expenses', 'totalBalance', 'netSavings', 'transactionCount', 'fixedExpensesSum', 'fixedIncomeSum', 'creditCardCharges'].includes(metric);
+        const isClickable = !isBalanceMetric && ['income', 'expenses', 'netSavings', 'transactionCount', 'fixedExpensesSum', 'fixedIncomeSum', 'creditCardCharges'].includes(metric);
         const isUp = metric === 'income' || metric === 'fixedIncomeSum' || metric === 'totalBalance' || metric === 'currentBalance' || (metric === 'netSavings' && value >= 0);
         const trendColor = isUp ? 'text-green-600' : 'text-red-600';
-        const subtitle = metric === 'currentBalance' ? t('dashboard.currentBalanceHint') : metric === 'totalBalance' ? t('dashboard.filteredBalanceHint') : null;
+
+        // Subtitle: show "as of" date for period balance, "not affected" for current
+        const asOfDate = metric === 'totalBalance' && to
+          ? new Date(to).toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-IL', { day: 'numeric', month: 'short', year: 'numeric' })
+          : null;
+        const subtitle = metric === 'currentBalance'
+          ? t('dashboard.currentBalanceHint')
+          : metric === 'totalBalance' && asOfDate
+            ? `${t('dashboard.filteredBalanceHint')} (${asOfDate})`
+            : null;
+
         return (
-          <button
-            type="button"
-            className={`pt-1 w-full text-start ${isClickable ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
-            onClick={isClickable && !editMode ? () => openStatDetail(metric) : undefined}
-            title={isClickable ? t('dashboard.clickToShowDetails') : undefined}
-          >
+          <div className="pt-1 w-full text-start">
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium text-slate-600 dark:text-slate-400">{label}</p>
               <span className={`${trendColor}`}>
@@ -405,13 +429,39 @@ export default function DashboardPage() {
                 )}
               </span>
             </div>
-            <p className={`text-2xl font-bold mt-2 ${colorClass}`}>
-              {isCurrency ? formatCurrency(value, locale) : value.toLocaleString()}
-            </p>
+            {isClickable ? (
+              <button
+                type="button"
+                className="cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={!editMode ? () => openStatDetail(metric) : undefined}
+                title={t('dashboard.clickToShowDetails')}
+              >
+                <p className={`text-2xl font-bold mt-2 ${colorClass}`}>
+                  {isCurrency ? formatCurrency(value, locale) : value.toLocaleString()}
+                </p>
+              </button>
+            ) : (
+              <p className={`text-2xl font-bold mt-2 ${colorClass}`}>
+                {isCurrency ? formatCurrency(value, locale) : value.toLocaleString()}
+              </p>
+            )}
             {subtitle && (
               <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1 leading-tight">{subtitle}</p>
             )}
-          </button>
+            {isBalanceMetric && bankAccounts.length > 1 && !editMode && (
+              <select
+                className="mt-2 text-xs bg-transparent border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-600 dark:text-slate-400 w-full cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary-500"
+                value={selectedAcctId}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => setBalanceAccountFilter((prev) => ({ ...prev, [w.id]: e.target.value }))}
+              >
+                <option value="">{t('dashboard.allBankAccounts')}</option>
+                {bankAccounts.map((a) => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
+            )}
+          </div>
         );
       }
 

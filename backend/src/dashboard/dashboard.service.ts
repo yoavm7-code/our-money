@@ -97,38 +97,26 @@ export class DashboardService {
       .reduce((sum, a) => sum + Number(a.balance), 0);
 
     // Current balance: always as of today, ignoring all filters
-    let currentBalance = totalBalance;
     const now = new Date();
-    const isFilteredByDate = fromDate.getTime() !== startOfMonth(now).getTime() || toDate.toDateString() !== now.toDateString();
-    const isFilteredByAccount = !!accountId;
-    if (isFilteredByDate || isFilteredByAccount) {
-      // Recalculate balance for ALL BANK accounts as of today
-      const allBankAccounts = isFilteredByAccount
-        ? await this.prisma.account.findMany({
-            where: { householdId, isActive: true, type: 'BANK' },
-            select: { id: true, balance: true, balanceDate: true },
-          })
-        : accountsRaw.filter((a) => a.type === 'BANK');
-
-      let currentBal = 0;
-      for (const acct of allBankAccounts) {
-        const initial = Number(acct.balance ?? 0);
-        if (acct.balanceDate) {
-          const bDate = new Date(acct.balanceDate);
-          const s = await this.prisma.transaction.aggregate({
-            where: { accountId: acct.id, date: { gt: bDate, lte: now } },
-            _sum: { amount: true },
-          });
-          currentBal += initial + Number(s._sum.amount ?? 0);
-        } else {
-          const s = await this.prisma.transaction.aggregate({
-            where: { accountId: acct.id, date: { lte: now } },
-            _sum: { amount: true },
-          });
-          currentBal += initial + Number(s._sum.amount ?? 0);
-        }
-      }
-      currentBalance = currentBal;
+    // Always compute current balances per BANK account (for account selector in widget)
+    const allBankAccounts = await this.prisma.account.findMany({
+      where: { householdId, isActive: true, type: 'BANK' },
+      select: { id: true, name: true, balance: true, balanceDate: true },
+    });
+    const currentAccountBalances: Array<{ id: string; name: string; balance: number }> = [];
+    let currentBalance = 0;
+    for (const acct of allBankAccounts) {
+      const initial = Number(acct.balance ?? 0);
+      const dateFilter = acct.balanceDate
+        ? { gt: new Date(acct.balanceDate), lte: now }
+        : { lte: now };
+      const s = await this.prisma.transaction.aggregate({
+        where: { accountId: acct.id, date: dateFilter },
+        _sum: { amount: true },
+      });
+      const bal = initial + Number(s._sum.amount ?? 0);
+      currentAccountBalances.push({ id: acct.id, name: acct.name, balance: bal });
+      currentBalance += bal;
     }
     const income = transactions
       .filter((t) => Number(t.amount) > 0)
@@ -230,6 +218,7 @@ export class DashboardService {
       fixedIncomeSum,
       period: { from: fromDate.toISOString().slice(0, 10), to: toDate.toISOString().slice(0, 10) },
       accounts,
+      currentAccountBalances,
       spendingByCategory,
       incomeByCategory,
       transactionCount: transactions.length,
