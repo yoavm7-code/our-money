@@ -382,14 +382,28 @@ export class DashboardService {
     };
   }
 
-  async getReport(householdId: string, month?: string) {
-    const now = new Date();
-    const targetMonth = month || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const [yearStr, monthStr] = targetMonth.split('-');
-    const year = parseInt(yearStr, 10);
-    const mon = parseInt(monthStr, 10) - 1;
-    const from = new Date(year, mon, 1);
-    const to = new Date(year, mon + 1, 0, 23, 59, 59);
+  async getReport(householdId: string, month?: string, fromParam?: string, toParam?: string) {
+    let from: Date;
+    let to: Date;
+    let label: string;
+
+    if (fromParam && toParam) {
+      // Custom date range
+      from = new Date(fromParam);
+      to = new Date(toParam);
+      to.setHours(23, 59, 59);
+      label = `${fromParam} - ${toParam}`;
+    } else {
+      // Month-based
+      const now = new Date();
+      const targetMonth = month || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const [yearStr, monthStr] = targetMonth.split('-');
+      const year = parseInt(yearStr, 10);
+      const mon = parseInt(monthStr, 10) - 1;
+      from = new Date(year, mon, 1);
+      to = new Date(year, mon + 1, 0, 23, 59, 59);
+      label = targetMonth;
+    }
 
     const excludedIds = await this.prisma.category
       .findMany({ where: { householdId, excludeFromExpenseTotal: true }, select: { id: true } })
@@ -427,7 +441,7 @@ export class DashboardService {
       }));
 
     return {
-      month: targetMonth,
+      month: label,
       income: Math.round(income),
       expenses: Math.round(expenses),
       balance: Math.round(income - expenses),

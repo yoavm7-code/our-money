@@ -60,7 +60,9 @@ export class DashboardController {
   getReport(
     @HouseholdId() householdId: string,
     @Query('month') month?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
   ) {
-    return this.dashboardService.getReport(householdId, month);
+    return this.dashboardService.getReport(householdId, month, from, to);
   }
 }
