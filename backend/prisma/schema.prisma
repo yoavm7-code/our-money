@@ -43,7 +43,9 @@ model User {
   passwordHash     String   @map("password_hash")
   name             String?
   countryCode      String?  @map("country_code") // ISO 3166-1 alpha-2 (e.g. IL, US)
-  avatarPath       String?  @map("avatar_path")  // path to uploaded avatar image
+  avatarPath       String?  @map("avatar_path")  // path to uploaded avatar image (legacy)
+  avatarData       String?  @map("avatar_data") @db.Text  // base64-encoded avatar image
+  avatarMime       String?  @map("avatar_mime")  // MIME type e.g. image/png
   twoFactorSecret  String?  @map("two_factor_secret") // TOTP secret
   twoFactorEnabled Boolean  @default(false) @map("two_factor_enabled")
   dashboardConfig  Json?    @map("dashboard_config") // widget layout, colors, order

@@ -70,6 +70,7 @@
     "insights": "תובנות פיננסיות",
     "budgets": "תקציבים",
     "recurring": "קבועים",
+    "reports": "דו\"חות",
     "settings": "הגדרות"
   },
   "login": {
@@ -830,6 +831,55 @@
     "totalBudgeted": "סה\"כ תוקצב",
     "totalSpent": "סה\"כ הוצא",
     "categoriesOverBudget": "קטגוריות בחריגה"
+  },
+  "search": {
+    "placeholder": "חפש תנועות, חשבונות, קטגוריות, עמודים...",
+    "hint": "הקלד לפחות 2 תווים כדי לחפש",
+    "noResults": "לא נמצאו תוצאות",
+    "pages": "עמודים",
+    "transactions": "תנועות",
+    "accounts": "חשבונות",
+    "categories": "קטגוריות",
+    "navigate": "ניווט",
+    "select": "בחירה",
+    "close": "סגירה"
+  },
+  "darkMode": {
+    "light": "בהיר",
+    "dark": "כהה",
+    "system": "מערכת"
+  },
+  "alerts": {
+    "title": "התראות",
+    "noAlerts": "אין התראות חדשות",
+    "budgetExceeded": "חריגה מתקציב",
+    "budgetExceededDesc": "חרגת מתקציב הקטגוריה {{category}} – הוצאת {{spent}} מתוך {{budget}}",
+    "lowBalance": "יתרה נמוכה",
+    "lowBalanceDesc": "היתרה בחשבון {{account}} נמוכה: {{balance}}",
+    "goalDeadline": "יעד מתקרב",
+    "goalDeadlineDesc": "היעד \"{{goal}}\" מסתיים בעוד {{days}} ימים – הגעת ל-{{progress}}%",
+    "unusualExpense": "הוצאה חריגה",
+    "unusualExpenseDesc": "הוצאה של {{amount}} ב-\"{{description}}\" חורגת מהממוצע שלך",
+    "recurringMissed": "חיוב קבוע חסר",
+    "recurringMissedDesc": "החיוב הקבוע \"{{description}}\" לא הגיע החודש",
+    "markRead": "סמן כנקרא",
+    "clearAll": "נקה הכל"
+  },
+  "reports": {
+    "title": "דו\"חות",
+    "subtitle": "ייצא דו\"חות חודשיים ושנתיים",
+    "exportPdf": "ייצוא PDF",
+    "monthly": "חודשי",
+    "yearly": "שנתי",
+    "selectMonth": "בחר חודש",
+    "selectYear": "בחר שנה",
+    "generating": "מייצר דו\"ח...",
+    "downloadReady": "הדו\"ח מוכן להורדה",
+    "income": "הכנסות",
+    "expenses": "הוצאות",
+    "balance": "יתרה",
+    "categoryBreakdown": "פירוט לפי קטגוריה",
+    "summary": "סיכום"
   },
   "recurring": {
     "title": "הוצאות והכנסות קבועות",

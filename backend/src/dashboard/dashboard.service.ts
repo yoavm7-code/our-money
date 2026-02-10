@@ -313,6 +313,135 @@ export class DashboardService {
     }));
   }
 
+  async search(householdId: string, query: string) {
+    const trimmed = (query ?? '').trim();
+    const empty = { transactions: [], accounts: [], categories: [] };
+    if (trimmed.length < 2) return empty;
+
+    const [transactions, accounts, categories] = await Promise.all([
+      this.prisma.transaction.findMany({
+        where: {
+          householdId,
+          description: { contains: trimmed, mode: 'insensitive' },
+        },
+        take: 5,
+        orderBy: { date: 'desc' },
+        select: {
+          id: true,
+          date: true,
+          description: true,
+          amount: true,
+          category: { select: { name: true } },
+        },
+      }),
+      this.prisma.account.findMany({
+        where: {
+          householdId,
+          name: { contains: trimmed, mode: 'insensitive' },
+        },
+        take: 5,
+        orderBy: { name: 'asc' },
+        select: {
+          id: true,
+          name: true,
+          type: true,
+          balance: true,
+        },
+      }),
+      this.prisma.category.findMany({
+        where: {
+          householdId,
+          name: { contains: trimmed, mode: 'insensitive' },
+        },
+        take: 5,
+        orderBy: { name: 'asc' },
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          isIncome: true,
+        },
+      }),
+    ]);
+
+    return {
+      transactions: transactions.map((t) => ({
+        id: t.id,
+        date: t.date instanceof Date ? t.date.toISOString().slice(0, 10) : String(t.date).slice(0, 10),
+        description: t.description,
+        amount: Number(t.amount),
+        categoryName: t.category?.name ?? null,
+      })),
+      accounts: accounts.map((a) => ({
+        id: a.id,
+        name: a.name,
+        type: a.type,
+        balance: Number(a.balance),
+      })),
+      categories,
+    };
+  }
+
+  async getReport(householdId: string, month?: string) {
+    const now = new Date();
+    const targetMonth = month || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const [yearStr, monthStr] = targetMonth.split('-');
+    const year = parseInt(yearStr, 10);
+    const mon = parseInt(monthStr, 10) - 1;
+    const from = new Date(year, mon, 1);
+    const to = new Date(year, mon + 1, 0, 23, 59, 59);
+
+    const excludedIds = await this.prisma.category
+      .findMany({ where: { householdId, excludeFromExpenseTotal: true }, select: { id: true } })
+      .then((rows) => new Set(rows.map((r) => r.id)));
+
+    const transactions = await this.prisma.transaction.findMany({
+      where: { householdId, date: { gte: from, lte: to } },
+      include: { category: { select: { name: true, slug: true } }, account: { select: { name: true } } },
+      orderBy: { date: 'asc' },
+    });
+
+    const income = transactions
+      .filter((t) => Number(t.amount) > 0)
+      .reduce((s, t) => s + Number(t.amount), 0);
+    const expenses = transactions
+      .filter((t) => Number(t.amount) < 0 && !excludedIds.has(t.categoryId || ''))
+      .reduce((s, t) => s + Math.abs(Number(t.amount)), 0);
+
+    // Category breakdown
+    const catTotals = new Map<string, { name: string; amount: number }>();
+    for (const t of transactions) {
+      if (Number(t.amount) >= 0) continue;
+      if (excludedIds.has(t.categoryId || '')) continue;
+      const catName = t.category?.name || 'Other';
+      const existing = catTotals.get(catName) || { name: catName, amount: 0 };
+      existing.amount += Math.abs(Number(t.amount));
+      catTotals.set(catName, existing);
+    }
+    const categories = [...catTotals.values()]
+      .sort((a, b) => b.amount - a.amount)
+      .map((c) => ({
+        name: c.name,
+        amount: Math.round(c.amount),
+        percent: expenses > 0 ? Math.round((c.amount / expenses) * 100) : 0,
+      }));
+
+    return {
+      month: targetMonth,
+      income: Math.round(income),
+      expenses: Math.round(expenses),
+      balance: Math.round(income - expenses),
+      categories,
+      transactions: transactions.map((t) => ({
+        date: t.date instanceof Date ? t.date.toISOString().slice(0, 10) : String(t.date).slice(0, 10),
+        description: t.description,
+        amount: Number(t.amount),
+        category: t.category?.name || '',
+        account: t.account?.name || '',
+      })),
+    };
+  }
+
   async getFixedIncome(householdId: string): Promise<FixedItem[]> {
     const rows = await this.prisma.transaction.findMany({
       where: { householdId, isRecurring: true, amount: { gt: 0 } },

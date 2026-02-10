@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 import './globals.css';
 import LanguageProvider from '@/components/LanguageProvider';
 import { ToastProvider } from '@/components/Toast';
+import { ThemeProvider } from '@/components/ThemeProvider';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-geist-sans' });
 
@@ -19,9 +20,11 @@ export default function RootLayout({
   return (
     <html lang="he" dir="rtl" className={inter.variable} suppressHydrationWarning>
       <body className="min-h-screen bg-[var(--background)] font-sans antialiased">
-        <LanguageProvider>
-          <ToastProvider>{children}</ToastProvider>
-        </LanguageProvider>
+        <ThemeProvider>
+          <LanguageProvider>
+            <ToastProvider>{children}</ToastProvider>
+          </LanguageProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
