@@ -17,7 +17,7 @@ const ACCOUNT_TYPE_KEYS: Record<string, string> = {
   CASH: 'settings.cash',
 };
 
-const BALANCE_TYPES = ['BANK', 'CREDIT_CARD', 'INVESTMENT', 'PENSION', 'INSURANCE', 'CASH'];
+const BALANCE_TYPES = ['BANK', 'INVESTMENT', 'PENSION', 'INSURANCE', 'CASH'];
 
 export default function SettingsPage() {
   const { t } = useTranslation();
@@ -646,7 +646,7 @@ export default function SettingsPage() {
               <span>{a.name} <span className="text-slate-500 text-sm">({t(ACCOUNT_TYPE_KEYS[a.type] ?? a.type)})</span></span>
               <span className="flex items-center gap-2">
                 <span className="font-medium">
-                  {a.balance != null ? Number(a.balance).toLocaleString('he-IL') + ' ILS' : '–'}
+                  {a.type !== 'CREDIT_CARD' && a.balance != null ? Number(a.balance).toLocaleString('he-IL') + ' ILS' : '–'}
                 </span>
                 <button
                   type="button"

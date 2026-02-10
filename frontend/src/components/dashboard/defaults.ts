@@ -4,11 +4,13 @@ export const DEFAULT_WIDGETS: WidgetConfig[] = [
   { id: 'w-balance', type: 'stat', metric: 'totalBalance', color: '#3b82f6', size: 'sm' },
   { id: 'w-income', type: 'stat', metric: 'income', color: '#22c55e', size: 'sm' },
   { id: 'w-expenses', type: 'stat', metric: 'expenses', color: '#ef4444', size: 'sm' },
+  { id: 'w-cc-charges', type: 'stat', metric: 'creditCardCharges', color: '#f97316', size: 'sm' },
   { id: 'w-fixed-exp', type: 'fixed-list', variant: 'expenses', size: 'md' },
   { id: 'w-fixed-inc', type: 'fixed-list', variant: 'income', size: 'md' },
   { id: 'w-trends', type: 'bar-chart', size: 'lg' },
   { id: 'w-spend-pie', type: 'pie-chart', variant: 'spending', size: 'md' },
   { id: 'w-inc-pie', type: 'pie-chart', variant: 'income', size: 'md' },
+  { id: 'w-goals', type: 'goals', size: 'lg' },
   { id: 'w-recent', type: 'recent-tx', size: 'lg' },
 ];
 
@@ -16,6 +18,7 @@ export const STAT_METRICS = [
   'totalBalance',
   'income',
   'expenses',
+  'creditCardCharges',
   'netSavings',
   'transactionCount',
   'fixedExpensesSum',
@@ -28,6 +31,7 @@ export const METRIC_DEFAULTS: Record<StatMetric, { color: string }> = {
   totalBalance: { color: '#3b82f6' },
   income: { color: '#22c55e' },
   expenses: { color: '#ef4444' },
+  creditCardCharges: { color: '#f97316' },
   netSavings: { color: '#8b5cf6' },
   transactionCount: { color: '#f59e0b' },
   fixedExpensesSum: { color: '#ec4899' },
@@ -41,6 +45,7 @@ export const WIDGET_TYPES = [
   { type: 'fixed-list' as const, labelKey: 'dashboard.widgetFixedList' },
   { type: 'recent-tx' as const, labelKey: 'dashboard.widgetRecentTx' },
   { type: 'forex-accounts' as const, labelKey: 'dashboard.widgetForexAccounts' },
+  { type: 'goals' as const, labelKey: 'dashboard.widgetGoals' },
 ];
 
 export const ACCENT_COLORS = [

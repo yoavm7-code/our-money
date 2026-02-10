@@ -1,12 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { dashboard, accounts, categories, users, transactions as txApi, forex, type FixedItem, type WidgetConfig, type ForexAccountItem } from '@/lib/api';
+import { dashboard, accounts, categories, users, transactions as txApi, forex, goals as goalsApi, type FixedItem, type WidgetConfig, type ForexAccountItem, type GoalItem } from '@/lib/api';
 import { useTranslation } from '@/i18n/context';
 import DateRangePicker from '@/components/DateRangePicker';
 import SmartTip from '@/components/SmartTip';
 import WidgetSettings from '@/components/dashboard/WidgetSettings';
 import { DEFAULT_WIDGETS } from '@/components/dashboard/defaults';
+import { getQuickRangeDates } from '@/components/DateRangePicker';
 import {
   DndContext,
   closestCenter,
@@ -71,6 +72,7 @@ function getStatCardClass(metric?: string): string {
     case 'totalBalance': return 'stat-card-blue';
     case 'income': case 'fixedIncomeSum': return 'stat-card-green';
     case 'expenses': case 'fixedExpensesSum': return 'stat-card-red';
+    case 'creditCardCharges': return 'stat-card-pink';
     case 'netSavings': return 'stat-card-purple';
     case 'transactionCount': return 'stat-card-amber';
     default: return '';
@@ -150,6 +152,9 @@ export default function DashboardPage() {
   const [forexAccounts, setForexAccounts] = useState<ForexAccountItem[]>([]);
   const [forexRates, setForexRates] = useState<Record<string, number>>({});
 
+  // Goals for widget
+  const [goalsList, setGoalsList] = useState<GoalItem[]>([]);
+
   // Stat card detail modal
   type DetailTx = { id: string; date: string; description: string; amount: number; category?: { name?: string; slug?: string } | null; account?: { name?: string; type?: string } | null };
   const [detailMetric, setDetailMetric] = useState<string | null>(null);
@@ -193,12 +198,11 @@ export default function DashboardPage() {
     }, 1000);
   }, []);
 
-  // Data loading
+  // Data loading - default to "All Time"
   useEffect(() => {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth() - 2, 1);
-    setFrom(start.toISOString().slice(0, 10));
-    setTo(now.toISOString().slice(0, 10));
+    const { from: f, to: t2 } = getQuickRangeDates('allTime');
+    setFrom(f);
+    setTo(t2);
   }, []);
 
   useEffect(() => {
@@ -208,6 +212,8 @@ export default function DashboardPage() {
     // Load forex accounts for dashboard widget
     forex.accounts.list().then(setForexAccounts).catch(() => {});
     forex.rates('ILS').then((d) => setForexRates(d.rates)).catch(() => {});
+    // Load goals for dashboard widget
+    goalsApi.list().then(setGoalsList).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -270,6 +276,7 @@ export default function DashboardPage() {
       case 'totalBalance': return summary.totalBalance;
       case 'income': return summary.income;
       case 'expenses': return summary.expenses;
+      case 'creditCardCharges': return summary.creditCardCharges ?? 0;
       case 'netSavings': return summary.income - summary.expenses;
       case 'transactionCount': return summary.transactionCount;
       case 'fixedExpensesSum': return summary.fixedExpensesSum ?? 0;
@@ -363,11 +370,11 @@ export default function DashboardPage() {
         const isCurrency = metric !== 'transactionCount';
         const colorClass =
           metric === 'income' || metric === 'fixedIncomeSum' ? 'text-green-700 dark:text-green-400'
-          : metric === 'expenses' || metric === 'fixedExpensesSum' ? 'text-red-700 dark:text-red-400'
+          : metric === 'expenses' || metric === 'fixedExpensesSum' || metric === 'creditCardCharges' ? 'text-red-700 dark:text-red-400'
           : metric === 'netSavings' ? (value >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400')
           : metric === 'totalBalance' ? 'text-blue-700 dark:text-blue-400'
           : 'text-amber-700 dark:text-amber-400';
-        const isClickable = ['income', 'expenses', 'totalBalance', 'netSavings', 'transactionCount', 'fixedExpensesSum', 'fixedIncomeSum'].includes(metric);
+        const isClickable = ['income', 'expenses', 'totalBalance', 'netSavings', 'transactionCount', 'fixedExpensesSum', 'fixedIncomeSum', 'creditCardCharges'].includes(metric);
         const isUp = metric === 'income' || metric === 'fixedIncomeSum' || metric === 'totalBalance' || (metric === 'netSavings' && value >= 0);
         const trendColor = isUp ? 'text-green-600' : 'text-red-600';
         return (
@@ -587,6 +594,65 @@ export default function DashboardPage() {
               </>
             ) : (
               <p className="text-slate-500 text-sm py-4 text-center">{t('forex.noAccounts')}</p>
+            )}
+          </>
+        );
+      }
+
+      case 'goals': {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const activeGoals = goalsList.filter((g) => {
+          if (!g.targetDate) return true;
+          return new Date(g.targetDate) >= today;
+        });
+        return (
+          <>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-semibold">{w.title || t('dashboard.goalsWidget')}</h2>
+              <a href="/goals" className="text-sm text-primary-600 dark:text-primary-400 hover:underline">
+                {t('dashboard.viewAll')}
+              </a>
+            </div>
+            {activeGoals.length > 0 ? (
+              <div className="space-y-3">
+                {activeGoals.slice(0, 5).map((g) => {
+                  const pct = Math.min(100, Math.round(g.progress));
+                  const remaining = g.remainingAmount;
+                  const monthsLeft = g.monthsRemaining;
+                  return (
+                    <div key={g.id} className="py-2 border-b border-[var(--border)] last:border-0">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-sm font-medium flex items-center gap-1.5">
+                          {g.icon && <span>{g.icon}</span>}
+                          {g.name}
+                        </span>
+                        <span className="text-xs text-slate-500">{pct}%</span>
+                      </div>
+                      <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden mb-1.5">
+                        <div
+                          className="h-full rounded-full transition-all duration-500"
+                          style={{ width: `${pct}%`, backgroundColor: g.color || '#22c55e' }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-slate-500">
+                        <span>{t('goals.remaining')}: {formatCurrency(remaining, locale)}</span>
+                        {monthsLeft != null && monthsLeft > 0 && (
+                          <span>{monthsLeft} {t('goals.monthsLeft')}</span>
+                        )}
+                        {monthsLeft != null && monthsLeft <= 0 && pct < 100 && (
+                          <span className="text-amber-600">{t('goals.behind')}</span>
+                        )}
+                        {pct >= 100 && (
+                          <span className="text-green-600 font-medium">{t('goals.reached')}</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-slate-500 text-sm py-4 text-center">{t('goals.noGoals')}</p>
             )}
           </>
         );

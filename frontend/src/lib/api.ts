@@ -94,7 +94,7 @@ export const twoFactor = {
 
 export type WidgetConfig = {
   id: string;
-  type: 'stat' | 'bar-chart' | 'pie-chart' | 'fixed-list' | 'recent-tx' | 'forex-accounts';
+  type: 'stat' | 'bar-chart' | 'pie-chart' | 'fixed-list' | 'recent-tx' | 'forex-accounts' | 'goals';
   metric?: string;
   variant?: string;
   title?: string;
@@ -433,6 +433,7 @@ export const dashboard = {
       totalBalance: number;
       income: number;
       expenses: number;
+      creditCardCharges?: number;
       fixedExpensesSum?: number;
       fixedIncomeSum?: number;
       period: { from: string; to: string };

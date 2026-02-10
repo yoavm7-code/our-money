@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from '@/i18n/context';
 
 type QuickRange =
+  | 'allTime'
   | 'today'
   | 'yesterday'
   | 'last7'
@@ -29,6 +30,8 @@ export function getQuickRangeDates(range: QuickRange | 'yearRange', yearFrom?: n
   }
 
   switch (range) {
+    case 'allTime':
+      return { from: '2000-01-01', to: today };
     case 'today':
       return { from: today, to: today };
     case 'yesterday': {
@@ -86,7 +89,7 @@ type Props = {
 };
 
 // Quick range groups for better organization
-const QUICK_RANGES_RECENT: QuickRange[] = ['today', 'yesterday', 'last7', 'last30'];
+const QUICK_RANGES_RECENT: QuickRange[] = ['allTime', 'today', 'yesterday', 'last7', 'last30'];
 const QUICK_RANGES_MONTHS: QuickRange[] = ['thisMonth', 'lastMonth', 'last3Months'];
 const QUICK_RANGES_YEARS: QuickRange[] = ['thisYear', 'lastYear', 'last2Years'];
 

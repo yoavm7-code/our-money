@@ -46,6 +46,7 @@
     "yearFrom": "מ־שנה",
     "yearTo": "עד שנה",
     "apply": "החל",
+    "allTime": "כל הזמנים",
     "quickSelect": "בחירה מהירה",
     "recent": "ימים אחרונים",
     "months": "חודשים",
@@ -404,9 +405,13 @@
     "metric_expenses": "הוצאות (תקופה)",
     "metric_netSavings": "חיסכון נטו",
     "metric_transactionCount": "מספר תנועות",
+    "metric_creditCardCharges": "חיובי אשראי",
     "metric_fixedExpensesSum": "סכום הוצאות קבועות",
     "metric_fixedIncomeSum": "סכום הכנסות קבועות",
-    "clickToShowDetails": "לחץ לפירוט"
+    "clickToShowDetails": "לחץ לפירוט",
+    "creditCardCharges": "חיובי אשראי",
+    "widgetGoals": "יעדים",
+    "goalsWidget": "יעדים כלכליים"
   },
   "transactions": {
     "title": "תנועות",

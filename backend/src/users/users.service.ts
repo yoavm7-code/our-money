@@ -41,7 +41,7 @@ export class UsersService {
       select: { id: true, email: true, name: true, householdId: true, countryCode: true, avatarPath: true },
     });
     if (!u) return null;
-    return { ...u, avatarUrl: u.avatarPath ? `/api/users/me/avatar?v=${Date.now()}` : null };
+    return { ...u, avatarUrl: u.avatarPath ? `/uploads/avatars/${path.basename(u.avatarPath)}?v=${Date.now()}` : null };
   }
 
   async getDashboardConfig(id: string) {
@@ -83,7 +83,7 @@ export class UsersService {
       data,
       select: { id: true, email: true, name: true, householdId: true, countryCode: true, avatarPath: true },
     });
-    return { ...u, avatarUrl: u.avatarPath ? `/api/users/me/avatar?v=${Date.now()}` : null };
+    return { ...u, avatarUrl: u.avatarPath ? `/uploads/avatars/${path.basename(u.avatarPath)}?v=${Date.now()}` : null };
   }
 
   async uploadAvatar(userId: string, file: Express.Multer.File) {
@@ -102,7 +102,7 @@ export class UsersService {
       where: { id: userId },
       data: { avatarPath: filePath },
     });
-    return { avatarUrl: `/api/users/me/avatar?v=${Date.now()}` };
+    return { avatarUrl: `/uploads/avatars/${fileName}?v=${Date.now()}` };
   }
 
   async getAvatarPath(userId: string): Promise<string | null> {

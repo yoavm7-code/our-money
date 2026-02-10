@@ -177,10 +177,19 @@ export class DashboardService {
       .filter((t) => Number(t.amount) > 0)
       .reduce((sum, t) => sum + (t.isRecurring ? Number(t.amount) : 0), 0);
 
+    // Credit card charges in period
+    const creditCardAccountIds = new Set(
+      accountsRaw.filter((a) => a.type === 'CREDIT_CARD').map((a) => a.id),
+    );
+    const creditCardCharges = transactions
+      .filter((t) => creditCardAccountIds.has(t.accountId) && Number(t.amount) < 0)
+      .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0);
+
     return {
       totalBalance,
       income,
       expenses,
+      creditCardCharges,
       fixedExpensesSum,
       fixedIncomeSum,
       period: { from: fromDate.toISOString().slice(0, 10), to: toDate.toISOString().slice(0, 10) },

@@ -46,6 +46,7 @@
     "yearFrom": "From year",
     "yearTo": "To year",
     "apply": "Apply",
+    "allTime": "All time",
     "quickSelect": "Quick select",
     "recent": "Recent",
     "months": "Months",
@@ -404,9 +405,13 @@
     "metric_expenses": "Expenses (period)",
     "metric_netSavings": "Net savings",
     "metric_transactionCount": "Transaction count",
+    "metric_creditCardCharges": "Credit card charges",
     "metric_fixedExpensesSum": "Fixed expenses total",
     "metric_fixedIncomeSum": "Fixed income total",
-    "clickToShowDetails": "Click for details"
+    "clickToShowDetails": "Click for details",
+    "creditCardCharges": "Credit Card Charges",
+    "widgetGoals": "Goals",
+    "goalsWidget": "Financial Goals"
   },
   "transactions": {
     "title": "Transactions",
