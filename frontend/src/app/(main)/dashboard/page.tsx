@@ -185,12 +185,35 @@ export default function DashboardPage() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  // Load saved config
+  // Load saved config — merge in any new default widgets the user doesn't have yet
   useEffect(() => {
     users.getDashboardConfig()
       .then((cfg) => {
         if (cfg && Array.isArray(cfg.widgets) && cfg.widgets.length > 0) {
-          setWidgets(cfg.widgets);
+          const savedIds = new Set(cfg.widgets.map((w: WidgetConfig) => w.id));
+          const newDefaults = DEFAULT_WIDGETS.filter((dw) => !savedIds.has(dw.id));
+          if (newDefaults.length > 0) {
+            // Insert new stat widgets after existing stats, others at the end
+            const statWidgets = newDefaults.filter((w) => w.type === 'stat');
+            const otherWidgets = newDefaults.filter((w) => w.type !== 'stat');
+            const merged = [...cfg.widgets];
+            // Find last stat widget index in saved config
+            let lastStatIdx = -1;
+            for (let i = merged.length - 1; i >= 0; i--) {
+              if (merged[i].type === 'stat') { lastStatIdx = i; break; }
+            }
+            if (statWidgets.length > 0 && lastStatIdx >= 0) {
+              merged.splice(lastStatIdx + 1, 0, ...statWidgets);
+            } else {
+              merged.unshift(...statWidgets);
+            }
+            merged.push(...otherWidgets);
+            setWidgets(merged);
+            // Persist the merged config so this only happens once
+            users.saveDashboardConfig({ widgets: merged }).catch(() => {});
+          } else {
+            setWidgets(cfg.widgets);
+          }
         }
         configLoaded.current = true;
       })
@@ -446,9 +469,9 @@ export default function DashboardPage() {
               </p>
             )}
             {subtitle && (
-              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1 leading-tight">{subtitle}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-tight font-medium">{subtitle}</p>
             )}
-            {isBalanceMetric && bankAccounts.length > 1 && !editMode && (
+            {isBalanceMetric && bankAccounts.length > 0 && !editMode && (
               <select
                 className="mt-2 text-xs bg-transparent border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-slate-600 dark:text-slate-400 w-full cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary-500"
                 value={selectedAcctId}
