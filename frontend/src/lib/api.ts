@@ -433,6 +433,7 @@ export const dashboard = {
   summary: (from?: string, to?: string, accountId?: string, categoryId?: string) =>
     api<{
       totalBalance: number;
+      currentBalance: number;
       income: number;
       expenses: number;
       creditCardCharges?: number;

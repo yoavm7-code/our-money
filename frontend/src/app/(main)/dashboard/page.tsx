@@ -281,6 +281,7 @@ export default function DashboardPage() {
   const getMetricValue = (metric: string): number => {
     if (!summary) return 0;
     switch (metric) {
+      case 'currentBalance': return summary.currentBalance ?? summary.totalBalance;
       case 'totalBalance': return summary.totalBalance;
       case 'income': return summary.income;
       case 'expenses': return summary.expenses;
@@ -380,11 +381,13 @@ export default function DashboardPage() {
           metric === 'income' || metric === 'fixedIncomeSum' ? 'text-green-700 dark:text-green-400'
           : metric === 'expenses' || metric === 'fixedExpensesSum' || metric === 'creditCardCharges' ? 'text-red-700 dark:text-red-400'
           : metric === 'netSavings' ? (value >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400')
+          : metric === 'currentBalance' ? 'text-sky-700 dark:text-sky-400'
           : metric === 'totalBalance' ? 'text-blue-700 dark:text-blue-400'
           : 'text-amber-700 dark:text-amber-400';
         const isClickable = ['income', 'expenses', 'totalBalance', 'netSavings', 'transactionCount', 'fixedExpensesSum', 'fixedIncomeSum', 'creditCardCharges'].includes(metric);
-        const isUp = metric === 'income' || metric === 'fixedIncomeSum' || metric === 'totalBalance' || (metric === 'netSavings' && value >= 0);
+        const isUp = metric === 'income' || metric === 'fixedIncomeSum' || metric === 'totalBalance' || metric === 'currentBalance' || (metric === 'netSavings' && value >= 0);
         const trendColor = isUp ? 'text-green-600' : 'text-red-600';
+        const subtitle = metric === 'currentBalance' ? t('dashboard.currentBalanceHint') : metric === 'totalBalance' ? t('dashboard.filteredBalanceHint') : null;
         return (
           <button
             type="button"
@@ -405,6 +408,9 @@ export default function DashboardPage() {
             <p className={`text-2xl font-bold mt-2 ${colorClass}`}>
               {isCurrency ? formatCurrency(value, locale) : value.toLocaleString()}
             </p>
+            {subtitle && (
+              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1 leading-tight">{subtitle}</p>
+            )}
           </button>
         );
       }

@@ -1,6 +1,7 @@
 import type { WidgetConfig } from '@/lib/api';
 
 export const DEFAULT_WIDGETS: WidgetConfig[] = [
+  { id: 'w-current-balance', type: 'stat', metric: 'currentBalance', color: '#0ea5e9', size: 'sm' },
   { id: 'w-balance', type: 'stat', metric: 'totalBalance', color: '#3b82f6', size: 'sm' },
   { id: 'w-income', type: 'stat', metric: 'income', color: '#22c55e', size: 'sm' },
   { id: 'w-expenses', type: 'stat', metric: 'expenses', color: '#ef4444', size: 'sm' },
@@ -15,6 +16,7 @@ export const DEFAULT_WIDGETS: WidgetConfig[] = [
 ];
 
 export const STAT_METRICS = [
+  'currentBalance',
   'totalBalance',
   'income',
   'expenses',
@@ -28,6 +30,7 @@ export const STAT_METRICS = [
 export type StatMetric = (typeof STAT_METRICS)[number];
 
 export const METRIC_DEFAULTS: Record<StatMetric, { color: string }> = {
+  currentBalance: { color: '#0ea5e9' },
   totalBalance: { color: '#3b82f6' },
   income: { color: '#22c55e' },
   expenses: { color: '#ef4444' },
