@@ -30,7 +30,11 @@
     "of": "of",
     "file": "File",
     "close": "Close",
-    "menu": "Menu"
+    "menu": "Menu",
+    "uncategorized": "Uncategorized",
+    "confirm": "Confirm",
+    "active": "Active",
+    "all": "All"
   },
   "dateRange": {
     "today": "Today",
@@ -64,6 +68,8 @@
     "forex": "Forex",
     "goals": "Goals",
     "insights": "Financial Insights",
+    "budgets": "Budgets",
+    "recurring": "Recurring",
     "settings": "Settings"
   },
   "login": {
@@ -411,7 +417,11 @@
     "clickToShowDetails": "Click for details",
     "creditCardCharges": "Credit Card Charges",
     "widgetGoals": "Goals",
-    "goalsWidget": "Financial Goals"
+    "goalsWidget": "Financial Goals",
+    "widgetBudgets": "Budgets",
+    "widgetRecurring": "Recurring Income/Expenses",
+    "budgetsWidget": "Budgets by Category",
+    "recurringWidget": "Auto Detection"
   },
   "transactions": {
     "title": "Transactions",
@@ -799,5 +809,46 @@
     "totalTarget": "Total target",
     "totalSaved": "Total saved",
     "overallProgress": "Overall progress"
+  },
+  "budgets": {
+    "title": "Budgets",
+    "subtitle": "Set monthly budgets per category and track spending",
+    "addBudget": "Add Budget",
+    "editBudget": "Edit Budget",
+    "noBudgets": "No budgets yet. Set a budget for a category to start tracking your spending.",
+    "category": "Category",
+    "monthlyLimit": "Monthly Budget",
+    "spent": "Spent",
+    "remaining": "Remaining",
+    "overBudget": "Over budget!",
+    "onTrack": "On track",
+    "saved": "Budget saved.",
+    "deleted": "Budget removed.",
+    "confirmDelete": "Remove this budget?",
+    "summary": "Budget Summary",
+    "totalBudgeted": "Total budgeted",
+    "totalSpent": "Total spent",
+    "categoriesOverBudget": "Categories over budget"
+  },
+  "recurring": {
+    "title": "Recurring Income & Expenses",
+    "subtitle": "Automatic detection of recurring transactions — income and expenses",
+    "detect": "Scan Transactions",
+    "detecting": "Scanning transactions...",
+    "noPatterns": "No recurring patterns found. Try scanning again after more transactions accumulate.",
+    "income": "Recurring income",
+    "expense": "Recurring expense",
+    "frequency": "Frequency",
+    "monthly": "Monthly",
+    "weekly": "Weekly",
+    "occurrences": "Occurrences",
+    "lastSeen": "Last seen",
+    "confirm": "Confirm",
+    "dismiss": "Dismiss",
+    "confirmed": "Confirmed",
+    "detectedPatterns": "Detected Patterns",
+    "confirmedPatterns": "Confirmed Patterns",
+    "detectSuccess": "Found {{count}} new patterns!",
+    "detectNone": "No new patterns found"
   }
 }

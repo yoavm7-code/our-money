@@ -30,7 +30,11 @@
     "of": "מתוך",
     "file": "קובץ",
     "close": "סגירה",
-    "menu": "תפריט"
+    "menu": "תפריט",
+    "uncategorized": "לא מסווג",
+    "confirm": "אישור",
+    "active": "פעיל",
+    "all": "הכל"
   },
   "dateRange": {
     "today": "היום",
@@ -64,6 +68,8 @@
     "forex": "מט\"ח",
     "goals": "יעדים",
     "insights": "תובנות פיננסיות",
+    "budgets": "תקציבים",
+    "recurring": "קבועים",
     "settings": "הגדרות"
   },
   "login": {
@@ -411,7 +417,11 @@
     "clickToShowDetails": "לחץ לפירוט",
     "creditCardCharges": "חיובי אשראי",
     "widgetGoals": "יעדים",
-    "goalsWidget": "יעדים כלכליים"
+    "goalsWidget": "יעדים כלכליים",
+    "widgetBudgets": "תקציבים",
+    "widgetRecurring": "הוצאות/הכנסות קבועות",
+    "budgetsWidget": "תקציבים לפי קטגוריה",
+    "recurringWidget": "זיהוי אוטומטי"
   },
   "transactions": {
     "title": "תנועות",
@@ -799,5 +809,46 @@
     "totalTarget": "סה\"כ יעד",
     "totalSaved": "סה\"כ נחסך",
     "overallProgress": "התקדמות כללית"
+  },
+  "budgets": {
+    "title": "תקציבים",
+    "subtitle": "הגדר תקציב חודשי לכל קטגוריה ועקוב אחרי ההוצאות",
+    "addBudget": "הוסף תקציב",
+    "editBudget": "עריכת תקציב",
+    "noBudgets": "אין עדיין תקציבים. הגדר תקציב לקטגוריה כדי לעקוב אחרי ההוצאות.",
+    "category": "קטגוריה",
+    "monthlyLimit": "תקציב חודשי",
+    "spent": "הוצא",
+    "remaining": "נותר",
+    "overBudget": "חריגה מהתקציב!",
+    "onTrack": "במסלול",
+    "saved": "התקציב נשמר.",
+    "deleted": "התקציב הוסר.",
+    "confirmDelete": "להסיר את התקציב?",
+    "summary": "סיכום תקציב",
+    "totalBudgeted": "סה\"כ תוקצב",
+    "totalSpent": "סה\"כ הוצא",
+    "categoriesOverBudget": "קטגוריות בחריגה"
+  },
+  "recurring": {
+    "title": "הוצאות והכנסות קבועות",
+    "subtitle": "זיהוי אוטומטי של תנועות חוזרות – הכנסות והוצאות",
+    "detect": "סרוק תנועות",
+    "detecting": "סורק תנועות...",
+    "noPatterns": "לא נמצאו תבניות חוזרות. נסה לסרוק שוב לאחר שיצטברו יותר תנועות.",
+    "income": "הכנסה קבועה",
+    "expense": "הוצאה קבועה",
+    "frequency": "תדירות",
+    "monthly": "חודשי",
+    "weekly": "שבועי",
+    "occurrences": "מופעים",
+    "lastSeen": "נראה לאחרונה",
+    "confirm": "אשר",
+    "dismiss": "התעלם",
+    "confirmed": "מאושר",
+    "detectedPatterns": "תבניות שזוהו",
+    "confirmedPatterns": "תבניות מאושרות",
+    "detectSuccess": "נמצאו {{count}} תבניות חדשות!",
+    "detectNone": "לא נמצאו תבניות חדשות"
   }
 }

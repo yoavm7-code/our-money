@@ -94,10 +94,14 @@ export class UsersService {
     const filePath = path.join(uploadDir, fileName);
     // Remove old avatar if different extension
     const existing = await this.prisma.user.findUnique({ where: { id: userId }, select: { avatarPath: true } });
-    if (existing?.avatarPath && fs.existsSync(existing.avatarPath) && existing.avatarPath !== filePath) {
-      fs.unlinkSync(existing.avatarPath);
+    if (existing?.avatarPath && existing.avatarPath !== filePath) {
+      try { fs.unlinkSync(existing.avatarPath); } catch { /* ignore if file missing */ }
     }
-    fs.writeFileSync(filePath, file.buffer);
+    try {
+      fs.writeFileSync(filePath, file.buffer);
+    } catch (err) {
+      throw new Error(`Failed to save avatar: ${(err as Error).message}`);
+    }
     await this.prisma.user.update({
       where: { id: userId },
       data: { avatarPath: filePath },

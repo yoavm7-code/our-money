@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { dashboard, accounts, categories, users, transactions as txApi, forex, goals as goalsApi, type FixedItem, type WidgetConfig, type ForexAccountItem, type GoalItem } from '@/lib/api';
+import { dashboard, accounts, categories, users, transactions as txApi, forex, goals as goalsApi, budgets as budgetsApi, recurring as recurringApi, type FixedItem, type WidgetConfig, type ForexAccountItem, type GoalItem, type BudgetItem, type RecurringPatternItem } from '@/lib/api';
 import { useTranslation } from '@/i18n/context';
 import DateRangePicker from '@/components/DateRangePicker';
 import SmartTip from '@/components/SmartTip';
@@ -154,6 +154,10 @@ export default function DashboardPage() {
 
   // Goals for widget
   const [goalsList, setGoalsList] = useState<GoalItem[]>([]);
+  // Budgets for widget
+  const [budgetsList, setBudgetsList] = useState<BudgetItem[]>([]);
+  // Recurring for widget
+  const [recurringList, setRecurringList] = useState<RecurringPatternItem[]>([]);
 
   // Stat card detail modal
   type DetailTx = { id: string; date: string; description: string; amount: number; category?: { name?: string; slug?: string } | null; account?: { name?: string; type?: string } | null };
@@ -214,6 +218,10 @@ export default function DashboardPage() {
     forex.rates('ILS').then((d) => setForexRates(d.rates)).catch(() => {});
     // Load goals for dashboard widget
     goalsApi.list().then(setGoalsList).catch(() => {});
+    // Load budgets for dashboard widget
+    budgetsApi.list().then(setBudgetsList).catch(() => {});
+    // Load recurring for dashboard widget
+    recurringApi.list().then(setRecurringList).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -653,6 +661,81 @@ export default function DashboardPage() {
               </div>
             ) : (
               <p className="text-slate-500 text-sm py-4 text-center">{t('goals.noGoals')}</p>
+            )}
+          </>
+        );
+      }
+
+      case 'budgets': {
+        return (
+          <>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-semibold">{w.title || t('dashboard.budgetsWidget')}</h2>
+              <a href="/budgets" className="text-sm text-primary-600 dark:text-primary-400 hover:underline">
+                {t('dashboard.viewAll')}
+              </a>
+            </div>
+            {budgetsList.length > 0 ? (
+              <div className="space-y-3">
+                {budgetsList.slice(0, 5).map((b) => {
+                  const pct = Math.min(100, Math.round(b.percentUsed));
+                  return (
+                    <div key={b.id} className="py-2 border-b border-[var(--border)] last:border-0">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-sm font-medium">{b.category?.name || t('common.uncategorized')}</span>
+                        <span className={`text-xs font-medium ${b.isOver ? 'text-red-600' : 'text-green-600'}`}>
+                          {b.isOver ? t('budgets.overBudget') : `${pct}%`}
+                        </span>
+                      </div>
+                      <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden mb-1.5">
+                        <div
+                          className={`h-full rounded-full transition-all duration-500 ${b.isOver ? 'bg-red-500' : 'bg-emerald-500'}`}
+                          style={{ width: `${Math.min(pct, 100)}%` }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-slate-500">
+                        <span>{formatCurrency(b.spent, locale)} / {formatCurrency(b.amount, locale)}</span>
+                        <span>{t('budgets.remaining')}: {formatCurrency(b.remaining, locale)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-slate-500 text-sm py-4 text-center">{t('budgets.noBudgets')}</p>
+            )}
+          </>
+        );
+      }
+
+      case 'recurring': {
+        const confirmed = recurringList.filter((r) => r.isConfirmed);
+        return (
+          <>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-semibold">{w.title || t('dashboard.recurringWidget')}</h2>
+              <a href="/recurring" className="text-sm text-primary-600 dark:text-primary-400 hover:underline">
+                {t('dashboard.viewAll')}
+              </a>
+            </div>
+            {confirmed.length > 0 ? (
+              <div className="space-y-2">
+                {confirmed.slice(0, 6).map((r) => (
+                  <div key={r.id} className="flex items-center justify-between py-2 border-b border-[var(--border)] last:border-0 gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate">{r.description}</p>
+                      <p className="text-xs text-slate-500">
+                        {t(`recurring.${r.type}`)} · {t(`recurring.${r.frequency}`)} · {r.occurrences}x
+                      </p>
+                    </div>
+                    <span className={`text-sm font-semibold whitespace-nowrap ${r.type === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+                      {r.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(Number(r.amount)), locale)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-slate-500 text-sm py-4 text-center">{t('recurring.noPatterns')}</p>
             )}
           </>
         );

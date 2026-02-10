@@ -60,7 +60,7 @@ function getCategoryDisplayName(name: string, slug: string | undefined, t: (k: s
   if (!name && slug) {
     return slug.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   }
-  return name || 'לא מסווג';
+  return name || t('common.uncategorized');
 }
 
 export default function TransactionsPage() {

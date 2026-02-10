@@ -94,7 +94,7 @@ export const twoFactor = {
 
 export type WidgetConfig = {
   id: string;
-  type: 'stat' | 'bar-chart' | 'pie-chart' | 'fixed-list' | 'recent-tx' | 'forex-accounts' | 'goals';
+  type: 'stat' | 'bar-chart' | 'pie-chart' | 'fixed-list' | 'recent-tx' | 'forex-accounts' | 'goals' | 'budgets' | 'recurring';
   metric?: string;
   variant?: string;
   title?: string;
@@ -466,4 +466,49 @@ export const dashboard = {
       categoryColor: string | null;
       accountName: string | null;
     }>>('/api/dashboard/recent-transactions'),
+};
+
+// Budgets
+export type BudgetItem = {
+  id: string;
+  categoryId: string;
+  category: { id: string; name: string; slug: string; color: string | null; icon: string | null };
+  amount: number;
+  spent: number;
+  remaining: number;
+  percentUsed: number;
+  isOver: boolean;
+};
+
+export const budgets = {
+  list: () => api<BudgetItem[]>('/api/budgets'),
+  upsert: (body: { categoryId: string; amount: number }) =>
+    api<unknown>('/api/budgets', { method: 'POST', body: JSON.stringify(body) }),
+  remove: (id: string) => api<unknown>(`/api/budgets/${id}`, { method: 'DELETE' }),
+  summary: (month?: string) =>
+    api<{ totalBudgeted: number; totalSpent: number; remaining: number; percentUsed: number; budgetCount: number; overBudgetCount: number; overBudget: Array<{ categoryName: string; amount: number; spent: number }> }>(
+      '/api/budgets/summary',
+      { params: month ? { month } : undefined },
+    ),
+};
+
+// Recurring patterns
+export type RecurringPatternItem = {
+  id: string;
+  description: string;
+  amount: number;
+  type: 'income' | 'expense';
+  frequency: string;
+  categoryId: string | null;
+  accountId: string | null;
+  lastSeenDate: string;
+  occurrences: number;
+  isConfirmed: boolean;
+};
+
+export const recurring = {
+  list: () => api<RecurringPatternItem[]>('/api/recurring'),
+  detect: () => api<{ detected: number; patterns: RecurringPatternItem[] }>('/api/recurring/detect', { method: 'POST' }),
+  confirm: (id: string) => api<unknown>(`/api/recurring/${id}/confirm`, { method: 'POST' }),
+  dismiss: (id: string) => api<unknown>(`/api/recurring/${id}/dismiss`, { method: 'POST' }),
 };

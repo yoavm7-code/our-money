@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
@@ -15,10 +17,13 @@ import { SavingsModule } from './savings/savings.module';
 import { TwoFactorModule } from './two-factor/two-factor.module';
 import { ForexModule } from './forex/forex.module';
 import { GoalsModule } from './goals/goals.module';
+import { RecurringModule } from './recurring/recurring.module';
+import { BudgetsModule } from './budgets/budgets.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }]),
     PrismaModule,
     AuthModule,
     UsersModule,
@@ -34,6 +39,11 @@ import { GoalsModule } from './goals/goals.module';
     TwoFactorModule,
     ForexModule,
     GoalsModule,
+    RecurringModule,
+    BudgetsModule,
+  ],
+  providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
   ],
 })
 export class AppModule {}

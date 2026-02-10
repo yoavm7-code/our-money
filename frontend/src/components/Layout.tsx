@@ -18,6 +18,8 @@ const navItems: { href: string; key: string; icon: string }[] = [
   { href: '/insurance-funds', key: 'nav.insuranceFunds', icon: 'shield' },
   { href: '/forex', key: 'nav.forex', icon: 'currency' },
   { href: '/goals', key: 'nav.goals', icon: 'target' },
+  { href: '/budgets', key: 'nav.budgets', icon: 'wallet' },
+  { href: '/recurring', key: 'nav.recurring', icon: 'repeat' },
   { href: '/insights', key: 'nav.insights', icon: 'sparkles' },
   { href: '/settings', key: 'nav.settings', icon: 'settings' },
 ];
@@ -43,6 +45,10 @@ function NavIcon({ name, className }: { name: string; className?: string }) {
       return <svg className={cn} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>;
     case 'target':
       return <svg className={cn} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>;
+    case 'wallet':
+      return <svg className={cn} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M16 14h.01"/><path d="M2 10h20"/></svg>;
+    case 'repeat':
+      return <svg className={cn} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>;
     case 'sparkles':
       return <svg className={cn} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/><path d="M19 13l.75 2.25L22 16l-2.25.75L19 19l-.75-2.25L16 16l2.25-.75L19 13z"/></svg>;
     case 'settings':

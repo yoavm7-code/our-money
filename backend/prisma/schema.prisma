@@ -27,9 +27,11 @@ model Household {
   rules       CategoryRule[]
   loans       Loan[]
   savings     Saving[]
-  goals          Goal[]
-  forexAccounts  ForexAccount[]
-  forexTransfers ForexTransfer[]
+  goals              Goal[]
+  forexAccounts      ForexAccount[]
+  forexTransfers     ForexTransfer[]
+  budgets            Budget[]
+  recurringPatterns  RecurringPattern[]
 }
 
 // --------------------------------------------
@@ -50,6 +52,8 @@ model User {
   updatedAt        DateTime @updatedAt
 
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId])
 }
 
 // --------------------------------------------
@@ -113,6 +117,7 @@ model Category {
   children     Category[]   @relation("CategoryHierarchy")
   transactions Transaction[]
   rules        CategoryRule[]
+  budgets      Budget[]
 
   @@unique([householdId, slug])
   @@index([householdId])
@@ -341,4 +346,48 @@ enum ForexTransferType {
   BUY
   SELL
   TRANSFER
+}
+
+// --------------------------------------------
+// Budgets (monthly budget per category)
+// --------------------------------------------
+model Budget {
+  id          String   @id @default(uuid())
+  householdId String   @map("household_id")
+  categoryId  String   @map("category_id")
+  amount      Decimal  @db.Decimal(14, 2) // monthly budget limit
+  currency    String   @default("ILS")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  category  Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, categoryId])
+  @@index([householdId])
+}
+
+// --------------------------------------------
+// Recurring patterns (auto-detected)
+// --------------------------------------------
+model RecurringPattern {
+  id            String   @id @default(uuid())
+  householdId   String   @map("household_id")
+  description   String   // matched description pattern
+  amount        Decimal  @db.Decimal(14, 2) // typical amount
+  type          String   // 'income' or 'expense'
+  frequency     String   @default("monthly") // monthly, weekly, etc.
+  categoryId    String?  @map("category_id")
+  accountId     String?  @map("account_id")
+  lastSeenDate  DateTime @map("last_seen_date") @db.Date
+  occurrences   Int      @default(1) // how many times detected
+  isConfirmed   Boolean  @default(false) @map("is_confirmed") // user confirmed
+  isDismissed   Boolean  @default(false) @map("is_dismissed") // user dismissed
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId])
 }
