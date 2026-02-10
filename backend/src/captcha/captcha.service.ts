@@ -4,13 +4,9 @@ import { Injectable } from '@nestjs/common';
 export class CaptchaService {
   private readonly secret = process.env.RECAPTCHA_SECRET_KEY;
 
-  /** Verify reCAPTCHA v2 token. If no secret is configured in development, skip verification. */
+  /** Verify reCAPTCHA v2 token. If no secret is configured, skip verification. */
   async verify(token: string | undefined): Promise<boolean> {
-    if (!this.secret) {
-      // Only skip in development; in production always require secret
-      if (process.env.NODE_ENV === 'production') return false;
-      return true;
-    }
+    if (!this.secret) return true;
     if (!token || typeof token !== 'string' || !token.trim()) return false;
     try {
       const res = await fetch('https://www.google.com/recaptcha/api/siteverify', {
