@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useTranslation } from '@/i18n/context';
-import { accounts, categories, transactions as txApi, goals, budgets, forex, api } from '@/lib/api';
+import { accounts, categories, transactions as txApi, goals, budgets, forex, mortgages, stocks, api } from '@/lib/api';
 
 /* ─── Types ─── */
 
-type EntryType = 'expense' | 'income' | 'account' | 'loan' | 'saving' | 'goal' | 'forexTransfer' | 'budget';
+type EntryType = 'expense' | 'income' | 'account' | 'loan' | 'saving' | 'goal' | 'forexTransfer' | 'budget' | 'mortgage' | 'stockPortfolio';
 
 type AccountOption = { id: string; name: string; type: string; balance: string; currency: string };
 type CategoryOption = { id: string; name: string; slug: string; icon: string | null; color: string | null; isIncome: boolean };
@@ -109,6 +109,25 @@ function WalletIcon({ className }: { className?: string }) {
   );
 }
 
+function HomeIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+      <polyline points="9 22 9 12 15 12 15 22" />
+    </svg>
+  );
+}
+
+function BarChartIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="20" x2="12" y2="10" />
+      <line x1="18" y1="20" x2="18" y2="4" />
+      <line x1="6" y1="20" x2="6" y2="16" />
+    </svg>
+  );
+}
+
 function ChevronLeftIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -142,6 +161,8 @@ const ENTRY_TYPES: Array<{
   { key: 'goal', labelKey: 'quickAdd.goal', Icon: TargetIcon, bgColor: 'bg-purple-100 dark:bg-purple-900/30', textColor: 'text-purple-600 dark:text-purple-400' },
   { key: 'forexTransfer', labelKey: 'quickAdd.forexTransfer', Icon: CurrencyIcon, bgColor: 'bg-indigo-100 dark:bg-indigo-900/30', textColor: 'text-indigo-600 dark:text-indigo-400' },
   { key: 'budget', labelKey: 'quickAdd.budget', Icon: WalletIcon, bgColor: 'bg-amber-100 dark:bg-amber-900/30', textColor: 'text-amber-600 dark:text-amber-400' },
+  { key: 'mortgage', labelKey: 'quickAdd.mortgage', Icon: HomeIcon, bgColor: 'bg-cyan-100 dark:bg-cyan-900/30', textColor: 'text-cyan-600 dark:text-cyan-400' },
+  { key: 'stockPortfolio', labelKey: 'quickAdd.stockPortfolio', Icon: BarChartIcon, bgColor: 'bg-rose-100 dark:bg-rose-900/30', textColor: 'text-rose-600 dark:text-rose-400' },
 ];
 
 const ACCOUNT_TYPES = ['BANK', 'CREDIT_CARD', 'INSURANCE', 'PENSION', 'INVESTMENT', 'CASH'] as const;
@@ -233,6 +254,18 @@ export default function QuickAdd({ open, onClose }: QuickAddProps) {
   const [budgetCategoryId, setBudgetCategoryId] = useState('');
   const [budgetAmount, setBudgetAmount] = useState('');
 
+  // ── Mortgage form state ──
+  const [mortName, setMortName] = useState('');
+  const [mortBank, setMortBank] = useState('');
+  const [mortTotalAmount, setMortTotalAmount] = useState('');
+  const [mortPropertyValue, setMortPropertyValue] = useState('');
+
+  // ── Stock Portfolio form state ──
+  const [spName, setSpName] = useState('');
+  const [spBroker, setSpBroker] = useState('');
+  const [spAccountNum, setSpAccountNum] = useState('');
+  const [spCurrency, setSpCurrency] = useState('ILS');
+
   // Reset all form state when modal closes or type changes
   useEffect(() => {
     if (!open) {
@@ -254,6 +287,8 @@ export default function QuickAdd({ open, onClose }: QuickAddProps) {
     setGoalName(''); setGoalTarget(''); setGoalCurrent(''); setGoalDate(''); setGoalIcon('🎯'); setGoalColor('#3b82f6'); setGoalNotes('');
     setFxType('TRANSFER'); setFxFromCurrency('ILS'); setFxToCurrency('USD'); setFxFromAmount(''); setFxToAmount(''); setFxRate(''); setFxDate(todayStr()); setFxFee(''); setFxAccountId(''); setFxDescription(''); setFxNotes('');
     setBudgetCategoryId(''); setBudgetAmount('');
+    setMortName(''); setMortBank(''); setMortTotalAmount(''); setMortPropertyValue('');
+    setSpName(''); setSpBroker(''); setSpAccountNum(''); setSpCurrency('ILS');
   }, [selectedType]);
 
   // Load accounts + categories when selecting expense/income
@@ -458,6 +493,44 @@ export default function QuickAdd({ open, onClose }: QuickAddProps) {
       await budgets.upsert({
         categoryId: budgetCategoryId,
         amount: parseFloat(budgetAmount),
+      });
+      onClose();
+    } catch {
+      setError(t('quickAdd.addFailed'));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleSubmitMortgage() {
+    if (!mortName.trim() || !mortTotalAmount) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await mortgages.create({
+        name: mortName.trim(),
+        totalAmount: parseFloat(mortTotalAmount),
+        ...(mortBank ? { bank: mortBank.trim() } : {}),
+        ...(mortPropertyValue ? { propertyValue: parseFloat(mortPropertyValue) } : {}),
+      });
+      onClose();
+    } catch {
+      setError(t('quickAdd.addFailed'));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleSubmitStockPortfolio() {
+    if (!spName.trim()) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await stocks.portfolios.create({
+        name: spName.trim(),
+        ...(spBroker ? { broker: spBroker.trim() } : {}),
+        ...(spAccountNum ? { accountNum: spAccountNum.trim() } : {}),
+        currency: spCurrency || 'ILS',
       });
       onClose();
     } catch {
@@ -1248,6 +1321,114 @@ export default function QuickAdd({ open, onClose }: QuickAddProps) {
     );
   }
 
+  function renderMortgageForm() {
+    return (
+      <div>
+        {renderFormHeader()}
+        {renderError()}
+        <div className="space-y-3">
+          <div>
+            <label className="block text-sm font-medium mb-1">{t('mortgage.name')} *</label>
+            <input
+              type="text"
+              className="input w-full"
+              value={mortName}
+              onChange={(e) => setMortName(e.target.value)}
+              placeholder={t('mortgage.namePlaceholder')}
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">{t('mortgage.totalAmount')} *</label>
+            <input
+              type="number"
+              step="0.01"
+              className="input w-full"
+              value={mortTotalAmount}
+              onChange={(e) => setMortTotalAmount(e.target.value)}
+              placeholder="0"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">{t('mortgage.bank')}</label>
+            <input
+              type="text"
+              className="input w-full"
+              value={mortBank}
+              onChange={(e) => setMortBank(e.target.value)}
+              placeholder={t('mortgage.bankPlaceholder')}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">{t('mortgage.propertyValue')}</label>
+            <input
+              type="number"
+              step="0.01"
+              className="input w-full"
+              value={mortPropertyValue}
+              onChange={(e) => setMortPropertyValue(e.target.value)}
+              placeholder="0"
+            />
+          </div>
+        </div>
+        {renderActions(handleSubmitMortgage, !mortName.trim() || !mortTotalAmount)}
+      </div>
+    );
+  }
+
+  function renderStockPortfolioForm() {
+    return (
+      <div>
+        {renderFormHeader()}
+        {renderError()}
+        <div className="space-y-3">
+          <div>
+            <label className="block text-sm font-medium mb-1">{t('stocks.portfolioName')} *</label>
+            <input
+              type="text"
+              className="input w-full"
+              value={spName}
+              onChange={(e) => setSpName(e.target.value)}
+              placeholder={t('stocks.portfolioNamePlaceholder')}
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">{t('stocks.broker')}</label>
+            <input
+              type="text"
+              className="input w-full"
+              value={spBroker}
+              onChange={(e) => setSpBroker(e.target.value)}
+              placeholder={t('stocks.brokerPlaceholder')}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">{t('stocks.accountNum')}</label>
+            <input
+              type="text"
+              className="input w-full"
+              value={spAccountNum}
+              onChange={(e) => setSpAccountNum(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">{t('stocks.currency')}</label>
+            <input
+              type="text"
+              className="input w-full"
+              value={spCurrency}
+              onChange={(e) => setSpCurrency(e.target.value.toUpperCase())}
+              placeholder="ILS"
+              maxLength={3}
+            />
+          </div>
+        </div>
+        {renderActions(handleSubmitStockPortfolio, !spName.trim())}
+      </div>
+    );
+  }
+
   function renderForm() {
     switch (selectedType) {
       case 'expense':
@@ -1265,6 +1446,10 @@ export default function QuickAdd({ open, onClose }: QuickAddProps) {
         return renderForexTransferForm();
       case 'budget':
         return renderBudgetForm();
+      case 'mortgage':
+        return renderMortgageForm();
+      case 'stockPortfolio':
+        return renderStockPortfolioForm();
       default:
         return null;
     }

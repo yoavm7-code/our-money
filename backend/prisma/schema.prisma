@@ -26,8 +26,10 @@ model Household {
   documents   Document[]
   rules       CategoryRule[]
   loans       Loan[]
+  mortgages   Mortgage[]
   savings     Saving[]
   goals              Goal[]
+  stockPortfolios    StockPortfolio[]
   forexAccounts      ForexAccount[]
   forexTransfers     ForexTransfer[]
   budgets            Budget[]
@@ -262,6 +264,99 @@ model Loan {
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
   @@index([householdId])
+}
+
+// --------------------------------------------
+// Mortgages (with multiple tracks/routes)
+// --------------------------------------------
+model Mortgage {
+  id              String    @id @default(uuid())
+  householdId     String    @map("household_id")
+  name            String    // e.g. "דירה ברחובות"
+  bank            String?   // e.g. "בנק הפועלים", "בנק לאומי"
+  propertyValue   Decimal?  @map("property_value") @db.Decimal(14, 2)
+  totalAmount     Decimal   @map("total_amount") @db.Decimal(14, 2) // total mortgage amount
+  remainingAmount Decimal?  @map("remaining_amount") @db.Decimal(14, 2)
+  totalMonthly    Decimal?  @map("total_monthly") @db.Decimal(14, 2) // total monthly payment across all tracks
+  startDate       DateTime? @map("start_date") @db.Date
+  endDate         DateTime? @map("end_date") @db.Date
+  currency        String    @default("ILS")
+  notes           String?
+  isActive        Boolean   @default(true) @map("is_active")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  household Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  tracks    MortgageTrack[]
+
+  @@index([householdId])
+}
+
+model MortgageTrack {
+  id              String    @id @default(uuid())
+  mortgageId      String    @map("mortgage_id")
+  name            String?   // e.g. "מסלול 1", "מסלול פריים"
+  trackType       String    @map("track_type") // PRIME, FIXED, VARIABLE, CPI_FIXED, CPI_VARIABLE
+  indexType       String?   @map("index_type") // CPI, NONE, DOLLAR, EURO (what the track is linked to)
+  amount          Decimal   @db.Decimal(14, 2)  // track amount
+  interestRate    Decimal   @map("interest_rate") @db.Decimal(5, 2) // annual %
+  monthlyPayment  Decimal?  @map("monthly_payment") @db.Decimal(14, 2)
+  totalPayments   Int?      @map("total_payments") // total number of payments (months)
+  remainingPayments Int?    @map("remaining_payments") // remaining payments
+  startDate       DateTime? @map("start_date") @db.Date
+  endDate         DateTime? @map("end_date") @db.Date
+  notes           String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  mortgage Mortgage @relation(fields: [mortgageId], references: [id], onDelete: Cascade)
+
+  @@index([mortgageId])
+}
+
+// --------------------------------------------
+// Stock Portfolio & Holdings
+// --------------------------------------------
+model StockPortfolio {
+  id          String   @id @default(uuid())
+  householdId String   @map("household_id")
+  name        String   // e.g. "תיק IBI", "Interactive Brokers"
+  broker      String?  // e.g. "IBI", "Interactive Brokers", "Alpaca"
+  accountNum  String?  @map("account_num")
+  currency    String   @default("ILS")
+  notes       String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  household Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  holdings  StockHolding[]
+
+  @@index([householdId])
+}
+
+model StockHolding {
+  id            String    @id @default(uuid())
+  portfolioId   String    @map("portfolio_id")
+  ticker        String    // e.g. "AAPL", "TEVA.TA"
+  name          String    // e.g. "Apple Inc.", "Teva Pharmaceutical"
+  exchange      String?   // e.g. "NASDAQ", "NYSE", "TASE"
+  sector        String?   // e.g. "Technology", "Healthcare"
+  shares        Decimal   @db.Decimal(14, 4) // number of shares (supports fractional)
+  avgBuyPrice   Decimal   @map("avg_buy_price") @db.Decimal(14, 4) // average price per share
+  currency      String    @default("USD")
+  buyDate       DateTime? @map("buy_date") @db.Date
+  currentPrice  Decimal?  @map("current_price") @db.Decimal(14, 4) // cached from API
+  priceUpdatedAt DateTime? @map("price_updated_at")
+  notes         String?
+  isActive      Boolean   @default(true) @map("is_active")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  portfolio StockPortfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+
+  @@index([portfolioId])
+  @@index([ticker])
 }
 
 // --------------------------------------------

@@ -18,6 +18,8 @@ import { ForexModule } from './forex/forex.module';
 import { GoalsModule } from './goals/goals.module';
 import { RecurringModule } from './recurring/recurring.module';
 import { BudgetsModule } from './budgets/budgets.module';
+import { MortgagesModule } from './mortgages/mortgages.module';
+import { StocksModule } from './stocks/stocks.module';
 import { AlertsModule } from './alerts/alerts.module';
 import { EmailModule } from './email/email.module';
 
@@ -42,6 +44,8 @@ import { EmailModule } from './email/email.module';
     GoalsModule,
     RecurringModule,
     BudgetsModule,
+    MortgagesModule,
+    StocksModule,
     AlertsModule,
     EmailModule,
   ],

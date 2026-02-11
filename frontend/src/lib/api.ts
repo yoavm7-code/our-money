@@ -548,6 +548,127 @@ export type RecurringPatternItem = {
   isConfirmed: boolean;
 };
 
+// Mortgages
+export type MortgageTrackItem = {
+  id: string;
+  mortgageId: string;
+  name: string | null;
+  trackType: string; // PRIME, FIXED, VARIABLE, CPI_FIXED, CPI_VARIABLE
+  indexType: string | null; // CPI, NONE, DOLLAR, EURO
+  amount: number;
+  interestRate: number;
+  monthlyPayment: number | null;
+  totalPayments: number | null;
+  remainingPayments: number | null;
+  startDate: string | null;
+  endDate: string | null;
+  notes: string | null;
+};
+
+export type MortgageItem = {
+  id: string;
+  name: string;
+  bank: string | null;
+  propertyValue: number | null;
+  totalAmount: number;
+  remainingAmount: number | null;
+  totalMonthly: number | null;
+  startDate: string | null;
+  endDate: string | null;
+  currency: string;
+  notes: string | null;
+  isActive: boolean;
+  tracks: MortgageTrackItem[];
+};
+
+export const mortgages = {
+  list: () => api<MortgageItem[]>('/api/mortgages'),
+  get: (id: string) => api<MortgageItem>(`/api/mortgages/${id}`),
+  create: (body: {
+    name: string; bank?: string; propertyValue?: number; totalAmount: number;
+    remainingAmount?: number; totalMonthly?: number; startDate?: string; endDate?: string;
+    currency?: string; notes?: string;
+    tracks?: Array<{
+      name?: string; trackType: string; indexType?: string; amount: number;
+      interestRate: number; monthlyPayment?: number; totalPayments?: number;
+      remainingPayments?: number; startDate?: string; endDate?: string; notes?: string;
+    }>;
+  }) => api<MortgageItem>('/api/mortgages', { method: 'POST', body: JSON.stringify(body) }),
+  update: (id: string, body: Record<string, unknown>) =>
+    api<unknown>(`/api/mortgages/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  delete: (id: string) => api<unknown>(`/api/mortgages/${id}`, { method: 'DELETE' }),
+  addTrack: (mortgageId: string, body: {
+    name?: string; trackType: string; indexType?: string; amount: number;
+    interestRate: number; monthlyPayment?: number; totalPayments?: number;
+    remainingPayments?: number; startDate?: string; endDate?: string; notes?: string;
+  }) => api<MortgageTrackItem>(`/api/mortgages/${mortgageId}/tracks`, { method: 'POST', body: JSON.stringify(body) }),
+  updateTrack: (mortgageId: string, trackId: string, body: Record<string, unknown>) =>
+    api<unknown>(`/api/mortgages/${mortgageId}/tracks/${trackId}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteTrack: (mortgageId: string, trackId: string) =>
+    api<unknown>(`/api/mortgages/${mortgageId}/tracks/${trackId}`, { method: 'DELETE' }),
+};
+
+// Stocks
+export type StockHoldingItem = {
+  id: string;
+  portfolioId: string;
+  ticker: string;
+  name: string;
+  exchange: string | null;
+  sector: string | null;
+  shares: number;
+  avgBuyPrice: number;
+  currency: string;
+  buyDate: string | null;
+  currentPrice: number | null;
+  priceUpdatedAt: string | null;
+  notes: string | null;
+  isActive: boolean;
+};
+
+export type StockPortfolioItem = {
+  id: string;
+  name: string;
+  broker: string | null;
+  accountNum: string | null;
+  currency: string;
+  notes: string | null;
+  isActive: boolean;
+  holdings: StockHoldingItem[];
+};
+
+export type StockProviderInfo = {
+  name: string;
+  url: string;
+  hasApiKey: boolean;
+  description: string;
+};
+
+export const stocks = {
+  provider: () => api<StockProviderInfo>('/api/stocks/provider'),
+  search: (q: string) => api<Array<{ symbol: string; description: string; type: string }>>('/api/stocks/search', { params: { q } }),
+  portfolios: {
+    list: () => api<StockPortfolioItem[]>('/api/stocks/portfolios'),
+    get: (id: string) => api<StockPortfolioItem>(`/api/stocks/portfolios/${id}`),
+    create: (body: { name: string; broker?: string; accountNum?: string; currency?: string; notes?: string }) =>
+      api<StockPortfolioItem>('/api/stocks/portfolios', { method: 'POST', body: JSON.stringify(body) }),
+    update: (id: string, body: Record<string, unknown>) =>
+      api<unknown>(`/api/stocks/portfolios/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+    delete: (id: string) => api<unknown>(`/api/stocks/portfolios/${id}`, { method: 'DELETE' }),
+    refreshPrices: (id: string) => api<StockPortfolioItem>(`/api/stocks/portfolios/${id}/refresh-prices`, { method: 'POST' }),
+  },
+  holdings: {
+    add: (portfolioId: string, body: {
+      ticker: string; name: string; exchange?: string; sector?: string;
+      shares: number; avgBuyPrice: number; currency?: string; buyDate?: string; notes?: string;
+    }) => api<StockHoldingItem>(`/api/stocks/portfolios/${portfolioId}/holdings`, { method: 'POST', body: JSON.stringify(body) }),
+    update: (portfolioId: string, holdingId: string, body: Record<string, unknown>) =>
+      api<unknown>(`/api/stocks/portfolios/${portfolioId}/holdings/${holdingId}`, { method: 'PUT', body: JSON.stringify(body) }),
+    delete: (portfolioId: string, holdingId: string) =>
+      api<unknown>(`/api/stocks/portfolios/${portfolioId}/holdings/${holdingId}`, { method: 'DELETE' }),
+  },
+};
+
 export const recurring = {
   list: () => api<RecurringPatternItem[]>('/api/recurring'),
   detect: () => api<{ detected: number; patterns: RecurringPatternItem[] }>('/api/recurring/detect', { method: 'POST' }),
