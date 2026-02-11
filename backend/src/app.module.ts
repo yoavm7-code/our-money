@@ -22,6 +22,7 @@ import { MortgagesModule } from './mortgages/mortgages.module';
 import { StocksModule } from './stocks/stocks.module';
 import { AlertsModule } from './alerts/alerts.module';
 import { EmailModule } from './email/email.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { EmailModule } from './email/email.module';
     StocksModule,
     AlertsModule,
     EmailModule,
+    AdminModule,
   ],
   providers: [],
 })

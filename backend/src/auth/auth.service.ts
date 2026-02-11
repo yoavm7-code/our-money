@@ -92,7 +92,7 @@ export class AuthService {
     return { sent: true };
   }
 
-  private async loginResponse(user: { id: string; email: string; name: string | null; householdId: string; countryCode?: string | null }) {
+  private async loginResponse(user: { id: string; email: string; name: string | null; householdId: string; countryCode?: string | null; isAdmin?: boolean }) {
     const payload = { sub: user.id, email: user.email, householdId: user.householdId };
     const accessToken = this.jwtService.sign(payload);
     return {
@@ -103,6 +103,7 @@ export class AuthService {
         name: user.name,
         householdId: user.householdId,
         countryCode: user.countryCode ?? undefined,
+        isAdmin: user.isAdmin ?? false,
       },
     };
   }

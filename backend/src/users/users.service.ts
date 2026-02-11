@@ -40,6 +40,7 @@ export class UsersService {
         householdId: true,
         countryCode: true,
         emailVerified: true,
+        isAdmin: true,
       },
     });
   }
@@ -59,6 +60,7 @@ export class UsersService {
         phone: true,
         onboardingCompleted: true,
         twoFactorMethod: true,
+        isAdmin: true,
       },
     });
     if (!u) return null;
@@ -73,6 +75,7 @@ export class UsersService {
       phone: u.phone,
       onboardingCompleted: u.onboardingCompleted,
       twoFactorMethod: u.twoFactorMethod,
+      isAdmin: u.isAdmin,
     };
   }
 
