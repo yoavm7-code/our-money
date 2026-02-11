@@ -34,7 +34,8 @@
     "uncategorized": "Uncategorized",
     "confirm": "Confirm",
     "active": "Active",
-    "all": "All"
+    "all": "All",
+    "retry": "Retry"
   },
   "dateRange": {
     "today": "Today",

@@ -1,20 +1,32 @@
 import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
   private transporter: nodemailer.Transporter | null = null;
+  private resend: Resend | null = null;
   private readonly fromAddress: string;
   private readonly frontendUrl: string;
 
   constructor() {
+    this.fromAddress = process.env.SMTP_FROM || 'Our Money <onboarding@resend.dev>';
+    this.frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+    // Priority 1: Resend API (easiest setup - just set RESEND_API_KEY)
+    const resendKey = process.env.RESEND_API_KEY;
+    if (resendKey) {
+      this.resend = new Resend(resendKey);
+      this.logger.log('Email via Resend API configured');
+      return;
+    }
+
+    // Priority 2: SMTP (nodemailer)
     const host = process.env.SMTP_HOST;
     const port = process.env.SMTP_PORT;
     const user = process.env.SMTP_USER;
     const pass = process.env.SMTP_PASS;
-    this.fromAddress = process.env.SMTP_FROM || 'noreply@ourmoney.app';
-    this.frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
 
     if (host && port && user && pass) {
       this.transporter = nodemailer.createTransport({
@@ -23,13 +35,34 @@ export class EmailService {
         secure: parseInt(port, 10) === 465,
         auth: { user, pass },
       });
-      this.logger.log(`SMTP configured: ${host}:${port}`);
-    } else {
-      this.logger.warn('SMTP not configured - emails will be logged to console');
+      this.logger.log(`Email via SMTP configured: ${host}:${port}`);
+      return;
     }
+
+    this.logger.warn(
+      'No email provider configured. Set RESEND_API_KEY (free: 100 emails/day at resend.com) or SMTP_HOST/PORT/USER/PASS. Emails will be logged to console.',
+    );
   }
 
   private async send(to: string, subject: string, html: string): Promise<void> {
+    // Try Resend first
+    if (this.resend) {
+      try {
+        await this.resend.emails.send({
+          from: this.fromAddress,
+          to,
+          subject,
+          html,
+        });
+        this.logger.log(`Email sent via Resend to ${to}: ${subject}`);
+        return;
+      } catch (err) {
+        this.logger.error(`Failed to send email via Resend to ${to}: ${err}`);
+        return;
+      }
+    }
+
+    // Try SMTP
     if (this.transporter) {
       try {
         await this.transporter.sendMail({
@@ -38,15 +71,18 @@ export class EmailService {
           subject,
           html,
         });
-        this.logger.log(`Email sent to ${to}: ${subject}`);
+        this.logger.log(`Email sent via SMTP to ${to}: ${subject}`);
+        return;
       } catch (err) {
-        this.logger.error(`Failed to send email to ${to}: ${err}`);
+        this.logger.error(`Failed to send email via SMTP to ${to}: ${err}`);
+        return;
       }
-    } else {
-      this.logger.log(`[EMAIL] To: ${to}`);
-      this.logger.log(`[EMAIL] Subject: ${subject}`);
-      this.logger.log(`[EMAIL] Body:\n${html}`);
     }
+
+    // Fallback: log to console
+    this.logger.log(`[EMAIL - not sent, no provider configured] To: ${to}`);
+    this.logger.log(`[EMAIL] Subject: ${subject}`);
+    this.logger.log(`[EMAIL] Body:\n${html}`);
   }
 
   async sendVerificationEmail(to: string, token: string, locale: string): Promise<void> {

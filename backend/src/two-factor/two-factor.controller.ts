@@ -2,11 +2,15 @@ import { Body, Controller, Get, Post, Put, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { TwoFactorService } from './two-factor.service';
+import { MessagingService } from '../email/messaging.service';
 
 @Controller('api/2fa')
 @UseGuards(JwtAuthGuard)
 export class TwoFactorController {
-  constructor(private twoFactorService: TwoFactorService) {}
+  constructor(
+    private twoFactorService: TwoFactorService,
+    private messagingService: MessagingService,
+  ) {}
 
   @Get('status')
   async getStatus(@CurrentUser() user: { id: string }) {
@@ -53,5 +57,10 @@ export class TwoFactorController {
     @Body() body: { method: 'totp' | 'email' | 'sms' },
   ) {
     return this.twoFactorService.setTwoFactorMethod(user.id, body.method);
+  }
+
+  @Get('channels')
+  getAvailableChannels() {
+    return this.messagingService.getAvailableChannels();
   }
 }

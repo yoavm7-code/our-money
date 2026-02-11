@@ -3,6 +3,7 @@ import { generateSecret, generateURI, verifySync } from 'otplib';
 import * as QRCode from 'qrcode';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
+import { MessagingService } from '../email/messaging.service';
 
 @Injectable()
 export class TwoFactorService {
@@ -11,6 +12,7 @@ export class TwoFactorService {
   constructor(
     private prisma: PrismaService,
     private emailService: EmailService,
+    private messagingService: MessagingService,
   ) {}
 
   async generateSecretForUser(userId: string) {
@@ -127,8 +129,11 @@ export class TwoFactorService {
       data: { twoFactorSecret: storedValue },
     });
 
-    // SMS not implemented yet - log the code for now
-    this.logger.log(`[SMS] Code ${code} would be sent to ${user.phone}`);
+    const locale = 'he'; // default; could be fetched from user.countryCode
+    const result = await this.messagingService.sendVerificationCode(user.phone, code, locale);
+    if (!result.success) {
+      this.logger.warn(`Failed to send SMS/WhatsApp to ${user.phone} - code logged for debugging: ${code}`);
+    }
 
     return code;
   }
