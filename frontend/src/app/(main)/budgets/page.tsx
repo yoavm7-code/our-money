@@ -7,6 +7,14 @@ import HelpTooltip from '@/components/HelpTooltip';
 import { useToast } from '@/components/Toast';
 
 type CategoryOption = { id: string; name: string; slug: string; isIncome: boolean };
+
+function getCategoryDisplayName(name: string, slug: string | undefined, t: (k: string) => string): string {
+  if (slug) {
+    const translated = t('categories.' + slug);
+    if (translated !== 'categories.' + slug) return translated;
+  }
+  return name;
+}
 type BudgetSummary = {
   totalBudgeted: number;
   totalSpent: number;
@@ -161,7 +169,7 @@ export default function BudgetsPage() {
                     {b.category.icon || b.category.name.charAt(0)}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-lg truncate">{b.category.name}</h3>
+                    <h3 className="font-semibold text-lg truncate">{getCategoryDisplayName(b.category.name, b.category.slug, t)}</h3>
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${b.isOver ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'}`}>
                       {b.isOver ? t('budgets.overBudget') : t('budgets.onTrack')}
                     </span>
@@ -228,7 +236,7 @@ export default function BudgetsPage() {
                 >
                   <option value="">{t('budgets.category')}...</option>
                   {availableCategories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    <option key={cat.id} value={cat.id}>{getCategoryDisplayName(cat.name, cat.slug, t)}</option>
                   ))}
                 </select>
               </div>
