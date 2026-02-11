@@ -1,6 +1,8 @@
 import { Suspense } from 'react';
 import VerifyEmailContent from './VerifyEmailContent';
 
+export const dynamic = 'force-dynamic';
+
 export default function VerifyEmailPage() {
   return (
     <Suspense fallback={
