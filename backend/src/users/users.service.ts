@@ -20,6 +20,7 @@ export class UsersService {
         passwordHash,
         name: dto.name ?? null,
         countryCode: dto.countryCode ? dto.countryCode.toUpperCase().slice(0, 2) : null,
+        phone: dto.phone?.trim() || null,
         householdId: household.id,
         emailVerifyToken: emailVerifyToken ?? null,
         emailVerifyExp: emailVerifyToken ? new Date(Date.now() + 24 * 60 * 60 * 1000) : null,
