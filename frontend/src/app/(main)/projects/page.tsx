@@ -1116,7 +1116,7 @@ export default function ProjectsPage() {
               if (filterClientId) match = match && p.clientId === filterClientId;
               if (search.trim()) {
                 const q = search.toLowerCase();
-                match = match && (
+                match = match && !!(
                   p.name.toLowerCase().includes(q) ||
                   (p.description && p.description.toLowerCase().includes(q)) ||
                   (p.client && p.client.name.toLowerCase().includes(q))

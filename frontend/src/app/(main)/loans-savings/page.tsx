@@ -114,15 +114,15 @@ export default function LoansSavingsPage() {
     setSavingLoan(true);
     const body = {
       name: loanForm.name.trim(),
-      lender: loanForm.lender.trim() || null,
+      lender: loanForm.lender.trim() || undefined,
       originalAmount: parseFloat(loanForm.originalAmount) || 0,
       remainingAmount: parseFloat(loanForm.remainingAmount) || 0,
-      interestRate: loanForm.interestRate ? parseFloat(loanForm.interestRate) : null,
-      monthlyPayment: loanForm.monthlyPayment ? parseFloat(loanForm.monthlyPayment) : null,
-      startDate: loanForm.startDate || null,
-      endDate: loanForm.endDate || null,
+      interestRate: loanForm.interestRate ? parseFloat(loanForm.interestRate) : undefined,
+      monthlyPayment: loanForm.monthlyPayment ? parseFloat(loanForm.monthlyPayment) : undefined,
+      startDate: loanForm.startDate || undefined,
+      endDate: loanForm.endDate || undefined,
       currency: loanForm.currency,
-      notes: loanForm.notes.trim() || null,
+      notes: loanForm.notes.trim() || undefined,
     };
     try {
       if (editingLoanId) {
@@ -185,13 +185,13 @@ export default function LoansSavingsPage() {
     setSavingSaving(true);
     const body = {
       name: savingForm.name.trim(),
-      targetAmount: savingForm.targetAmount ? parseFloat(savingForm.targetAmount) : null,
+      targetAmount: savingForm.targetAmount ? parseFloat(savingForm.targetAmount) : 0,
       currentAmount: parseFloat(savingForm.currentAmount) || 0,
-      interestRate: savingForm.interestRate ? parseFloat(savingForm.interestRate) : null,
-      startDate: savingForm.startDate || null,
-      targetDate: savingForm.targetDate || null,
+      interestRate: savingForm.interestRate ? parseFloat(savingForm.interestRate) : undefined,
+      startDate: savingForm.startDate || undefined,
+      targetDate: savingForm.targetDate || undefined,
       currency: savingForm.currency,
-      notes: savingForm.notes.trim() || null,
+      notes: savingForm.notes.trim() || undefined,
     };
     try {
       if (editingSavingId) {

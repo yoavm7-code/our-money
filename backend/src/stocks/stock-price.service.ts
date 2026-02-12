@@ -6,7 +6,7 @@ interface PriceCache {
   fetchedAt: number;
 }
 
-interface QuoteData {
+export interface QuoteData {
   price: number;
   change: number;
   changePercent: number;

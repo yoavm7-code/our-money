@@ -901,6 +901,8 @@ export type SavingItem = {
   name: string;
   targetAmount: number;
   currentAmount: number;
+  interestRate: number | null;
+  startDate: string | null;
   targetDate: string | null;
   currency: string;
   notes: string | null;
@@ -934,6 +936,8 @@ export const savings = {
     name: string;
     targetAmount: number;
     currentAmount?: number;
+    interestRate?: number;
+    startDate?: string;
     targetDate?: string;
     currency?: string;
     notes?: string;

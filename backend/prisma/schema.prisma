@@ -46,6 +46,7 @@ model Business {
   projects           Project[]
   invoices           Invoice[]
   taxPeriods         TaxPeriod[]
+  mortgages          Mortgage[]
 }
 
 // --------------------------------------------
@@ -653,4 +654,52 @@ model RecurringPattern {
   business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
   @@index([businessId])
+}
+
+// --------------------------------------------
+// Mortgages
+// --------------------------------------------
+model Mortgage {
+  id              String    @id @default(uuid())
+  businessId      String    @map("business_id")
+  name            String
+  bank            String?
+  propertyValue   Decimal?  @map("property_value") @db.Decimal(14, 2)
+  totalAmount     Decimal   @map("total_amount") @db.Decimal(14, 2)
+  remainingAmount Decimal?  @map("remaining_amount") @db.Decimal(14, 2)
+  totalMonthly    Decimal?  @map("total_monthly") @db.Decimal(14, 2)
+  startDate       DateTime? @map("start_date") @db.Date
+  endDate         DateTime? @map("end_date") @db.Date
+  currency        String    @default("ILS")
+  notes           String?   @db.Text
+  isActive        Boolean   @default(true) @map("is_active")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  business Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  tracks   MortgageTrack[]
+
+  @@index([businessId])
+}
+
+model MortgageTrack {
+  id                String    @id @default(uuid())
+  mortgageId        String    @map("mortgage_id")
+  name              String?
+  trackType         String    @map("track_type")
+  indexType          String?   @map("index_type")
+  amount            Decimal   @db.Decimal(14, 2)
+  interestRate      Decimal   @map("interest_rate") @db.Decimal(5, 2)
+  monthlyPayment    Decimal?  @map("monthly_payment") @db.Decimal(14, 2)
+  totalPayments     Int?      @map("total_payments")
+  remainingPayments Int?      @map("remaining_payments")
+  startDate         DateTime? @map("start_date") @db.Date
+  endDate           DateTime? @map("end_date") @db.Date
+  notes             String?   @db.Text
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  mortgage Mortgage @relation(fields: [mortgageId], references: [id], onDelete: Cascade)
+
+  @@index([mortgageId])
 }

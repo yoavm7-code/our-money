@@ -1,9 +1,24 @@
 import { Injectable, BadRequestException, Logger } from '@nestjs/common';
-import { authenticator } from 'otplib';
+import { generateSecret, generateURI, verifySync } from 'otplib';
 import * as QRCode from 'qrcode';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
 import { MessagingService } from '../email/messaging.service';
+
+// Create a TOTP-based authenticator helper compatible with the old otplib v12 API
+const authenticator = {
+  generateSecret: (): string => generateSecret(),
+  keyuri: (accountName: string, issuer: string, secret: string): string =>
+    generateURI({ issuer, label: accountName, secret, strategy: 'totp' }),
+  verify: ({ token, secret }: { token: string; secret: string }): boolean => {
+    try {
+      const result = verifySync({ token, secret, strategy: 'totp' });
+      return result.valid;
+    } catch {
+      return false;
+    }
+  },
+};
 
 @Injectable()
 export class TwoFactorService {
