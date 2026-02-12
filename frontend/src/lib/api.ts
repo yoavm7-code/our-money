@@ -4,7 +4,9 @@
  */
 
 const raw = (process.env.NEXT_PUBLIC_API_URL || '').trim().replace(/\/$/, '');
-const API_URL = raw || (typeof window !== 'undefined' ? '' : 'http://localhost:4000');
+// In the browser, always use relative paths so Next.js rewrites can proxy to the backend.
+// The raw URL may be an internal hostname (e.g. backend.railway.internal) unreachable from the browser.
+const API_URL = typeof window !== 'undefined' ? '' : (raw || 'http://localhost:4000');
 
 function getToken(): string | null {
   if (typeof window === 'undefined') return null;
