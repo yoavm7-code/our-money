@@ -4,7 +4,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 
 export type Theme = 'light' | 'dark' | 'system';
 
-const STORAGE_KEY = 'freelancer-theme';
+const STORAGE_KEY = 'our-money-theme';
 
 type ThemeContextValue = {
   theme: Theme;
@@ -29,7 +29,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(getStoredTheme);
   const [systemDark, setSystemDark] = useState(getSystemDark);
 
-  // Listen for OS-level dark mode changes
   useEffect(() => {
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
     const handler = (e: MediaQueryListEvent) => setSystemDark(e.matches);
@@ -39,18 +38,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   const resolvedTheme: 'light' | 'dark' = theme === 'system' ? (systemDark ? 'dark' : 'light') : theme;
 
-  // Apply or remove 'dark' class on <html>
   useEffect(() => {
     const html = document.documentElement;
     if (resolvedTheme === 'dark') {
       html.classList.add('dark');
     } else {
       html.classList.remove('dark');
-    }
-    // Update meta theme-color for mobile browser chrome
-    const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) {
-      meta.setAttribute('content', resolvedTheme === 'dark' ? '#0c0a1d' : '#4f46e5');
     }
   }, [resolvedTheme]);
 

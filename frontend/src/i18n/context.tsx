@@ -6,7 +6,7 @@ import enJson from './en.json';
 
 export type Locale = 'he' | 'en';
 
-const STORAGE_KEY = 'freelanceros-locale';
+const STORAGE_KEY = 'our-money-locale';
 
 function getNested(obj: Record<string, unknown>, path: string): string | undefined {
   const parts = path.split('.');
@@ -19,11 +19,7 @@ function getNested(obj: Record<string, unknown>, path: string): string | undefin
 }
 
 function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 function interpolate(str: string, vars: Record<string, string | number>): string {
@@ -53,12 +49,8 @@ const translations: Record<Locale, Translations> = {
 
 function getStoredLocale(): Locale {
   if (typeof window === 'undefined') return 'he';
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY) as Locale | null;
-    return stored === 'he' || stored === 'en' ? stored : 'he';
-  } catch {
-    return 'he';
-  }
+  const stored = localStorage.getItem(STORAGE_KEY) as Locale | null;
+  return (stored === 'he' || stored === 'en') ? stored : 'he';
 }
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
@@ -67,13 +59,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const dict = translations[locale];
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem(STORAGE_KEY, locale);
-      } catch {
-        // localStorage may be unavailable
-      }
-    }
+    if (typeof window !== 'undefined') localStorage.setItem(STORAGE_KEY, locale);
   }, [locale]);
 
   const setLocale = useCallback((next: Locale) => setLocaleState(next), []);
@@ -103,6 +89,3 @@ export function useTranslation() {
   if (!ctx) throw new Error('useTranslation must be used within LanguageProvider');
   return ctx;
 }
-
-// Alias for backward compatibility
-export const useLanguage = useTranslation;

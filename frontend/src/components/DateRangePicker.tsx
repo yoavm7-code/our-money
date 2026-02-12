@@ -7,12 +7,10 @@ type QuickRange =
   | 'allTime'
   | 'today'
   | 'yesterday'
-  | 'thisWeek'
   | 'last7'
   | 'last30'
   | 'thisMonth'
   | 'lastMonth'
-  | 'thisQuarter'
   | 'last3Months'
   | 'thisYear'
   | 'lastYear'
@@ -24,7 +22,6 @@ export function getQuickRangeDates(range: QuickRange | 'yearRange', yearFrom?: n
   const now = new Date();
   const today = now.toISOString().slice(0, 10);
   const y = now.getFullYear();
-  const m = now.getMonth();
 
   if (range === 'yearRange' && yearFrom != null && yearTo != null) {
     const start = new Date(yearFrom, 0, 1);
@@ -43,13 +40,6 @@ export function getQuickRangeDates(range: QuickRange | 'yearRange', yearFrom?: n
       const ys = yd.toISOString().slice(0, 10);
       return { from: ys, to: ys };
     }
-    case 'thisWeek': {
-      const day = now.getDay();
-      // Week starts on Sunday
-      const startOfWeek = new Date(now);
-      startOfWeek.setDate(now.getDate() - day);
-      return { from: startOfWeek.toISOString().slice(0, 10), to: today };
-    }
     case 'last7': {
       const d7 = new Date(now);
       d7.setDate(d7.getDate() - 6);
@@ -61,20 +51,16 @@ export function getQuickRangeDates(range: QuickRange | 'yearRange', yearFrom?: n
       return { from: d30.toISOString().slice(0, 10), to: today };
     }
     case 'thisMonth': {
-      const start = new Date(y, m, 1);
+      const start = new Date(y, now.getMonth(), 1);
       return { from: start.toISOString().slice(0, 10), to: today };
     }
     case 'lastMonth': {
-      const lmStart = new Date(y, m - 1, 1);
-      const lmEnd = new Date(y, m, 0);
+      const lmStart = new Date(y, now.getMonth() - 1, 1);
+      const lmEnd = new Date(y, now.getMonth(), 0);
       return { from: lmStart.toISOString().slice(0, 10), to: lmEnd.toISOString().slice(0, 10) };
     }
-    case 'thisQuarter': {
-      const qStart = new Date(y, Math.floor(m / 3) * 3, 1);
-      return { from: qStart.toISOString().slice(0, 10), to: today };
-    }
     case 'last3Months': {
-      const start = new Date(y, m - 2, 1);
+      const start = new Date(y, now.getMonth() - 2, 1);
       return { from: start.toISOString().slice(0, 10), to: today };
     }
     case 'thisYear': {
@@ -103,8 +89,8 @@ type Props = {
 };
 
 // Quick range groups for better organization
-const QUICK_RANGES_RECENT: QuickRange[] = ['allTime', 'today', 'yesterday', 'thisWeek', 'last7', 'last30'];
-const QUICK_RANGES_MONTHS: QuickRange[] = ['thisMonth', 'lastMonth', 'thisQuarter', 'last3Months'];
+const QUICK_RANGES_RECENT: QuickRange[] = ['allTime', 'today', 'yesterday', 'last7', 'last30'];
+const QUICK_RANGES_MONTHS: QuickRange[] = ['thisMonth', 'lastMonth', 'last3Months'];
 const QUICK_RANGES_YEARS: QuickRange[] = ['thisYear', 'lastYear', 'last2Years'];
 
 export default function DateRangePicker({ from, to, onChange, className = '' }: Props) {
@@ -166,7 +152,7 @@ export default function DateRangePicker({ from, to, onChange, className = '' }: 
           value={from}
           onChange={(e) => onChange(e.target.value, to)}
         />
-        <span className="text-slate-400">--</span>
+        <span className="text-slate-400">–</span>
         <input
           type="date"
           className="input w-auto min-w-[130px]"
@@ -206,7 +192,7 @@ export default function DateRangePicker({ from, to, onChange, className = '' }: 
                     type="button"
                     className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
                       isActive
-                        ? 'bg-indigo-500 text-white border-indigo-500'
+                        ? 'bg-primary-500 text-white border-primary-500'
                         : 'border-[var(--border)] hover:bg-slate-100 dark:hover:bg-slate-800'
                     }`}
                     onClick={() => applyQuick(r)}
@@ -231,7 +217,7 @@ export default function DateRangePicker({ from, to, onChange, className = '' }: 
                     type="button"
                     className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
                       isActive
-                        ? 'bg-indigo-500 text-white border-indigo-500'
+                        ? 'bg-primary-500 text-white border-primary-500'
                         : 'border-[var(--border)] hover:bg-slate-100 dark:hover:bg-slate-800'
                     }`}
                     onClick={() => applyQuick(r)}
@@ -256,7 +242,7 @@ export default function DateRangePicker({ from, to, onChange, className = '' }: 
                     type="button"
                     className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
                       isActive
-                        ? 'bg-indigo-500 text-white border-indigo-500'
+                        ? 'bg-primary-500 text-white border-primary-500'
                         : 'border-[var(--border)] hover:bg-slate-100 dark:hover:bg-slate-800'
                     }`}
                     onClick={() => applyQuick(r)}
@@ -281,7 +267,7 @@ export default function DateRangePicker({ from, to, onChange, className = '' }: 
                 min={1990}
                 max={currentYear + 5}
               />
-              <span className="text-slate-400">--</span>
+              <span className="text-slate-400">–</span>
               <input
                 type="number"
                 className="input text-sm w-24 py-1.5"

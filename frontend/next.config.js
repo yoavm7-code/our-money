@@ -1,9 +1,5 @@
 /** @type {import('next').NextConfig} */
-let apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-// Ensure URL has protocol prefix
-if (apiUrl && !apiUrl.startsWith('http://') && !apiUrl.startsWith('https://')) {
-  apiUrl = `http://${apiUrl}`;
-}
+const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 const nextConfig = {
   reactStrictMode: true,
   devIndicators: false,

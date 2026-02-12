@@ -8,12 +8,12 @@ import { CreateMortgageTrackDto } from './dto/create-mortgage-track.dto';
 export class MortgagesService {
   constructor(private prisma: PrismaService) {}
 
-  async create(businessId: string, dto: CreateMortgageDto) {
+  async create(householdId: string, dto: CreateMortgageDto) {
     const { tracks, ...mortgageData } = dto;
 
     return this.prisma.mortgage.create({
       data: {
-        businessId,
+        householdId,
         name: mortgageData.name,
         bank: mortgageData.bank ?? null,
         propertyValue: mortgageData.propertyValue ?? null,
@@ -46,39 +46,39 @@ export class MortgagesService {
     });
   }
 
-  async findAll(businessId: string) {
+  async findAll(householdId: string) {
     return this.prisma.mortgage.findMany({
-      where: { businessId, isActive: true },
+      where: { householdId, isActive: true },
       include: { tracks: true },
       orderBy: { name: 'asc' },
     });
   }
 
-  async findOne(businessId: string, id: string) {
+  async findOne(householdId: string, id: string) {
     return this.prisma.mortgage.findFirst({
-      where: { id, businessId },
+      where: { id, householdId },
       include: { tracks: true },
     });
   }
 
-  async update(businessId: string, id: string, dto: UpdateMortgageDto) {
+  async update(householdId: string, id: string, dto: UpdateMortgageDto) {
     return this.prisma.mortgage.updateMany({
-      where: { id, businessId },
+      where: { id, householdId },
       data: dto as Record<string, unknown>,
     });
   }
 
-  async remove(businessId: string, id: string) {
+  async remove(householdId: string, id: string) {
     return this.prisma.mortgage.updateMany({
-      where: { id, businessId },
+      where: { id, householdId },
       data: { isActive: false },
     });
   }
 
-  async addTrack(businessId: string, mortgageId: string, dto: CreateMortgageTrackDto) {
+  async addTrack(householdId: string, mortgageId: string, dto: CreateMortgageTrackDto) {
     // Verify the mortgage belongs to this household
     const mortgage = await this.prisma.mortgage.findFirst({
-      where: { id: mortgageId, businessId },
+      where: { id: mortgageId, householdId },
     });
     if (!mortgage) {
       return null;
@@ -103,14 +103,14 @@ export class MortgagesService {
   }
 
   async updateTrack(
-    businessId: string,
+    householdId: string,
     mortgageId: string,
     trackId: string,
     dto: CreateMortgageTrackDto,
   ) {
     // Verify the mortgage belongs to this household
     const mortgage = await this.prisma.mortgage.findFirst({
-      where: { id: mortgageId, businessId },
+      where: { id: mortgageId, householdId },
     });
     if (!mortgage) {
       return null;
@@ -134,10 +134,10 @@ export class MortgagesService {
     });
   }
 
-  async removeTrack(businessId: string, mortgageId: string, trackId: string) {
+  async removeTrack(householdId: string, mortgageId: string, trackId: string) {
     // Verify the mortgage belongs to this household
     const mortgage = await this.prisma.mortgage.findFirst({
-      where: { id: mortgageId, businessId },
+      where: { id: mortgageId, householdId },
     });
     if (!mortgage) {
       return null;

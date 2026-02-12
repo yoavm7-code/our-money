@@ -1,201 +1,103 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { HouseholdId } from '../common/decorators/household.decorator';
 import { StocksService } from './stocks.service';
 import { StockPriceService } from './stock-price.service';
+import { CreatePortfolioDto } from './dto/create-portfolio.dto';
+import { UpdatePortfolioDto } from './dto/update-portfolio.dto';
+import { CreateHoldingDto } from './dto/create-holding.dto';
+import { UpdateHoldingDto } from './dto/update-holding.dto';
 
 @Controller('api/stocks')
 @UseGuards(JwtAuthGuard)
 export class StocksController {
   constructor(
-    private service: StocksService,
-    private priceService: StockPriceService,
+    private stocksService: StocksService,
+    private stockPriceService: StockPriceService,
   ) {}
 
-  // ─── Provider Info & Search ───
+  // ---- Provider Info & Search ----
 
-  /**
-   * GET /api/stocks/provider
-   * Get info about the stock price data provider.
-   */
   @Get('provider')
   getProvider() {
-    return this.priceService.getProviderInfo();
+    return this.stockPriceService.getProviderInfo();
   }
 
-  /**
-   * GET /api/stocks/search?q=AAPL
-   * Search for stock symbols.
-   */
   @Get('search')
   search(@Query('q') query: string) {
-    return this.priceService.searchSymbol(query || '');
+    return this.stockPriceService.searchSymbol(query || '');
   }
 
-  /**
-   * GET /api/stocks/quote/:ticker
-   * Get real-time quote for a ticker.
-   */
   @Get('quote/:ticker')
   getQuote(@Param('ticker') ticker: string) {
-    return this.priceService.getQuote(ticker);
+    return this.stockPriceService.getQuote(ticker);
   }
 
-  /**
-   * GET /api/stocks/summary
-   * Get overall summary of all portfolios.
-   */
-  @Get('summary')
-  getSummary(@CurrentUser() user: { businessId: string }) {
-    return this.service.getSummary(user.businessId);
-  }
+  // ---- Portfolios ----
 
-  // ─── Portfolios ───
-
-  /**
-   * POST /api/stocks/portfolios
-   * Create a new stock portfolio.
-   */
   @Post('portfolios')
-  createPortfolio(
-    @CurrentUser() user: { businessId: string },
-    @Body() dto: {
-      name: string;
-      broker?: string;
-      accountNum?: string;
-      currency?: string;
-      notes?: string;
-    },
-  ) {
-    return this.service.createPortfolio(user.businessId, dto);
+  createPortfolio(@HouseholdId() householdId: string, @Body() dto: CreatePortfolioDto) {
+    return this.stocksService.createPortfolio(householdId, dto);
   }
 
-  /**
-   * GET /api/stocks/portfolios
-   * List all active portfolios with holdings summary.
-   */
   @Get('portfolios')
-  listPortfolios(@CurrentUser() user: { businessId: string }) {
-    return this.service.listPortfolios(user.businessId);
+  findAllPortfolios(@HouseholdId() householdId: string) {
+    return this.stocksService.findAllPortfolios(householdId);
   }
 
-  /**
-   * GET /api/stocks/portfolios/:id
-   * Get a specific portfolio with all holdings.
-   */
   @Get('portfolios/:id')
-  findOnePortfolio(@CurrentUser() user: { businessId: string }, @Param('id') id: string) {
-    return this.service.findOnePortfolio(user.businessId, id);
+  findOnePortfolio(@HouseholdId() householdId: string, @Param('id') id: string) {
+    return this.stocksService.findOnePortfolio(householdId, id);
   }
 
-  /**
-   * PUT /api/stocks/portfolios/:id
-   * Update a portfolio.
-   */
   @Put('portfolios/:id')
   updatePortfolio(
-    @CurrentUser() user: { businessId: string },
+    @HouseholdId() householdId: string,
     @Param('id') id: string,
-    @Body() dto: {
-      name?: string;
-      broker?: string;
-      accountNum?: string;
-      currency?: string;
-      notes?: string;
-    },
+    @Body() dto: UpdatePortfolioDto,
   ) {
-    return this.service.updatePortfolio(user.businessId, id, dto);
+    return this.stocksService.updatePortfolio(householdId, id, dto);
   }
 
-  /**
-   * DELETE /api/stocks/portfolios/:id
-   * Soft-delete a portfolio.
-   */
   @Delete('portfolios/:id')
-  removePortfolio(@CurrentUser() user: { businessId: string }, @Param('id') id: string) {
-    return this.service.removePortfolio(user.businessId, id);
+  removePortfolio(@HouseholdId() householdId: string, @Param('id') id: string) {
+    return this.stocksService.removePortfolio(householdId, id);
   }
 
-  // ─── Holdings ───
+  // ---- Holdings ----
 
-  /**
-   * GET /api/stocks/portfolios/:portfolioId/holdings
-   * List all holdings in a portfolio with P&L.
-   */
-  @Get('portfolios/:portfolioId/holdings')
-  listHoldings(
-    @CurrentUser() user: { businessId: string },
-    @Param('portfolioId') portfolioId: string,
+  @Post('portfolios/:id/holdings')
+  addHolding(
+    @HouseholdId() householdId: string,
+    @Param('id') portfolioId: string,
+    @Body() dto: CreateHoldingDto,
   ) {
-    return this.service.listHoldings(user.businessId, portfolioId);
+    return this.stocksService.addHolding(householdId, portfolioId, dto);
   }
 
-  /**
-   * POST /api/stocks/portfolios/:portfolioId/holdings
-   * Add a holding to a portfolio.
-   */
-  @Post('portfolios/:portfolioId/holdings')
-  createHolding(
-    @CurrentUser() user: { businessId: string },
-    @Param('portfolioId') portfolioId: string,
-    @Body() dto: {
-      ticker: string;
-      name: string;
-      exchange?: string;
-      sector?: string;
-      shares: number;
-      avgBuyPrice: number;
-      currency?: string;
-      buyDate?: string;
-      notes?: string;
-    },
-  ) {
-    return this.service.createHolding(user.businessId, portfolioId, dto);
-  }
-
-  /**
-   * PUT /api/stocks/holdings/:id
-   * Update a holding.
-   */
-  @Put('holdings/:id')
+  @Put('portfolios/:id/holdings/:holdingId')
   updateHolding(
-    @CurrentUser() user: { businessId: string },
-    @Param('id') id: string,
-    @Body() dto: {
-      ticker?: string;
-      name?: string;
-      exchange?: string;
-      sector?: string;
-      shares?: number;
-      avgBuyPrice?: number;
-      currency?: string;
-      buyDate?: string;
-      notes?: string;
-    },
+    @HouseholdId() householdId: string,
+    @Param('id') portfolioId: string,
+    @Param('holdingId') holdingId: string,
+    @Body() dto: UpdateHoldingDto,
   ) {
-    return this.service.updateHolding(user.businessId, id, dto);
+    return this.stocksService.updateHolding(householdId, portfolioId, holdingId, dto);
   }
 
-  /**
-   * DELETE /api/stocks/holdings/:id
-   * Soft-delete a holding.
-   */
-  @Delete('holdings/:id')
-  removeHolding(@CurrentUser() user: { businessId: string }, @Param('id') id: string) {
-    return this.service.removeHolding(user.businessId, id);
+  @Delete('portfolios/:id/holdings/:holdingId')
+  removeHolding(
+    @HouseholdId() householdId: string,
+    @Param('id') portfolioId: string,
+    @Param('holdingId') holdingId: string,
+  ) {
+    return this.stocksService.removeHolding(householdId, portfolioId, holdingId);
   }
 
-  // ─── Price Refresh ───
+  // ---- Price Refresh ----
 
-  /**
-   * POST /api/stocks/portfolios/:portfolioId/refresh
-   * Refresh current prices for all holdings in a portfolio.
-   */
-  @Post('portfolios/:portfolioId/refresh')
-  refreshPrices(
-    @CurrentUser() user: { businessId: string },
-    @Param('portfolioId') portfolioId: string,
-  ) {
-    return this.service.refreshPrices(user.businessId, portfolioId);
+  @Post('portfolios/:id/refresh-prices')
+  refreshPrices(@HouseholdId() householdId: string, @Param('id') portfolioId: string) {
+    return this.stocksService.refreshPrices(householdId, portfolioId);
   }
 }

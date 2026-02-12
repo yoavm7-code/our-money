@@ -1,55 +1,28 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Post,
-  UseGuards,
-} from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { HouseholdId } from '../common/decorators/household.decorator';
 import { RulesService } from './rules.service';
 
-interface RequestUser {
-  userId: string;
-  email: string;
-  businessId: string;
-  isAdmin: boolean;
-}
-
 @Controller('api/rules')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(JwtAuthGuard)
 export class RulesController {
-  constructor(private readonly rulesService: RulesService) {}
+  constructor(private rulesService: RulesService) {}
 
-  /** GET /api/rules - list all rules for the business */
   @Get()
-  findAll(@CurrentUser() user: RequestUser) {
-    return this.rulesService.findAll(user.businessId);
+  findAll(@HouseholdId() householdId: string) {
+    return this.rulesService.findAll(householdId);
   }
 
-  /** POST /api/rules - create a new categorization rule */
   @Post()
   create(
-    @CurrentUser() user: RequestUser,
-    @Body()
-    dto: {
-      categoryId: string;
-      pattern: string;
-      patternType?: string;
-      priority?: number;
-    },
+    @HouseholdId() householdId: string,
+    @Body() dto: { categoryId: string; pattern: string; patternType?: string; priority?: number },
   ) {
-    return this.rulesService.create(user.businessId, dto);
+    return this.rulesService.create(householdId, dto);
   }
 
-  /** DELETE /api/rules/:id - delete a rule */
   @Delete(':id')
-  remove(
-    @CurrentUser() user: RequestUser,
-    @Param('id') id: string,
-  ) {
-    return this.rulesService.remove(user.businessId, id);
+  remove(@HouseholdId() householdId: string, @Param('id') id: string) {
+    return this.rulesService.remove(householdId, id);
   }
 }

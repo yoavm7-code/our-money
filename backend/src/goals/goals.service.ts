@@ -1,35 +1,17 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CreateGoalDto } from './dto/create-goal.dto';
+import { UpdateGoalDto } from './dto/update-goal.dto';
 
 @Injectable()
 export class GoalsService {
   constructor(private prisma: PrismaService) {}
 
-  /**
-   * Create a new financial goal for the business.
-   * Automatically calculates monthlyTarget if targetDate is provided.
-   */
-  async create(
-    businessId: string,
-    dto: {
-      name: string;
-      targetAmount: number;
-      currentAmount?: number;
-      targetDate?: string;
-      icon?: string;
-      color?: string;
-      priority?: number;
-      monthlyTarget?: number;
-      currency?: string;
-      notes?: string;
-    },
-  ) {
-    const monthlyTarget =
-      dto.monthlyTarget ?? this.calcMonthlyTarget(dto.targetAmount, dto.currentAmount ?? 0, dto.targetDate);
-
+  async create(householdId: string, dto: CreateGoalDto) {
+    const monthlyTarget = dto.monthlyTarget ?? this.calcMonthlyTarget(dto.targetAmount, dto.currentAmount ?? 0, dto.targetDate);
     return this.prisma.goal.create({
       data: {
-        businessId,
+        householdId,
         name: dto.name,
         targetAmount: dto.targetAmount,
         currentAmount: dto.currentAmount ?? 0,
@@ -44,62 +26,29 @@ export class GoalsService {
     });
   }
 
-  /**
-   * List all active goals with computed progress metrics.
-   */
-  async findAll(businessId: string) {
+  async findAll(householdId: string) {
     const goals = await this.prisma.goal.findMany({
-      where: { businessId, isActive: true },
+      where: { householdId, isActive: true },
       orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
     });
-
     return goals.map((g) => ({
       ...g,
       targetAmount: Number(g.targetAmount),
       currentAmount: Number(g.currentAmount),
       monthlyTarget: g.monthlyTarget != null ? Number(g.monthlyTarget) : null,
-      progress:
-        Number(g.targetAmount) > 0
-          ? Math.min(100, Math.round((Number(g.currentAmount) / Number(g.targetAmount)) * 100))
-          : 0,
+      progress: Number(g.targetAmount) > 0 ? Math.min(100, Math.round((Number(g.currentAmount) / Number(g.targetAmount)) * 100)) : 0,
       remainingAmount: Math.max(0, Number(g.targetAmount) - Number(g.currentAmount)),
-      monthsRemaining: g.targetDate
-        ? Math.max(0, this.monthsBetween(new Date(), new Date(g.targetDate)))
-        : null,
+      monthsRemaining: g.targetDate ? Math.max(0, this.monthsBetween(new Date(), new Date(g.targetDate))) : null,
     }));
   }
 
-  /**
-   * Get a specific goal by ID, scoped to the business.
-   */
-  async findOne(businessId: string, id: string) {
-    const goal = await this.prisma.goal.findFirst({
-      where: { id, businessId },
+  async findOne(householdId: string, id: string) {
+    return this.prisma.goal.findFirst({
+      where: { id, householdId },
     });
-    if (!goal) throw new NotFoundException('Goal not found');
-    return goal;
   }
 
-  /**
-   * Update a goal.
-   */
-  async update(
-    businessId: string,
-    id: string,
-    dto: {
-      name?: string;
-      targetAmount?: number;
-      currentAmount?: number;
-      targetDate?: string;
-      icon?: string;
-      color?: string;
-      priority?: number;
-      monthlyTarget?: number;
-      currency?: string;
-      notes?: string;
-      isActive?: boolean;
-    },
-  ) {
+  async update(householdId: string, id: string, dto: UpdateGoalDto) {
     const data: Record<string, unknown> = {};
     if (dto.name !== undefined) data.name = dto.name;
     if (dto.targetAmount !== undefined) data.targetAmount = dto.targetAmount;
@@ -112,38 +61,25 @@ export class GoalsService {
     if (dto.currency !== undefined) data.currency = dto.currency;
     if (dto.notes !== undefined) data.notes = dto.notes;
     if (dto.isActive !== undefined) data.isActive = dto.isActive;
-
-    const result = await this.prisma.goal.updateMany({
-      where: { id, businessId },
+    return this.prisma.goal.updateMany({
+      where: { id, householdId },
       data,
     });
-    if (result.count === 0) throw new NotFoundException('Goal not found');
-    return this.findOne(businessId, id);
   }
 
-  /**
-   * Soft-delete a goal.
-   */
-  async remove(businessId: string, id: string) {
-    const result = await this.prisma.goal.updateMany({
-      where: { id, businessId },
+  async remove(householdId: string, id: string) {
+    return this.prisma.goal.updateMany({
+      where: { id, householdId },
       data: { isActive: false },
     });
-    if (result.count === 0) throw new NotFoundException('Goal not found');
-    return { deleted: true };
   }
 
-  /**
-   * Update the AI tips for a goal.
-   */
-  async updateAiTips(businessId: string, id: string, tips: string) {
+  async updateAiTips(householdId: string, id: string, tips: string) {
     return this.prisma.goal.updateMany({
-      where: { id, businessId },
+      where: { id, householdId },
       data: { aiTips: tips, aiTipsUpdatedAt: new Date() },
     });
   }
-
-  // ─── Private helpers ───
 
   private calcMonthlyTarget(target: number, current: number, targetDate?: string): number | null {
     if (!targetDate) return null;

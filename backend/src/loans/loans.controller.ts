@@ -1,84 +1,41 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { HouseholdId } from '../common/decorators/household.decorator';
 import { LoansService } from './loans.service';
+import { CreateLoanDto } from './dto/create-loan.dto';
+import { UpdateLoanDto } from './dto/update-loan.dto';
 
 @Controller('api/loans')
 @UseGuards(JwtAuthGuard)
 export class LoansController {
   constructor(private loansService: LoansService) {}
 
-  /**
-   * POST /api/loans
-   * Create a new loan for the business.
-   */
   @Post()
-  create(
-    @CurrentUser() user: { businessId: string },
-    @Body() dto: {
-      name: string;
-      lender?: string;
-      originalAmount: number;
-      remainingAmount: number;
-      interestRate?: number;
-      monthlyPayment?: number;
-      startDate?: string;
-      endDate?: string;
-      currency?: string;
-      notes?: string;
-    },
-  ) {
-    return this.loansService.create(user.businessId, dto);
+  create(@HouseholdId() householdId: string, @Body() dto: CreateLoanDto) {
+    return this.loansService.create(householdId, dto);
   }
 
-  /**
-   * GET /api/loans
-   * List all active loans for the business.
-   */
   @Get()
-  findAll(@CurrentUser() user: { businessId: string }) {
-    return this.loansService.findAll(user.businessId);
+  findAll(@HouseholdId() householdId: string) {
+    return this.loansService.findAll(householdId);
   }
 
-  /**
-   * GET /api/loans/:id
-   * Get a specific loan by ID.
-   */
   @Get(':id')
-  findOne(@CurrentUser() user: { businessId: string }, @Param('id') id: string) {
-    return this.loansService.findOne(user.businessId, id);
+  findOne(@HouseholdId() householdId: string, @Param('id') id: string) {
+    return this.loansService.findOne(householdId, id);
   }
 
-  /**
-   * PUT /api/loans/:id
-   * Update a loan.
-   */
   @Put(':id')
   update(
-    @CurrentUser() user: { businessId: string },
+    @HouseholdId() householdId: string,
     @Param('id') id: string,
-    @Body() dto: {
-      name?: string;
-      lender?: string;
-      originalAmount?: number;
-      remainingAmount?: number;
-      interestRate?: number;
-      monthlyPayment?: number;
-      startDate?: string;
-      endDate?: string;
-      currency?: string;
-      notes?: string;
-    },
+    @Body() dto: UpdateLoanDto,
   ) {
-    return this.loansService.update(user.businessId, id, dto);
+    return this.loansService.update(householdId, id, dto);
   }
 
-  /**
-   * DELETE /api/loans/:id
-   * Soft-delete a loan (set isActive = false).
-   */
   @Delete(':id')
-  remove(@CurrentUser() user: { businessId: string }, @Param('id') id: string) {
-    return this.loansService.remove(user.businessId, id);
+  remove(@HouseholdId() householdId: string, @Param('id') id: string) {
+    return this.loansService.remove(householdId, id);
   }
 }

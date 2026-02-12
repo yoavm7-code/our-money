@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TransactionSource } from '@prisma/client';
 import * as fs from 'fs';
@@ -23,7 +23,6 @@ function fixFilename(raw: string): string {
     return raw;
   }
 }
-
 const ALLOWED_MIMES = [
   'image/jpeg',
   'image/png',
@@ -39,8 +38,6 @@ const ALLOWED_MIMES = [
 
 @Injectable()
 export class DocumentsService {
-  private readonly logger = new Logger(DocumentsService.name);
-
   constructor(
     private prisma: PrismaService,
     private transactionsService: TransactionsService,
@@ -50,12 +47,8 @@ export class DocumentsService {
     private documentParser: DocumentParserService,
   ) {}
 
-  // ──────────────────────────────────────────────
-  //  Upload & Create Document Record
-  // ──────────────────────────────────────────────
-
   async createFromFile(
-    businessId: string,
+    householdId: string,
     accountId: string,
     file: Express.Multer.File,
   ) {
@@ -64,16 +57,15 @@ export class DocumentsService {
         'Invalid file type. Allowed: JPEG, PNG, WebP, PDF, CSV, Excel (.xlsx, .xls), Word (.docx, .doc)',
       );
     }
-
     const fileName = fixFilename(file.originalname);
-    const storagePath = path.join(UPLOAD_DIR, businessId, `${Date.now()}-${fileName}`);
+    const storagePath = path.join(UPLOAD_DIR, householdId, `${Date.now()}-${fileName}`);
     const dir = path.dirname(storagePath);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(storagePath, file.buffer);
 
     const doc = await this.prisma.document.create({
       data: {
-        businessId,
+        householdId,
         fileName,
         mimeType: file.mimetype,
         storagePath,
@@ -82,27 +74,22 @@ export class DocumentsService {
       },
     });
 
-    // Trigger async processing (fire-and-forget)
-    this.processDocument(businessId, accountId, doc.id).catch((err) => {
-      this.logger.error('Document processing error:', err);
+    this.processDocument(householdId, accountId, doc.id).catch((err) => {
+      console.error('Document processing error:', err);
     });
 
     return doc;
   }
 
-  // ──────────────────────────────────────────────
-  //  Document Processing Pipeline
-  // ──────────────────────────────────────────────
-
-  async processDocument(businessId: string, accountId: string, documentId: string) {
+  async processDocument(householdId: string, accountId: string, documentId: string) {
     await this.prisma.document.updateMany({
-      where: { id: documentId, businessId },
+      where: { id: documentId, householdId },
       data: { status: 'PROCESSING' },
     });
 
     try {
       const doc = await this.prisma.document.findFirst({
-        where: { id: documentId, businessId },
+        where: { id: documentId, householdId },
       });
       if (!doc || !fs.existsSync(doc.storagePath)) {
         throw new Error('Document or file not found');
@@ -110,26 +97,25 @@ export class DocumentsService {
 
       let ocrText = '';
       let extracted: Awaited<ReturnType<typeof this.aiExtractService.extractTransactions>> = [];
-      const userContext = await this.buildUserContext(businessId);
+      const userContext = await this.buildUserContext(householdId);
 
-      // Route processing based on mime type
+      // Use Vision API for images (much more accurate than OCR + text extraction)
       if (doc.mimeType.startsWith('image/')) {
-        // Use Vision API for images (much more accurate than OCR + text extraction)
-        this.logger.log(`Using Vision API for image: ${doc.fileName}`);
+        console.log('[Documents] Using Vision API for image:', doc.fileName);
         try {
           extracted = await this.aiExtractService.extractWithVision(doc.storagePath, userContext);
           ocrText = '[Vision API - no OCR text]';
-
+          
           // If Vision returns nothing, fall back to OCR
           if (extracted.length === 0) {
-            this.logger.warn(`Vision API returned 0 transactions, falling back to OCR for: ${doc.fileName}`);
+            console.warn('[Documents] Vision API returned 0 transactions, falling back to OCR for:', doc.fileName);
             ocrText = await this.ocrService.getTextFromImage(doc.storagePath);
             if (ocrText && ocrText.trim().length >= 10) {
               extracted = await this.aiExtractService.extractTransactions(ocrText, userContext);
             }
           }
         } catch (visionErr) {
-          this.logger.error('Vision API failed, falling back to OCR:', visionErr);
+          console.error('[Documents] Vision API failed, falling back to OCR:', visionErr);
           ocrText = await this.ocrService.getTextFromImage(doc.storagePath);
           if (ocrText && ocrText.trim().length >= 10) {
             extracted = await this.aiExtractService.extractTransactions(ocrText, userContext);
@@ -146,7 +132,7 @@ export class DocumentsService {
         try {
           const pdfImages = await this.convertPdfToImages(doc.storagePath);
           if (pdfImages.length > 0) {
-            this.logger.log(`Using Vision API for PDF: ${doc.fileName} (${pdfImages.length} pages)`);
+            console.log('[Documents] Using Vision API for PDF:', doc.fileName, '(' + pdfImages.length + ' pages)');
             for (const imagePath of pdfImages) {
               const pageExtracted = await this.aiExtractService.extractWithVision(imagePath, userContext);
               extracted.push(...pageExtracted);
@@ -158,14 +144,14 @@ export class DocumentsService {
             throw new Error('Could not convert PDF to images');
           }
         } catch (pdfErr) {
-          this.logger.warn('PDF conversion failed, trying text extraction:', pdfErr);
+          console.warn('[Documents] PDF conversion failed, trying text extraction:', pdfErr);
           // Fall back to text extraction from PDF
           ocrText = await this.documentParser.getTextFromFile(doc.storagePath, doc.mimeType);
           if (ocrText && ocrText.trim().length >= 10) {
             extracted = await this.aiExtractService.extractTransactions(ocrText, userContext);
           } else {
             await this.prisma.document.updateMany({
-              where: { id: documentId, businessId },
+              where: { id: documentId, householdId },
               data: { status: 'FAILED', errorMessage: 'Could not extract text from PDF. Try converting to image first.' },
             });
             return;
@@ -173,34 +159,31 @@ export class DocumentsService {
         }
       }
 
-      // Store OCR text (truncated)
       await this.prisma.document.updateMany({
-        where: { id: documentId, businessId },
+        where: { id: documentId, householdId },
         data: { ocrText: ocrText.slice(0, 50000) },
       });
 
       if (extracted.length === 0) {
-        this.logger.warn(`Document ${documentId}: No transactions extracted. Check image quality or try a different format.`);
+        console.warn('[Documents] Document ' + documentId + ': No transactions extracted. Check image quality or try a different format.');
       }
 
-      // ── Duplicate Detection ──
+      // Check for duplicates: same account, date, amount, description
       type EnrichedItem = (typeof extracted)[0] & {
         isDuplicate?: boolean;
         existingTransaction?: { id: string; date: string; amount: number; description: string };
       };
       const enriched: EnrichedItem[] = [];
       let hasAnyDuplicate = false;
-
       for (const e of extracted) {
         const dateStr = String(e.date || '').trim().slice(0, 10);
         if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
           enriched.push({ ...e });
           continue;
         }
-
         const existing = await this.prisma.transaction.findFirst({
           where: {
-            businessId,
+            householdId,
             accountId,
             date: new Date(dateStr + 'T00:00:00.000Z'),
             amount: e.amount,
@@ -208,7 +191,6 @@ export class DocumentsService {
           },
           select: { id: true, date: true, amount: true, description: true },
         });
-
         if (existing) {
           hasAnyDuplicate = true;
           enriched.push({
@@ -226,10 +208,9 @@ export class DocumentsService {
         }
       }
 
-      // If duplicates found, set PENDING_REVIEW for user confirmation
       if (hasAnyDuplicate) {
         await this.prisma.document.updateMany({
-          where: { id: documentId, businessId },
+          where: { id: documentId, householdId },
           data: {
             status: 'PENDING_REVIEW',
             extractedJson: enriched as unknown as object,
@@ -239,9 +220,9 @@ export class DocumentsService {
         return;
       }
 
-      // No duplicates - create all transactions
+      // No duplicates – create all
       await this.transactionsService.createMany(
-        businessId,
+        householdId,
         accountId,
         extracted.map((e) => ({
           date: e.date,
@@ -257,7 +238,7 @@ export class DocumentsService {
       );
 
       await this.prisma.document.updateMany({
-        where: { id: documentId, businessId },
+        where: { id: documentId, householdId },
         data: {
           status: 'COMPLETED',
           extractedJson: extracted as unknown as object,
@@ -270,15 +251,11 @@ export class DocumentsService {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       await this.prisma.document.updateMany({
-        where: { id: documentId, businessId },
+        where: { id: documentId, householdId },
         data: { status: 'FAILED', errorMessage: message },
       });
     }
   }
-
-  // ──────────────────────────────────────────────
-  //  PDF -> Image Conversion
-  // ──────────────────────────────────────────────
 
   /**
    * Convert PDF to images for Vision API processing.
@@ -289,34 +266,36 @@ export class DocumentsService {
     if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
     try {
+      // Try using pdf-poppler (requires poppler-utils installed on system)
       const { execSync } = require('child_process');
       const baseName = path.basename(pdfPath, '.pdf');
       const outputPattern = path.join(tempDir, `${baseName}-page`);
-
+      
       // Try pdftoppm (Linux/Mac with poppler) or pdftocairo
       try {
-        execSync(`pdftoppm -png -r 200 "${pdfPath}" "${outputPattern}"`, {
+        execSync(`pdftoppm -png -r 200 "${pdfPath}" "${outputPattern}"`, { 
           timeout: 60000,
-          stdio: 'pipe',
+          stdio: 'pipe' 
         });
       } catch {
         // Try pdftocairo as fallback
-        execSync(`pdftocairo -png -r 200 "${pdfPath}" "${outputPattern}"`, {
+        execSync(`pdftocairo -png -r 200 "${pdfPath}" "${outputPattern}"`, { 
           timeout: 60000,
-          stdio: 'pipe',
+          stdio: 'pipe' 
         });
       }
 
       // Find generated images
       const files = fs.readdirSync(tempDir);
       const images = files
-        .filter((f) => f.startsWith(baseName) && (f.endsWith('.png') || f.endsWith('.jpg')))
+        .filter(f => f.startsWith(baseName) && (f.endsWith('.png') || f.endsWith('.jpg')))
         .sort()
-        .map((f) => path.join(tempDir, f));
+        .map(f => path.join(tempDir, f));
 
       return images;
     } catch (err) {
-      this.logger.warn('PDF to image conversion failed:', err);
+      console.warn('[Documents] PDF to image conversion failed:', err);
+      // Clean up temp directory
       try {
         fs.rmSync(tempDir, { recursive: true });
       } catch { /* ignore */ }
@@ -324,30 +303,19 @@ export class DocumentsService {
     }
   }
 
-  // ──────────────────────────────────────────────
-  //  User Context (for AI extraction)
-  // ──────────────────────────────────────────────
-
   /** Build context from user's rules and recent transactions so the AI can learn their preferences. */
-  private async buildUserContext(businessId: string): Promise<string> {
+  private async buildUserContext(householdId: string): Promise<string> {
     const parts: string[] = [];
     try {
-      const rules = await this.rulesService.findAll(businessId);
+      const rules = await this.rulesService.findAll(householdId);
       if (rules.length > 0) {
         const ruleLines = rules
           .slice(0, 30)
-          .map(
-            (r) =>
-              'when description contains "' +
-              ((r.pattern || '').slice(0, 40)) +
-              '" use category ' +
-              ((r.category as { slug?: string })?.slug ?? 'other'),
-          );
+          .map((r) => 'when description contains "' + ((r.pattern || '').slice(0, 40)) + '" use category ' + ((r.category as { slug?: string })?.slug ?? 'other'));
         parts.push('Rules (learned from user corrections): ' + ruleLines.join('; '));
       }
-
       const recent = await this.prisma.transaction.findMany({
-        where: { businessId },
+        where: { householdId },
         orderBy: { date: 'desc' },
         take: 50,
         select: { description: true, category: { select: { slug: true } } },
@@ -371,13 +339,9 @@ export class DocumentsService {
     return parts.join('\n');
   }
 
-  // ──────────────────────────────────────────────
-  //  Find All / Find One
-  // ──────────────────────────────────────────────
-
-  async findAll(businessId: string) {
+  async findAll(householdId: string) {
     const docs = await this.prisma.document.findMany({
-      where: { businessId },
+      where: { householdId },
       orderBy: { uploadedAt: 'desc' },
       select: {
         id: true,
@@ -399,35 +363,26 @@ export class DocumentsService {
     }));
   }
 
-  async findOne(businessId: string, id: string) {
+  async findOne(householdId: string, id: string) {
     return this.prisma.document.findFirst({
-      where: { id, businessId },
+      where: { id, householdId },
       include: { transactions: true, _count: { select: { transactions: true } } },
     });
   }
 
-  // ──────────────────────────────────────────────
-  //  Confirm Import (from PENDING_REVIEW)
-  // ──────────────────────────────────────────────
-
   /** Confirm import after PENDING_REVIEW: create selected transactions and set COMPLETED. */
   async confirmImport(
-    businessId: string,
+    householdId: string,
     documentId: string,
-    body: {
-      accountId: string;
-      action: 'add_all' | 'skip_duplicates' | 'add_none';
-      selectedIndices?: number[];
-    },
+    body: { accountId: string; action: 'add_all' | 'skip_duplicates' | 'add_none'; selectedIndices?: number[] },
   ) {
     const accountId = body.accountId;
     const doc = await this.prisma.document.findFirst({
-      where: { id: documentId, businessId },
+      where: { id: documentId, householdId },
     });
     if (!doc || doc.status !== 'PENDING_REVIEW') {
       throw new Error('Document not found or not pending review');
     }
-
     const raw = doc.extractedJson as Array<{
       date: string;
       description: string;
@@ -438,15 +393,13 @@ export class DocumentsService {
       installmentTotal?: number;
       isDuplicate?: boolean;
     }> | null;
-
     if (!Array.isArray(raw) || raw.length === 0 || body.action === 'add_none') {
       await this.prisma.document.updateMany({
-        where: { id: documentId, businessId },
+        where: { id: documentId, householdId },
         data: { status: 'COMPLETED', processedAt: new Date() },
       });
-      return this.findOne(businessId, documentId);
+      return this.findOne(householdId, documentId);
     }
-
     let toCreate = raw;
     if (body.action === 'skip_duplicates') {
       toCreate = raw.filter((t) => !t.isDuplicate);
@@ -455,7 +408,6 @@ export class DocumentsService {
         .filter((i) => i >= 0 && i < raw.length)
         .map((i) => raw[i]);
     }
-
     const items = toCreate.map((t) => ({
       date: t.date,
       description: t.description,
@@ -465,22 +417,19 @@ export class DocumentsService {
       installmentCurrent: t.installmentCurrent,
       installmentTotal: t.installmentTotal,
     }));
-
     if (items.length > 0) {
       await this.transactionsService.createMany(
-        businessId,
+        householdId,
         accountId,
         items,
         TransactionSource.UPLOAD,
         documentId,
       );
     }
-
     await this.prisma.document.updateMany({
-      where: { id: documentId, businessId },
+      where: { id: documentId, householdId },
       data: { status: 'COMPLETED', processedAt: new Date() },
     });
-
-    return this.findOne(businessId, documentId);
+    return this.findOne(householdId, documentId);
   }
 }

@@ -2,5 +2,5 @@ import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 
 export const HouseholdId = createParamDecorator((_data: unknown, ctx: ExecutionContext) => {
   const request = ctx.switchToHttp().getRequest();
-  return request.user?.businessId;
+  return request.user?.householdId;
 });

@@ -28,88 +28,60 @@ export class TransactionsController {
     private voiceParserService: VoiceParserService,
   ) {}
 
-  /** POST /api/transactions - create manual transaction */
   @Post()
-  create(
-    @HouseholdId() businessId: string,
-    @Body() dto: CreateTransactionDto,
-  ) {
-    return this.transactionsService.create(businessId, dto);
+  create(@HouseholdId() householdId: string, @Body() dto: CreateTransactionDto) {
+    return this.transactionsService.create(householdId, dto);
   }
 
-  /** POST /api/transactions/parse-voice - parse Hebrew/English voice text into transaction data */
   @Post('parse-voice')
   async parseVoice(
-    @HouseholdId() businessId: string,
+    @HouseholdId() householdId: string,
     @Body() body: { text: string },
   ): Promise<ParsedVoiceInput | { error: string }> {
-    const result = await this.voiceParserService.parseVoiceText(businessId, body.text ?? '');
+    const result = await this.voiceParserService.parseVoiceText(householdId, body.text ?? '');
     return result ?? { error: 'Could not parse voice input' };
   }
 
-  /** POST /api/transactions/suggest-category - AI-based category suggestion */
   @Post('suggest-category')
   async suggestCategory(
-    @HouseholdId() businessId: string,
+    @HouseholdId() householdId: string,
     @Body() body: { description: string },
   ) {
-    const categoryId = await this.transactionsService.suggestCategory(
-      businessId,
-      body.description ?? '',
-    );
+    const categoryId = await this.transactionsService.suggestCategory(householdId, body.description ?? '');
     return { categoryId };
   }
 
-  /** POST /api/transactions/bulk-delete - bulk delete by IDs */
   @Post('bulk-delete')
   bulkDelete(
-    @HouseholdId() businessId: string,
+    @HouseholdId() householdId: string,
     @Body() body: { ids: string[] },
   ) {
-    return this.transactionsService.removeMany(businessId, body.ids ?? []);
+    return this.transactionsService.removeMany(householdId, body.ids ?? []);
   }
 
-  /** POST /api/transactions/bulk-update - bulk update category/account/date/description */
   @Post('bulk-update')
   bulkUpdate(
-    @HouseholdId() businessId: string,
-    @Body()
-    body: {
-      ids: string[];
-      updates: {
-        categoryId?: string | null;
-        accountId?: string;
-        date?: string;
-        description?: string;
-      };
-    },
+    @HouseholdId() householdId: string,
+    @Body() body: { ids: string[]; updates: { categoryId?: string | null; date?: string; description?: string } },
   ) {
-    return this.transactionsService.bulkUpdate(
-      businessId,
-      body.ids ?? [],
-      body.updates ?? {},
-    );
+    return this.transactionsService.bulkUpdate(householdId, body.ids ?? [], body.updates ?? {});
   }
 
-  /** POST /api/transactions/bulk-flip-sign - flip income/expense signs */
   @Post('bulk-flip-sign')
   bulkFlipSign(
-    @HouseholdId() businessId: string,
+    @HouseholdId() householdId: string,
     @Body() body: { ids: string[] },
   ) {
-    return this.transactionsService.bulkFlipSign(businessId, body.ids ?? []);
+    return this.transactionsService.bulkFlipSign(householdId, body.ids ?? []);
   }
 
-  /** GET /api/transactions - list with pagination, date range, account/category/client/project filters */
   @Get()
   findAll(
-    @HouseholdId() businessId: string,
+    @HouseholdId() householdId: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
     @Query('accountId') accountId?: string,
     @Query('categoryId') categoryId?: string,
-    @Query('clientId') clientId?: string,
-    @Query('projectId') projectId?: string,
     @Query('search') search?: string,
     @Query('type') type?: 'income' | 'expense',
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page?: number,
@@ -120,49 +92,43 @@ export class TransactionsController {
       to,
       accountId,
       categoryId,
-      clientId,
-      projectId,
       search,
       type,
       page: page ?? 1,
       limit: limit ?? 20,
     };
-    return this.transactionsService.findAll(businessId, query);
+    return this.transactionsService.findAll(householdId, query);
   }
 
-  /** GET /api/transactions/:id */
   @Get(':id')
-  findOne(@HouseholdId() businessId: string, @Param('id') id: string) {
-    return this.transactionsService.findOne(businessId, id);
+  findOne(@HouseholdId() householdId: string, @Param('id') id: string) {
+    return this.transactionsService.findOne(householdId, id);
   }
 
-  /** PUT /api/transactions/:id - update transaction */
   @Put(':id')
   update(
-    @HouseholdId() businessId: string,
+    @HouseholdId() householdId: string,
     @Param('id') id: string,
     @Body() dto: UpdateTransactionDto,
   ) {
-    return this.transactionsService.update(businessId, id, dto);
+    return this.transactionsService.update(householdId, id, dto);
   }
 
-  /** PATCH /api/transactions/:id/category - update category and learn rule from correction */
   @Patch(':id/category')
   updateCategory(
-    @HouseholdId() businessId: string,
+    @HouseholdId() householdId: string,
     @Param('id') id: string,
     @Body() body: { categoryId: string | null },
   ) {
     return this.transactionsService.updateCategory(
-      businessId,
+      householdId,
       id,
       body.categoryId ?? null,
     );
   }
 
-  /** DELETE /api/transactions/:id */
   @Delete(':id')
-  remove(@HouseholdId() businessId: string, @Param('id') id: string) {
-    return this.transactionsService.remove(businessId, id);
+  remove(@HouseholdId() householdId: string, @Param('id') id: string) {
+    return this.transactionsService.remove(householdId, id);
   }
 }

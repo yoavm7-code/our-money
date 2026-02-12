@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from '@/i18n/context';
 import { useVoiceRecorder } from '@/hooks/useVoiceRecorder';
 import {
@@ -16,33 +16,23 @@ import {
   type ParsedVoiceInput,
 } from '@/lib/api';
 
-/* ──────────────────────────────────────────────────────── */
-/*  Types                                                    */
-/* ──────────────────────────────────────────────────────── */
-
 type AccountOption = { id: string; name: string; type: string; currency: string };
-type CategoryOption = {
-  id: string;
-  name: string;
-  slug: string;
-  icon: string | null;
-  color: string | null;
-  isIncome: boolean;
-};
+type CategoryOption = { id: string; name: string; slug: string; icon: string | null; color: string | null; isIncome: boolean };
 
 type Step = 'idle' | 'listening' | 'processing' | 'review' | 'saving' | 'done' | 'error';
+
 type VoiceAction = ParsedVoiceInput['action'];
 
 const ACTION_LABELS: Record<VoiceAction, { he: string; en: string; color: string }> = {
-  transaction: { he: '\u05D4\u05D5\u05E6\u05D0\u05D4 / \u05D4\u05DB\u05E0\u05E1\u05D4', en: 'Expense / Income', color: 'indigo' },
-  loan: { he: '\u05D4\u05DC\u05D5\u05D5\u05D0\u05D4', en: 'Loan', color: 'orange' },
-  saving: { he: '\u05D7\u05D9\u05E1\u05DB\u05D5\u05DF', en: 'Saving', color: 'teal' },
-  goal: { he: '\u05D9\u05E2\u05D3', en: 'Goal', color: 'purple' },
-  budget: { he: '\u05EA\u05E7\u05E6\u05D9\u05D1', en: 'Budget', color: 'amber' },
-  forex: { he: '\u05D4\u05E2\u05D1\u05E8\u05EA \u05DE\u05D8"\u05D7', en: 'Forex', color: 'indigo' },
-  mortgage: { he: '\u05DE\u05E9\u05DB\u05E0\u05EA\u05D0', en: 'Mortgage', color: 'cyan' },
-  stock_portfolio: { he: '\u05EA\u05D9\u05E7 \u05DE\u05E0\u05D9\u05D5\u05EA', en: 'Stock Portfolio', color: 'rose' },
-  account: { he: '\u05D7\u05E9\u05D1\u05D5\u05DF', en: 'Account', color: 'blue' },
+  transaction: { he: 'הוצאה / הכנסה', en: 'Expense / Income', color: 'primary' },
+  loan: { he: 'הלוואה', en: 'Loan', color: 'orange' },
+  saving: { he: 'חיסכון', en: 'Saving', color: 'teal' },
+  goal: { he: 'יעד', en: 'Goal', color: 'purple' },
+  budget: { he: 'תקציב', en: 'Budget', color: 'amber' },
+  forex: { he: 'העברת מט"ח', en: 'Forex', color: 'indigo' },
+  mortgage: { he: 'משכנתא', en: 'Mortgage', color: 'cyan' },
+  stock_portfolio: { he: 'תיק מניות', en: 'Stock Portfolio', color: 'rose' },
+  account: { he: 'חשבון', en: 'Account', color: 'blue' },
 };
 
 function getCategoryDisplayName(name: string, slug: string | undefined, t: (k: string) => string): string {
@@ -52,44 +42,6 @@ function getCategoryDisplayName(name: string, slug: string | undefined, t: (k: s
   }
   return name;
 }
-
-/* ──────────────────────────────────────────────────────── */
-/*  Wave Visualizer Component                                */
-/* ──────────────────────────────────────────────────────── */
-
-function WaveVisualizer({ isActive }: { isActive: boolean }) {
-  return (
-    <div className="flex items-center justify-center gap-[3px] h-10 my-3">
-      {Array.from({ length: 20 }).map((_, i) => (
-        <div
-          key={i}
-          className={`w-[3px] rounded-full transition-all duration-150 ${
-            isActive ? 'bg-red-400' : 'bg-slate-300 dark:bg-slate-600'
-          }`}
-          style={{
-            height: isActive ? `${Math.random() * 28 + 8}px` : '4px',
-            animationName: isActive ? 'wave' : 'none',
-            animationDuration: `${0.4 + Math.random() * 0.4}s`,
-            animationIterationCount: 'infinite',
-            animationDirection: 'alternate',
-            animationTimingFunction: 'ease-in-out',
-            animationDelay: `${i * 0.05}s`,
-          }}
-        />
-      ))}
-      <style>{`
-        @keyframes wave {
-          0% { height: 6px; }
-          100% { height: ${Math.random() * 28 + 12}px; }
-        }
-      `}</style>
-    </div>
-  );
-}
-
-/* ──────────────────────────────────────────────────────── */
-/*  Main VoiceTransaction Component                          */
-/* ──────────────────────────────────────────────────────── */
 
 export default function VoiceTransaction() {
   const { t, locale } = useTranslation();
@@ -105,7 +57,7 @@ export default function VoiceTransaction() {
   const [parsedAction, setParsedAction] = useState<VoiceAction>('transaction');
   const [parsed, setParsed] = useState<ParsedVoiceInput | null>(null);
 
-  /* ── Transaction fields ── */
+  // Transaction fields
   const [fType, setFType] = useState<'expense' | 'income'>('expense');
   const [fAmount, setFAmount] = useState('');
   const [fDescription, setFDescription] = useState('');
@@ -114,7 +66,7 @@ export default function VoiceTransaction() {
   const [fDate, setFDate] = useState('');
   const [fCurrency, setFCurrency] = useState('ILS');
 
-  /* ── Loan fields ── */
+  // Loan fields
   const [fName, setFName] = useState('');
   const [fOriginalAmount, setFOriginalAmount] = useState('');
   const [fRemainingAmount, setFRemainingAmount] = useState('');
@@ -122,53 +74,42 @@ export default function VoiceTransaction() {
   const [fInterestRate, setFInterestRate] = useState('');
   const [fMonthlyPayment, setFMonthlyPayment] = useState('');
 
-  /* ── Saving / Goal fields ── */
+  // Saving / Goal fields
   const [fTargetAmount, setFTargetAmount] = useState('');
   const [fCurrentAmount, setFCurrentAmount] = useState('');
   const [fTargetDate, setFTargetDate] = useState('');
 
-  /* ── Budget fields ── */
+  // Budget fields
   const [fBudgetCategoryId, setFBudgetCategoryId] = useState('');
 
-  /* ── Forex fields ── */
+  // Forex fields
   const [fFromCurrency, setFFromCurrency] = useState('ILS');
   const [fToCurrency, setFToCurrency] = useState('USD');
   const [fFromAmount, setFFromAmount] = useState('');
   const [fToAmount, setFToAmount] = useState('');
   const [fExchangeRate, setFExchangeRate] = useState('');
 
-  /* ── Mortgage fields ── */
+  // Mortgage fields
   const [fBank, setFBank] = useState('');
   const [fTotalAmount, setFTotalAmount] = useState('');
 
-  /* ── Stock portfolio fields ── */
+  // Stock portfolio fields
   const [fBroker, setFBroker] = useState('');
 
-  /* ── Account fields ── */
+  // Account fields
   const [fAccountType, setFAccountType] = useState('BANK');
 
   const [voiceText, setVoiceText] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
-  const [manualText, setManualText] = useState('');
 
   /* ── voice recorder ── */
-  const handleVoiceResult = useCallback(
-    (text: string) => {
-      setVoiceText(text);
-      processVoice(text);
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [categoryList, accountList, fAccountId],
-  );
+  const handleVoiceResult = useCallback((text: string) => {
+    setVoiceText(text);
+    processVoice(text);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoryList, accountList, fAccountId]);
 
-  const {
-    isListening,
-    interimTranscript,
-    isSupported,
-    error: voiceError,
-    start: startListening,
-    stop: stopListening,
-  } = useVoiceRecorder({
+  const { isListening, interimTranscript, isSupported, error: voiceError, start: startListening, stop: stopListening } = useVoiceRecorder({
     lang: locale === 'he' ? 'he-IL' : 'en-US',
     onResult: handleVoiceResult,
   });
@@ -197,7 +138,6 @@ export default function VoiceTransaction() {
     setStep('idle');
     setErrorMsg('');
     setVoiceText('');
-    setManualText('');
   };
 
   const handleClose = () => {
@@ -212,13 +152,6 @@ export default function VoiceTransaction() {
     setVoiceText('');
     setErrorMsg('');
     startListening();
-  };
-
-  /* ── manual text processing ── */
-  const handleManualSubmit = () => {
-    if (!manualText.trim()) return;
-    setVoiceText(manualText.trim());
-    processVoice(manualText.trim());
   };
 
   /* ── populate form fields from parsed result ── */
@@ -241,6 +174,7 @@ export default function VoiceTransaction() {
           setFAccountId(accountList[0].id);
         }
         break;
+
       case 'loan':
         setFName(result.name || '');
         setFOriginalAmount(String(result.originalAmount || ''));
@@ -250,12 +184,14 @@ export default function VoiceTransaction() {
         setFMonthlyPayment(result.monthlyPayment ? String(result.monthlyPayment) : '');
         setFCurrency(result.currency || 'ILS');
         break;
+
       case 'saving':
         setFName(result.name || '');
         setFTargetAmount(result.targetAmount ? String(result.targetAmount) : '');
         setFCurrentAmount(result.currentAmount ? String(result.currentAmount) : '0');
         setFCurrency(result.currency || 'ILS');
         break;
+
       case 'goal':
         setFName(result.name || '');
         setFTargetAmount(result.targetAmount ? String(result.targetAmount) : '');
@@ -263,6 +199,7 @@ export default function VoiceTransaction() {
         setFTargetDate(result.targetDate || '');
         setFCurrency(result.currency || 'ILS');
         break;
+
       case 'budget':
         setFAmount(String(result.amount || ''));
         setFName(result.name || '');
@@ -271,6 +208,7 @@ export default function VoiceTransaction() {
           if (match) setFBudgetCategoryId(match.id);
         }
         break;
+
       case 'forex':
         setFFromCurrency(result.fromCurrency || 'ILS');
         setFToCurrency(result.toCurrency || 'USD');
@@ -279,16 +217,19 @@ export default function VoiceTransaction() {
         setFExchangeRate(result.exchangeRate ? String(result.exchangeRate) : '');
         setFDate(result.date || new Date().toISOString().slice(0, 10));
         break;
+
       case 'mortgage':
         setFName(result.name || '');
         setFTotalAmount(result.totalAmount ? String(result.totalAmount) : '');
         setFBank(result.bank || '');
         setFCurrency(result.currency || 'ILS');
         break;
+
       case 'stock_portfolio':
         setFName(result.name || '');
         setFBroker(result.broker || '');
         break;
+
       case 'account':
         setFName(result.name || '');
         setFAccountType(result.accountType || 'BANK');
@@ -303,6 +244,7 @@ export default function VoiceTransaction() {
       setErrorMsg(t('voice.noSpeechDetected'));
       return;
     }
+
     setStep('processing');
     try {
       const result = await txApi.parseVoice(text);
@@ -311,6 +253,7 @@ export default function VoiceTransaction() {
         setErrorMsg(t('voice.parseFailed'));
         return;
       }
+
       populateFields(result);
       setStep('review');
     } catch {
@@ -337,6 +280,7 @@ export default function VoiceTransaction() {
           });
           break;
         }
+
         case 'loan': {
           if (!fName || !fOriginalAmount) return;
           await api('/api/loans', {
@@ -352,6 +296,7 @@ export default function VoiceTransaction() {
           });
           break;
         }
+
         case 'saving': {
           if (!fName) return;
           await api('/api/savings', {
@@ -364,6 +309,7 @@ export default function VoiceTransaction() {
           });
           break;
         }
+
         case 'goal': {
           if (!fName || !fTargetAmount) return;
           await goals.create({
@@ -375,6 +321,7 @@ export default function VoiceTransaction() {
           });
           break;
         }
+
         case 'budget': {
           if (!fBudgetCategoryId || !fAmount) return;
           await budgets.upsert({
@@ -383,6 +330,7 @@ export default function VoiceTransaction() {
           });
           break;
         }
+
         case 'forex': {
           if (!fFromAmount || !fToAmount || !fExchangeRate) return;
           await forex.transfers.create({
@@ -396,6 +344,7 @@ export default function VoiceTransaction() {
           });
           break;
         }
+
         case 'mortgage': {
           if (!fName || !fTotalAmount) return;
           await mortgages.create({
@@ -406,6 +355,7 @@ export default function VoiceTransaction() {
           });
           break;
         }
+
         case 'stock_portfolio': {
           if (!fName) return;
           await stocks.portfolios.create({
@@ -414,6 +364,7 @@ export default function VoiceTransaction() {
           });
           break;
         }
+
         case 'account': {
           if (!fName) return;
           await accounts.create({
@@ -423,6 +374,7 @@ export default function VoiceTransaction() {
           break;
         }
       }
+
       setStep('done');
       setTimeout(() => handleClose(), 1500);
     } catch {
@@ -436,6 +388,7 @@ export default function VoiceTransaction() {
   const expenseCategories = categoryList.filter((c) => !c.isIncome);
   const incomeCategories = categoryList.filter((c) => c.isIncome);
   const relevantCategories = fType === 'income' ? incomeCategories : expenseCategories;
+
   const actionLabel = locale === 'he' ? ACTION_LABELS[parsedAction].he : ACTION_LABELS[parsedAction].en;
 
   /* ── Review form for each action type ── */
@@ -446,43 +399,19 @@ export default function VoiceTransaction() {
           <>
             {/* Type toggle */}
             <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setFType('expense')}
-                className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                  fType === 'expense'
-                    ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 ring-1 ring-red-300 dark:ring-red-700'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
-                }`}
-              >
-                {t('voice.expense')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setFType('income')}
-                className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                  fType === 'income'
-                    ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 ring-1 ring-green-300 dark:ring-green-700'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
-                }`}
-              >
-                {t('voice.income')}
-              </button>
+              <button type="button" onClick={() => setFType('expense')}
+                className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${fType === 'expense' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 ring-1 ring-red-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}
+              >{t('voice.expense')}</button>
+              <button type="button" onClick={() => setFType('income')}
+                className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${fType === 'income' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 ring-1 ring-green-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}
+              >{t('voice.income')}</button>
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">{t('voice.amount')}</label>
               <div className="flex gap-2">
-                <input
-                  type="number"
-                  step="any"
-                  className="input flex-1 text-lg font-bold"
-                  value={fAmount}
-                  onChange={(e) => setFAmount(e.target.value)}
-                />
+                <input type="number" step="any" className="input flex-1 text-lg font-bold" value={fAmount} onChange={(e) => setFAmount(e.target.value)} />
                 <select className="input w-20" value={fCurrency} onChange={(e) => setFCurrency(e.target.value)}>
-                  <option value="ILS">ILS</option>
-                  <option value="USD">USD</option>
-                  <option value="EUR">EUR</option>
+                  <option value="ILS">ILS</option><option value="USD">USD</option><option value="EUR">EUR</option>
                 </select>
               </div>
             </div>
@@ -493,22 +422,14 @@ export default function VoiceTransaction() {
             <div>
               <label className="block text-sm font-medium mb-1">{t('voice.account')}</label>
               <select className="input" value={fAccountId} onChange={(e) => setFAccountId(e.target.value)}>
-                {accountList.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
+                {accountList.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">{t('voice.category')}</label>
               <select className="input" value={fCategoryId} onChange={(e) => setFCategoryId(e.target.value)}>
                 <option value="">{t('voice.noCategory')}</option>
-                {relevantCategories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {getCategoryDisplayName(c.name, c.slug, t)}
-                  </option>
-                ))}
+                {relevantCategories.map((c) => <option key={c.id} value={c.id}>{getCategoryDisplayName(c.name, c.slug, t)}</option>)}
               </select>
             </div>
             <div>
@@ -595,11 +516,7 @@ export default function VoiceTransaction() {
               <label className="block text-sm font-medium mb-1">{t('voice.budgetCategory')}</label>
               <select className="input" value={fBudgetCategoryId} onChange={(e) => setFBudgetCategoryId(e.target.value)}>
                 <option value="">{t('voice.noCategory')}</option>
-                {expenseCategories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {getCategoryDisplayName(c.name, c.slug, t)}
-                  </option>
-                ))}
+                {expenseCategories.map((c) => <option key={c.id} value={c.id}>{getCategoryDisplayName(c.name, c.slug, t)}</option>)}
               </select>
             </div>
             <div>
@@ -616,17 +533,13 @@ export default function VoiceTransaction() {
               <div>
                 <label className="block text-sm font-medium mb-1">{t('voice.fromCurrency')}</label>
                 <select className="input" value={fFromCurrency} onChange={(e) => setFFromCurrency(e.target.value)}>
-                  <option value="ILS">ILS</option>
-                  <option value="USD">USD</option>
-                  <option value="EUR">EUR</option>
+                  <option value="ILS">ILS</option><option value="USD">USD</option><option value="EUR">EUR</option>
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">{t('voice.toCurrency')}</label>
                 <select className="input" value={fToCurrency} onChange={(e) => setFToCurrency(e.target.value)}>
-                  <option value="USD">USD</option>
-                  <option value="EUR">EUR</option>
-                  <option value="ILS">ILS</option>
+                  <option value="USD">USD</option><option value="EUR">EUR</option><option value="ILS">ILS</option>
                 </select>
               </div>
             </div>
@@ -712,7 +625,7 @@ export default function VoiceTransaction() {
       <button
         type="button"
         onClick={handleOpen}
-        className="fixed bottom-24 end-6 z-40 w-14 h-14 rounded-full bg-gradient-to-br from-indigo-500 to-indigo-600 text-white shadow-lg shadow-indigo-500/30 hover:shadow-xl hover:shadow-indigo-500/40 hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center"
+        className="fixed bottom-24 end-6 z-40 w-14 h-14 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 text-white shadow-lg shadow-primary-500/30 hover:shadow-xl hover:shadow-primary-500/40 hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center"
         title={t('voice.title')}
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -733,7 +646,7 @@ export default function VoiceTransaction() {
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-[var(--border)]">
               <h3 className="font-semibold text-lg flex items-center gap-2">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-indigo-500">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary-500">
                   <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
                   <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
                   <line x1="12" y1="19" x2="12" y2="23" />
@@ -742,37 +655,21 @@ export default function VoiceTransaction() {
                 {t('voice.title')}
               </h3>
               <button type="button" onClick={handleClose} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
               </button>
             </div>
 
             <div className="p-5">
               {/* ── IDLE: Start recording ── */}
               {step === 'idle' && (
-                <div className="text-center py-4">
+                <div className="text-center py-6">
                   <p className="text-sm text-slate-500 mb-6">{t('voice.hintExpanded')}</p>
-
-                  {/* Language indicator */}
-                  <div className="flex items-center justify-center gap-3 mb-6">
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400">
-                      {locale === 'he' ? '\u05E2\u05D1\u05E8\u05D9\u05EA' : 'English'}
-                    </span>
-                    <span className="text-slate-400">&</span>
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">
-                      {locale === 'he' ? 'English' : '\u05E2\u05D1\u05E8\u05D9\u05EA'}
-                    </span>
-                  </div>
-
-                  {/* Large mic button */}
                   <button
                     type="button"
                     onClick={handleStartRecording}
-                    className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-red-400 to-red-500 text-white shadow-lg shadow-red-500/30 hover:shadow-xl hover:shadow-red-500/40 hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center"
+                    className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-red-400 to-red-500 text-white shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center"
                   >
-                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
                       <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
                       <line x1="12" y1="19" x2="12" y2="23" />
@@ -780,84 +677,42 @@ export default function VoiceTransaction() {
                     </svg>
                   </button>
                   <p className="text-xs text-slate-400 mt-3">{t('voice.tapToStart')}</p>
-
-                  {/* Manual text input alternative */}
-                  <div className="mt-6 pt-4 border-t border-[var(--border)]">
-                    <p className="text-xs text-slate-400 mb-2">{t('voice.orTypeManually')}</p>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        className="input flex-1 text-sm"
-                        placeholder={t('voice.manualPlaceholder')}
-                        value={manualText}
-                        onChange={(e) => setManualText(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') handleManualSubmit();
-                        }}
-                      />
-                      <button
-                        type="button"
-                        className="btn-primary text-sm px-4"
-                        onClick={handleManualSubmit}
-                        disabled={!manualText.trim()}
-                      >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <line x1="22" y1="2" x2="11" y2="13" />
-                          <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
                 </div>
               )}
 
               {/* ── LISTENING: Recording in progress ── */}
               {step === 'listening' && (
-                <div className="text-center py-4">
-                  <div className="relative w-24 h-24 mx-auto mb-2">
+                <div className="text-center py-6">
+                  <div className="relative w-20 h-20 mx-auto mb-4">
                     <div className="absolute inset-0 rounded-full bg-red-400/20 animate-ping" />
-                    <div className="absolute inset-3 rounded-full bg-red-400/30 animate-pulse" />
+                    <div className="absolute inset-2 rounded-full bg-red-400/30 animate-pulse" />
                     <button
                       type="button"
                       onClick={stopListening}
-                      className="relative w-24 h-24 rounded-full bg-gradient-to-br from-red-500 to-red-600 text-white shadow-lg flex items-center justify-center"
+                      className="relative w-20 h-20 rounded-full bg-gradient-to-br from-red-500 to-red-600 text-white shadow-lg flex items-center justify-center"
                     >
-                      <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
                         <rect x="6" y="6" width="12" height="12" rx="2" />
                       </svg>
                     </button>
                   </div>
-
-                  {/* Audio wave visualization */}
-                  <WaveVisualizer isActive={isListening} />
-
                   <p className="text-sm font-medium text-red-500 animate-pulse">{t('voice.listening')}</p>
                   {interimTranscript && (
-                    <p className="text-sm text-slate-500 mt-3 bg-slate-50 dark:bg-slate-800 rounded-xl p-3 inline-block max-w-[300px] text-start">
+                    <p className="text-sm text-slate-500 mt-2 bg-slate-50 dark:bg-slate-800 rounded-lg p-2 inline-block max-w-[280px]">
                       &ldquo;{interimTranscript}&rdquo;
                     </p>
                   )}
-                  <p className="text-xs text-slate-400 mt-2">{t('voice.tapToStop')}</p>
+                  <p className="text-xs text-slate-400 mt-1">{t('voice.tapToStop')}</p>
                 </div>
               )}
 
               {/* ── PROCESSING: AI parsing ── */}
               {step === 'processing' && (
-                <div className="text-center py-10">
-                  <div className="relative w-16 h-16 mx-auto mb-4">
-                    <div className="absolute inset-0 rounded-full border-4 border-indigo-200 dark:border-indigo-800" />
-                    <div className="absolute inset-0 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin" />
-                    <div className="absolute inset-3 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-indigo-500">
-                        <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                        <path d="M2 17l10 5 10-5" />
-                        <path d="M2 12l10 5 10-5" />
-                      </svg>
-                    </div>
-                  </div>
-                  <p className="text-sm font-medium text-slate-600 dark:text-slate-400">{t('voice.processing')}</p>
+                <div className="text-center py-8">
+                  <div className="h-10 w-10 mx-auto animate-spin rounded-full border-3 border-primary-500 border-t-transparent mb-4" />
+                  <p className="text-sm text-slate-500">{t('voice.processing')}</p>
                   {voiceText && (
-                    <p className="text-xs text-slate-400 mt-3 bg-slate-50 dark:bg-slate-800 rounded-xl p-3 inline-block max-w-[280px]">
+                    <p className="text-xs text-slate-400 mt-2 bg-slate-50 dark:bg-slate-800 rounded-lg p-2 inline-block">
                       &ldquo;{voiceText}&rdquo;
                     </p>
                   )}
@@ -877,7 +732,7 @@ export default function VoiceTransaction() {
 
                   {/* Action type badge */}
                   <div className="flex items-center justify-center">
-                    <span className="inline-flex items-center px-4 py-1.5 rounded-full text-sm font-medium bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400">
                       {actionLabel}
                     </span>
                   </div>
@@ -886,12 +741,8 @@ export default function VoiceTransaction() {
                   {renderReviewForm()}
 
                   {/* Actions */}
-                  <div className="flex gap-3 pt-3">
+                  <div className="flex gap-3 pt-2">
                     <button type="button" onClick={handleStartRecording} className="btn-secondary flex-1 text-sm">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="inline me-1">
-                        <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                        <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                      </svg>
                       {t('voice.retry')}
                     </button>
                     <button type="button" onClick={handleSave} className="btn-primary flex-1 text-sm">
@@ -903,35 +754,33 @@ export default function VoiceTransaction() {
 
               {/* ── SAVING ── */}
               {step === 'saving' && (
-                <div className="text-center py-10">
-                  <div className="h-10 w-10 mx-auto animate-spin rounded-full border-3 border-indigo-500 border-t-transparent mb-4" />
+                <div className="text-center py-8">
+                  <div className="h-8 w-8 mx-auto animate-spin rounded-full border-2 border-primary-500 border-t-transparent mb-3" />
                   <p className="text-sm text-slate-500">{t('voice.saving')}</p>
                 </div>
               )}
 
               {/* ── DONE ── */}
               {step === 'done' && (
-                <div className="text-center py-10">
-                  <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-green-600 dark:text-green-400">
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-green-600 dark:text-green-400">
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
                   </div>
-                  <p className="text-lg font-semibold text-green-600 dark:text-green-400">{t('voice.saved')}</p>
+                  <p className="font-medium text-green-600 dark:text-green-400">{t('voice.saved')}</p>
                 </div>
               )}
 
               {/* ── ERROR ── */}
               {step === 'error' && (
-                <div className="text-center py-8">
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-red-500">
-                      <circle cx="12" cy="12" r="10" />
-                      <line x1="15" y1="9" x2="9" y2="15" />
-                      <line x1="9" y1="9" x2="15" y2="15" />
+                <div className="text-center py-6">
+                  <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-red-500">
+                      <circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" />
                     </svg>
                   </div>
-                  <p className="text-sm text-red-600 dark:text-red-400 mb-5">{errorMsg || voiceError || t('voice.genericError')}</p>
+                  <p className="text-sm text-red-600 dark:text-red-400 mb-4">{errorMsg || voiceError || t('voice.genericError')}</p>
                   <div className="flex gap-3">
                     <button type="button" onClick={handleClose} className="btn-secondary flex-1 text-sm">
                       {t('common.close')}

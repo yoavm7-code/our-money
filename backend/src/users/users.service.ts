@@ -5,42 +5,30 @@ import { RegisterDto } from '../auth/dto/register.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) {}
 
-  /** Create a new user with a new business entity. */
   async create(dto: RegisterDto, emailVerifyToken?: string) {
-    const existing = await this.prisma.user.findUnique({
-      where: { email: dto.email },
-    });
+    const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (existing) throw new ConflictException('Email already registered');
-
     const passwordHash = await bcrypt.hash(dto.password, 10);
-
-    const business = await this.prisma.business.create({
-      data: { name: `${dto.name || 'User'}'s Business` },
+    const household = await this.prisma.household.create({
+      data: { name: `${dto.name || 'User'}'s Household` },
     });
-
     const user = await this.prisma.user.create({
       data: {
         email: dto.email,
         passwordHash,
         name: dto.name ?? null,
-        countryCode: dto.countryCode
-          ? dto.countryCode.toUpperCase().slice(0, 2)
-          : null,
+        countryCode: dto.countryCode ? dto.countryCode.toUpperCase().slice(0, 2) : null,
         phone: dto.phone?.trim() || null,
-        businessId: business.id,
+        householdId: household.id,
         emailVerifyToken: emailVerifyToken ?? null,
-        emailVerifyExp: emailVerifyToken
-          ? new Date(Date.now() + 24 * 60 * 60 * 1000)
-          : null,
+        emailVerifyExp: emailVerifyToken ? new Date(Date.now() + 24 * 60 * 60 * 1000) : null,
       },
     });
-
     return { ...user, passwordHash: undefined };
   }
 
-  /** Find user by email (for login). */
   async findByEmail(email: string) {
     return this.prisma.user.findUnique({
       where: { email },
@@ -49,7 +37,7 @@ export class UsersService {
         email: true,
         name: true,
         passwordHash: true,
-        businessId: true,
+        householdId: true,
         countryCode: true,
         emailVerified: true,
         isAdmin: true,
@@ -57,7 +45,6 @@ export class UsersService {
     });
   }
 
-  /** Find user by ID with business info. */
   async findById(id: string) {
     const u = await this.prisma.user.findUnique({
       where: { id },
@@ -65,7 +52,7 @@ export class UsersService {
         id: true,
         email: true,
         name: true,
-        businessId: true,
+        householdId: true,
         countryCode: true,
         avatarData: true,
         avatarMime: true,
@@ -74,19 +61,6 @@ export class UsersService {
         onboardingCompleted: true,
         twoFactorMethod: true,
         isAdmin: true,
-        business: {
-          select: {
-            id: true,
-            name: true,
-            businessNumber: true,
-            vatId: true,
-            address: true,
-            phone: true,
-            email: true,
-            defaultCurrency: true,
-            vatRate: true,
-          },
-        },
       },
     });
     if (!u) return null;
@@ -94,33 +68,17 @@ export class UsersService {
       id: u.id,
       email: u.email,
       name: u.name,
-      businessId: u.businessId,
+      householdId: u.householdId,
       countryCode: u.countryCode,
-      avatarUrl: u.avatarData
-        ? `data:${u.avatarMime || 'image/png'};base64,${u.avatarData}`
-        : null,
+      avatarUrl: u.avatarData ? `data:${u.avatarMime || 'image/png'};base64,${u.avatarData}` : null,
       emailVerified: u.emailVerified,
       phone: u.phone,
       onboardingCompleted: u.onboardingCompleted,
       twoFactorMethod: u.twoFactorMethod,
       isAdmin: u.isAdmin,
-      business: u.business
-        ? {
-            id: u.business.id,
-            name: u.business.name,
-            businessNumber: u.business.businessNumber,
-            vatId: u.business.vatId,
-            address: u.business.address,
-            phone: u.business.phone,
-            email: u.business.email,
-            defaultCurrency: u.business.defaultCurrency,
-            vatRate: u.business.vatRate ? Number(u.business.vatRate) : null,
-          }
-        : null,
     };
   }
 
-  /** Find user by email-verification token. */
   async findByVerifyToken(token: string) {
     return this.prisma.user.findFirst({
       where: { emailVerifyToken: token },
@@ -133,7 +91,6 @@ export class UsersService {
     });
   }
 
-  /** Mark a user's email as verified and clear the token. */
   async markEmailVerified(id: string) {
     await this.prisma.user.update({
       where: { id },
@@ -145,7 +102,6 @@ export class UsersService {
     });
   }
 
-  /** Set a new email-verification token. */
   async setVerifyToken(id: string, token: string) {
     await this.prisma.user.update({
       where: { id },
@@ -156,7 +112,6 @@ export class UsersService {
     });
   }
 
-  /** Get dashboard widget configuration. */
   async getDashboardConfig(id: string) {
     const u = await this.prisma.user.findUnique({
       where: { id },
@@ -165,7 +120,6 @@ export class UsersService {
     return (u?.dashboardConfig as Record<string, unknown>) ?? null;
   }
 
-  /** Save dashboard widget configuration. */
   async saveDashboardConfig(id: string, config: unknown) {
     await this.prisma.user.update({
       where: { id },
@@ -174,56 +128,27 @@ export class UsersService {
     return { ok: true };
   }
 
-  /** Update user profile fields. */
-  async update(
-    id: string,
-    dto: {
-      name?: string;
-      email?: string;
-      password?: string;
-      countryCode?: string | null;
-      phone?: string | null;
-    },
-  ) {
-    const data: {
-      name?: string | null;
-      email?: string;
-      passwordHash?: string;
-      countryCode?: string | null;
-      phone?: string | null;
-    } = {};
-
+  async update(id: string, dto: { name?: string; email?: string; password?: string; countryCode?: string | null; phone?: string | null }) {
+    const data: { name?: string | null; email?: string; passwordHash?: string; countryCode?: string | null; phone?: string | null } = {};
     if (dto.name !== undefined) data.name = dto.name.trim() || null;
-
     if (dto.email !== undefined) {
       const email = dto.email.trim().toLowerCase();
       if (email) {
-        const existing = await this.prisma.user.findUnique({
-          where: { email },
-        });
-        if (existing && existing.id !== id) {
-          throw new ConflictException('Email already in use');
-        }
+        const existing = await this.prisma.user.findUnique({ where: { email } });
+        if (existing && existing.id !== id) throw new ConflictException('Email already in use');
         data.email = email;
       }
     }
-
     if (dto.password != null && dto.password.length >= 6) {
       data.passwordHash = await bcrypt.hash(dto.password, 10);
     }
-
     if (dto.countryCode !== undefined) {
-      data.countryCode = dto.countryCode
-        ? dto.countryCode.toUpperCase().slice(0, 2)
-        : null;
+      data.countryCode = dto.countryCode ? dto.countryCode.toUpperCase().slice(0, 2) : null;
     }
-
     if (dto.phone !== undefined) {
       data.phone = dto.phone ? dto.phone.trim() : null;
     }
-
     if (Object.keys(data).length === 0) return this.findById(id);
-
     const u = await this.prisma.user.update({
       where: { id },
       data,
@@ -231,7 +156,7 @@ export class UsersService {
         id: true,
         email: true,
         name: true,
-        businessId: true,
+        householdId: true,
         countryCode: true,
         avatarData: true,
         avatarMime: true,
@@ -239,28 +164,22 @@ export class UsersService {
         phone: true,
         onboardingCompleted: true,
         twoFactorMethod: true,
-        isAdmin: true,
       },
     });
-
     return {
       id: u.id,
       email: u.email,
       name: u.name,
-      businessId: u.businessId,
+      householdId: u.householdId,
       countryCode: u.countryCode,
-      avatarUrl: u.avatarData
-        ? `data:${u.avatarMime || 'image/png'};base64,${u.avatarData}`
-        : null,
+      avatarUrl: u.avatarData ? `data:${u.avatarMime || 'image/png'};base64,${u.avatarData}` : null,
       emailVerified: u.emailVerified,
       phone: u.phone,
       onboardingCompleted: u.onboardingCompleted,
       twoFactorMethod: u.twoFactorMethod,
-      isAdmin: u.isAdmin,
     };
   }
 
-  /** Get notification settings for a user. */
   async getNotificationSettings(id: string) {
     const u = await this.prisma.user.findUnique({
       where: { id },
@@ -271,7 +190,6 @@ export class UsersService {
         notifyGoalDeadline: true,
         notifyWeeklyReport: true,
         notifyMonthlyReport: true,
-        notifyInvoiceOverdue: true,
         largeTransactionThreshold: true,
       },
     });
@@ -283,14 +201,10 @@ export class UsersService {
       notifyGoalDeadline: u.notifyGoalDeadline,
       notifyWeeklyReport: u.notifyWeeklyReport,
       notifyMonthlyReport: u.notifyMonthlyReport,
-      notifyInvoiceOverdue: u.notifyInvoiceOverdue,
-      largeTransactionThreshold: u.largeTransactionThreshold
-        ? Number(u.largeTransactionThreshold)
-        : null,
+      largeTransactionThreshold: u.largeTransactionThreshold ? Number(u.largeTransactionThreshold) : null,
     };
   }
 
-  /** Update notification settings for a user. */
   async updateNotificationSettings(
     id: string,
     settings: {
@@ -300,37 +214,30 @@ export class UsersService {
       notifyGoalDeadline?: boolean;
       notifyWeeklyReport?: boolean;
       notifyMonthlyReport?: boolean;
-      notifyInvoiceOverdue?: boolean;
       largeTransactionThreshold?: number | null;
     },
   ) {
     const data: Record<string, unknown> = {};
-    if (settings.notifyLogin !== undefined)
-      data.notifyLogin = settings.notifyLogin;
-    if (settings.notifyLargeTransaction !== undefined)
-      data.notifyLargeTransaction = settings.notifyLargeTransaction;
-    if (settings.notifyBudgetExceeded !== undefined)
-      data.notifyBudgetExceeded = settings.notifyBudgetExceeded;
-    if (settings.notifyGoalDeadline !== undefined)
-      data.notifyGoalDeadline = settings.notifyGoalDeadline;
-    if (settings.notifyWeeklyReport !== undefined)
-      data.notifyWeeklyReport = settings.notifyWeeklyReport;
-    if (settings.notifyMonthlyReport !== undefined)
-      data.notifyMonthlyReport = settings.notifyMonthlyReport;
-    if (settings.notifyInvoiceOverdue !== undefined)
-      data.notifyInvoiceOverdue = settings.notifyInvoiceOverdue;
+    if (settings.notifyLogin !== undefined) data.notifyLogin = settings.notifyLogin;
+    if (settings.notifyLargeTransaction !== undefined) data.notifyLargeTransaction = settings.notifyLargeTransaction;
+    if (settings.notifyBudgetExceeded !== undefined) data.notifyBudgetExceeded = settings.notifyBudgetExceeded;
+    if (settings.notifyGoalDeadline !== undefined) data.notifyGoalDeadline = settings.notifyGoalDeadline;
+    if (settings.notifyWeeklyReport !== undefined) data.notifyWeeklyReport = settings.notifyWeeklyReport;
+    if (settings.notifyMonthlyReport !== undefined) data.notifyMonthlyReport = settings.notifyMonthlyReport;
     if (settings.largeTransactionThreshold !== undefined) {
       data.largeTransactionThreshold = settings.largeTransactionThreshold;
     }
 
-    if (Object.keys(data).length === 0)
-      return this.getNotificationSettings(id);
+    if (Object.keys(data).length === 0) return this.getNotificationSettings(id);
 
-    await this.prisma.user.update({ where: { id }, data });
+    await this.prisma.user.update({
+      where: { id },
+      data,
+    });
+
     return this.getNotificationSettings(id);
   }
 
-  /** Mark user onboarding as completed. */
   async completeOnboarding(id: string) {
     await this.prisma.user.update({
       where: { id },
@@ -339,7 +246,6 @@ export class UsersService {
     return { onboardingCompleted: true };
   }
 
-  /** Upload avatar as base64 stored in the database. */
   async uploadAvatar(userId: string, file: Express.Multer.File) {
     const base64 = file.buffer.toString('base64');
     await this.prisma.user.update({
@@ -352,7 +258,6 @@ export class UsersService {
     return { avatarUrl: `data:${file.mimetype};base64,${base64}` };
   }
 
-  /** Remove the user's avatar. */
   async deleteAvatar(userId: string) {
     await this.prisma.user.update({
       where: { id: userId },
@@ -361,10 +266,7 @@ export class UsersService {
     return { avatarUrl: null };
   }
 
-  /** Retrieve raw avatar data (buffer + MIME type). */
-  async getAvatarData(
-    userId: string,
-  ): Promise<{ data: Buffer; mime: string } | null> {
+  async getAvatarData(userId: string): Promise<{ data: Buffer; mime: string } | null> {
     const u = await this.prisma.user.findUnique({
       where: { id: userId },
       select: { avatarData: true, avatarMime: true },
