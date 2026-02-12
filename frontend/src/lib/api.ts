@@ -152,6 +152,35 @@ export const categories = {
   delete: (id: string) => api<unknown>(`/api/categories/${id}`, { method: 'DELETE' }),
 };
 
+export type ParsedVoiceInput = {
+  action: 'transaction' | 'loan' | 'saving' | 'goal' | 'budget' | 'forex' | 'mortgage' | 'stock_portfolio' | 'account';
+  name?: string;
+  description?: string;
+  amount?: number;
+  currency?: string;
+  date?: string;
+  type?: 'expense' | 'income';
+  categorySlug?: string | null;
+  originalAmount?: number;
+  remainingAmount?: number;
+  interestRate?: number;
+  monthlyPayment?: number;
+  lender?: string;
+  targetAmount?: number;
+  currentAmount?: number;
+  targetDate?: string;
+  budgetCategorySlug?: string;
+  fromCurrency?: string;
+  toCurrency?: string;
+  fromAmount?: number;
+  toAmount?: number;
+  exchangeRate?: number;
+  bank?: string;
+  totalAmount?: number;
+  broker?: string;
+  accountType?: string;
+};
+
 export const transactions = {
   list: (params?: { from?: string; to?: string; accountId?: string; categoryId?: string; search?: string; type?: 'income' | 'expense'; page?: number; limit?: number }) => {
     const p = params ?? {};
@@ -185,7 +214,7 @@ export const transactions = {
       body: JSON.stringify({ description }),
     }),
   parseVoice: (text: string) =>
-    api<{ type: 'expense' | 'income'; amount: number; description: string; categorySlug: string | null; date: string; currency: string } | { error: string }>('/api/transactions/parse-voice', {
+    api<ParsedVoiceInput | { error: string }>('/api/transactions/parse-voice', {
       method: 'POST',
       body: JSON.stringify({ text }),
     }),

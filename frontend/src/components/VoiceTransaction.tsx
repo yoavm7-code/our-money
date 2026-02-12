@@ -3,12 +3,37 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from '@/i18n/context';
 import { useVoiceRecorder } from '@/hooks/useVoiceRecorder';
-import { accounts, categories, transactions as txApi } from '@/lib/api';
+import {
+  accounts,
+  categories,
+  transactions as txApi,
+  goals,
+  budgets,
+  mortgages,
+  stocks,
+  forex,
+  api,
+  type ParsedVoiceInput,
+} from '@/lib/api';
 
 type AccountOption = { id: string; name: string; type: string; currency: string };
 type CategoryOption = { id: string; name: string; slug: string; icon: string | null; color: string | null; isIncome: boolean };
 
 type Step = 'idle' | 'listening' | 'processing' | 'review' | 'saving' | 'done' | 'error';
+
+type VoiceAction = ParsedVoiceInput['action'];
+
+const ACTION_LABELS: Record<VoiceAction, { he: string; en: string; color: string }> = {
+  transaction: { he: 'הוצאה / הכנסה', en: 'Expense / Income', color: 'primary' },
+  loan: { he: 'הלוואה', en: 'Loan', color: 'orange' },
+  saving: { he: 'חיסכון', en: 'Saving', color: 'teal' },
+  goal: { he: 'יעד', en: 'Goal', color: 'purple' },
+  budget: { he: 'תקציב', en: 'Budget', color: 'amber' },
+  forex: { he: 'העברת מט"ח', en: 'Forex', color: 'indigo' },
+  mortgage: { he: 'משכנתא', en: 'Mortgage', color: 'cyan' },
+  stock_portfolio: { he: 'תיק מניות', en: 'Stock Portfolio', color: 'rose' },
+  account: { he: 'חשבון', en: 'Account', color: 'blue' },
+};
 
 function getCategoryDisplayName(name: string, slug: string | undefined, t: (k: string) => string): string {
   if (slug) {
@@ -29,13 +54,51 @@ export default function VoiceTransaction() {
   const [dataLoaded, setDataLoaded] = useState(false);
 
   /* ── parsed result ── */
-  const [parsedType, setParsedType] = useState<'expense' | 'income'>('expense');
-  const [parsedAmount, setParsedAmount] = useState('');
-  const [parsedDescription, setParsedDescription] = useState('');
-  const [parsedCategoryId, setParsedCategoryId] = useState('');
-  const [parsedAccountId, setParsedAccountId] = useState('');
-  const [parsedDate, setParsedDate] = useState('');
-  const [parsedCurrency, setParsedCurrency] = useState('ILS');
+  const [parsedAction, setParsedAction] = useState<VoiceAction>('transaction');
+  const [parsed, setParsed] = useState<ParsedVoiceInput | null>(null);
+
+  // Transaction fields
+  const [fType, setFType] = useState<'expense' | 'income'>('expense');
+  const [fAmount, setFAmount] = useState('');
+  const [fDescription, setFDescription] = useState('');
+  const [fCategoryId, setFCategoryId] = useState('');
+  const [fAccountId, setFAccountId] = useState('');
+  const [fDate, setFDate] = useState('');
+  const [fCurrency, setFCurrency] = useState('ILS');
+
+  // Loan fields
+  const [fName, setFName] = useState('');
+  const [fOriginalAmount, setFOriginalAmount] = useState('');
+  const [fRemainingAmount, setFRemainingAmount] = useState('');
+  const [fLender, setFLender] = useState('');
+  const [fInterestRate, setFInterestRate] = useState('');
+  const [fMonthlyPayment, setFMonthlyPayment] = useState('');
+
+  // Saving / Goal fields
+  const [fTargetAmount, setFTargetAmount] = useState('');
+  const [fCurrentAmount, setFCurrentAmount] = useState('');
+  const [fTargetDate, setFTargetDate] = useState('');
+
+  // Budget fields
+  const [fBudgetCategoryId, setFBudgetCategoryId] = useState('');
+
+  // Forex fields
+  const [fFromCurrency, setFFromCurrency] = useState('ILS');
+  const [fToCurrency, setFToCurrency] = useState('USD');
+  const [fFromAmount, setFFromAmount] = useState('');
+  const [fToAmount, setFToAmount] = useState('');
+  const [fExchangeRate, setFExchangeRate] = useState('');
+
+  // Mortgage fields
+  const [fBank, setFBank] = useState('');
+  const [fTotalAmount, setFTotalAmount] = useState('');
+
+  // Stock portfolio fields
+  const [fBroker, setFBroker] = useState('');
+
+  // Account fields
+  const [fAccountType, setFAccountType] = useState('BANK');
+
   const [voiceText, setVoiceText] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -44,7 +107,7 @@ export default function VoiceTransaction() {
     setVoiceText(text);
     processVoice(text);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categoryList, accountList, parsedAccountId]);
+  }, [categoryList, accountList, fAccountId]);
 
   const { isListening, interimTranscript, isSupported, error: voiceError, start: startListening, stop: stopListening } = useVoiceRecorder({
     lang: locale === 'he' ? 'he-IL' : 'en-US',
@@ -58,7 +121,7 @@ export default function VoiceTransaction() {
       const [accs, cats] = await Promise.all([accounts.list(), categories.list()]);
       setAccountList(accs);
       setCategoryList(cats);
-      if (accs.length > 0) setParsedAccountId(accs[0].id);
+      if (accs.length > 0) setFAccountId(accs[0].id);
       setDataLoaded(true);
     } catch {
       // silent
@@ -91,6 +154,89 @@ export default function VoiceTransaction() {
     startListening();
   };
 
+  /* ── populate form fields from parsed result ── */
+  const populateFields = (result: ParsedVoiceInput) => {
+    setParsed(result);
+    setParsedAction(result.action);
+
+    switch (result.action) {
+      case 'transaction':
+        setFType(result.type || 'expense');
+        setFAmount(String(result.amount || ''));
+        setFDescription(result.description || '');
+        setFDate(result.date || new Date().toISOString().slice(0, 10));
+        setFCurrency(result.currency || 'ILS');
+        if (result.categorySlug) {
+          const match = categoryList.find((c) => c.slug === result.categorySlug);
+          if (match) setFCategoryId(match.id);
+        }
+        if (!fAccountId && accountList.length > 0) {
+          setFAccountId(accountList[0].id);
+        }
+        break;
+
+      case 'loan':
+        setFName(result.name || '');
+        setFOriginalAmount(String(result.originalAmount || ''));
+        setFRemainingAmount(String(result.remainingAmount || result.originalAmount || ''));
+        setFLender(result.lender || '');
+        setFInterestRate(result.interestRate ? String(result.interestRate) : '');
+        setFMonthlyPayment(result.monthlyPayment ? String(result.monthlyPayment) : '');
+        setFCurrency(result.currency || 'ILS');
+        break;
+
+      case 'saving':
+        setFName(result.name || '');
+        setFTargetAmount(result.targetAmount ? String(result.targetAmount) : '');
+        setFCurrentAmount(result.currentAmount ? String(result.currentAmount) : '0');
+        setFCurrency(result.currency || 'ILS');
+        break;
+
+      case 'goal':
+        setFName(result.name || '');
+        setFTargetAmount(result.targetAmount ? String(result.targetAmount) : '');
+        setFCurrentAmount(result.currentAmount ? String(result.currentAmount) : '0');
+        setFTargetDate(result.targetDate || '');
+        setFCurrency(result.currency || 'ILS');
+        break;
+
+      case 'budget':
+        setFAmount(String(result.amount || ''));
+        setFName(result.name || '');
+        if (result.budgetCategorySlug) {
+          const match = categoryList.find((c) => c.slug === result.budgetCategorySlug);
+          if (match) setFBudgetCategoryId(match.id);
+        }
+        break;
+
+      case 'forex':
+        setFFromCurrency(result.fromCurrency || 'ILS');
+        setFToCurrency(result.toCurrency || 'USD');
+        setFFromAmount(result.fromAmount ? String(result.fromAmount) : '');
+        setFToAmount(result.toAmount ? String(result.toAmount) : '');
+        setFExchangeRate(result.exchangeRate ? String(result.exchangeRate) : '');
+        setFDate(result.date || new Date().toISOString().slice(0, 10));
+        break;
+
+      case 'mortgage':
+        setFName(result.name || '');
+        setFTotalAmount(result.totalAmount ? String(result.totalAmount) : '');
+        setFBank(result.bank || '');
+        setFCurrency(result.currency || 'ILS');
+        break;
+
+      case 'stock_portfolio':
+        setFName(result.name || '');
+        setFBroker(result.broker || '');
+        break;
+
+      case 'account':
+        setFName(result.name || '');
+        setFAccountType(result.accountType || 'BANK');
+        break;
+    }
+  };
+
   /* ── process voice text with AI ── */
   const processVoice = async (text: string) => {
     if (!text.trim()) {
@@ -108,23 +254,7 @@ export default function VoiceTransaction() {
         return;
       }
 
-      setParsedType(result.type);
-      setParsedAmount(String(result.amount));
-      setParsedDescription(result.description);
-      setParsedDate(result.date);
-      setParsedCurrency(result.currency);
-
-      // Match category by slug
-      if (result.categorySlug) {
-        const match = categoryList.find((c) => c.slug === result.categorySlug);
-        if (match) setParsedCategoryId(match.id);
-      }
-
-      // Default account
-      if (!parsedAccountId && accountList.length > 0) {
-        setParsedAccountId(accountList[0].id);
-      }
-
+      populateFields(result);
       setStep('review');
     } catch {
       setStep('error');
@@ -132,27 +262,124 @@ export default function VoiceTransaction() {
     }
   };
 
-  /* ── save transaction ── */
+  /* ── save ── */
   const handleSave = async () => {
-    if (!parsedAccountId || !parsedAmount || !parsedDescription) return;
     setStep('saving');
     try {
-      const amount = parseFloat(parsedAmount);
-      await txApi.create({
-        accountId: parsedAccountId,
-        categoryId: parsedCategoryId || undefined,
-        date: parsedDate || new Date().toISOString().slice(0, 10),
-        description: parsedDescription,
-        amount: parsedType === 'expense' ? -Math.abs(amount) : Math.abs(amount),
-        currency: parsedCurrency,
-      });
+      switch (parsedAction) {
+        case 'transaction': {
+          if (!fAccountId || !fAmount || !fDescription) return;
+          const amount = parseFloat(fAmount);
+          await txApi.create({
+            accountId: fAccountId,
+            categoryId: fCategoryId || undefined,
+            date: fDate || new Date().toISOString().slice(0, 10),
+            description: fDescription,
+            amount: fType === 'expense' ? -Math.abs(amount) : Math.abs(amount),
+            currency: fCurrency,
+          });
+          break;
+        }
+
+        case 'loan': {
+          if (!fName || !fOriginalAmount) return;
+          await api('/api/loans', {
+            method: 'POST',
+            body: JSON.stringify({
+              name: fName,
+              originalAmount: parseFloat(fOriginalAmount),
+              remainingAmount: parseFloat(fRemainingAmount || fOriginalAmount),
+              ...(fLender && { lender: fLender }),
+              ...(fInterestRate && { interestRate: parseFloat(fInterestRate) }),
+              ...(fMonthlyPayment && { monthlyPayment: parseFloat(fMonthlyPayment) }),
+            }),
+          });
+          break;
+        }
+
+        case 'saving': {
+          if (!fName) return;
+          await api('/api/savings', {
+            method: 'POST',
+            body: JSON.stringify({
+              name: fName,
+              ...(fTargetAmount && { targetAmount: parseFloat(fTargetAmount) }),
+              currentAmount: fCurrentAmount ? parseFloat(fCurrentAmount) : 0,
+            }),
+          });
+          break;
+        }
+
+        case 'goal': {
+          if (!fName || !fTargetAmount) return;
+          await goals.create({
+            name: fName,
+            targetAmount: parseFloat(fTargetAmount),
+            currentAmount: fCurrentAmount ? parseFloat(fCurrentAmount) : 0,
+            ...(fTargetDate && { targetDate: fTargetDate }),
+            currency: fCurrency,
+          });
+          break;
+        }
+
+        case 'budget': {
+          if (!fBudgetCategoryId || !fAmount) return;
+          await budgets.upsert({
+            categoryId: fBudgetCategoryId,
+            amount: parseFloat(fAmount),
+          });
+          break;
+        }
+
+        case 'forex': {
+          if (!fFromAmount || !fToAmount || !fExchangeRate) return;
+          await forex.transfers.create({
+            type: 'BUY',
+            fromCurrency: fFromCurrency,
+            toCurrency: fToCurrency,
+            fromAmount: parseFloat(fFromAmount),
+            toAmount: parseFloat(fToAmount),
+            exchangeRate: parseFloat(fExchangeRate),
+            date: fDate || new Date().toISOString().slice(0, 10),
+          });
+          break;
+        }
+
+        case 'mortgage': {
+          if (!fName || !fTotalAmount) return;
+          await mortgages.create({
+            name: fName,
+            totalAmount: parseFloat(fTotalAmount),
+            ...(fBank && { bank: fBank }),
+            currency: fCurrency,
+          });
+          break;
+        }
+
+        case 'stock_portfolio': {
+          if (!fName) return;
+          await stocks.portfolios.create({
+            name: fName,
+            ...(fBroker && { broker: fBroker }),
+          });
+          break;
+        }
+
+        case 'account': {
+          if (!fName) return;
+          await accounts.create({
+            name: fName,
+            type: fAccountType,
+          });
+          break;
+        }
+      }
+
       setStep('done');
-      setTimeout(() => {
-        handleClose();
-      }, 1500);
+      setTimeout(() => handleClose(), 1500);
     } catch {
       setStep('error');
-      setErrorMsg(t('common.somethingWentWrong'));
+      setErrorMsg(t('voice.genericError'));
     }
   };
 
@@ -160,7 +387,237 @@ export default function VoiceTransaction() {
 
   const expenseCategories = categoryList.filter((c) => !c.isIncome);
   const incomeCategories = categoryList.filter((c) => c.isIncome);
-  const relevantCategories = parsedType === 'income' ? incomeCategories : expenseCategories;
+  const relevantCategories = fType === 'income' ? incomeCategories : expenseCategories;
+
+  const actionLabel = locale === 'he' ? ACTION_LABELS[parsedAction].he : ACTION_LABELS[parsedAction].en;
+
+  /* ── Review form for each action type ── */
+  const renderReviewForm = () => {
+    switch (parsedAction) {
+      case 'transaction':
+        return (
+          <>
+            {/* Type toggle */}
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setFType('expense')}
+                className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${fType === 'expense' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 ring-1 ring-red-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}
+              >{t('voice.expense')}</button>
+              <button type="button" onClick={() => setFType('income')}
+                className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${fType === 'income' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 ring-1 ring-green-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}
+              >{t('voice.income')}</button>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('voice.amount')}</label>
+              <div className="flex gap-2">
+                <input type="number" step="any" className="input flex-1 text-lg font-bold" value={fAmount} onChange={(e) => setFAmount(e.target.value)} />
+                <select className="input w-20" value={fCurrency} onChange={(e) => setFCurrency(e.target.value)}>
+                  <option value="ILS">ILS</option><option value="USD">USD</option><option value="EUR">EUR</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('voice.description')}</label>
+              <input className="input" value={fDescription} onChange={(e) => setFDescription(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('voice.account')}</label>
+              <select className="input" value={fAccountId} onChange={(e) => setFAccountId(e.target.value)}>
+                {accountList.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('voice.category')}</label>
+              <select className="input" value={fCategoryId} onChange={(e) => setFCategoryId(e.target.value)}>
+                <option value="">{t('voice.noCategory')}</option>
+                {relevantCategories.map((c) => <option key={c.id} value={c.id}>{getCategoryDisplayName(c.name, c.slug, t)}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('voice.date')}</label>
+              <input type="date" className="input" value={fDate} onChange={(e) => setFDate(e.target.value)} />
+            </div>
+          </>
+        );
+
+      case 'loan':
+        return (
+          <>
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('voice.loanName')}</label>
+              <input className="input" value={fName} onChange={(e) => setFName(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('voice.originalAmount')}</label>
+              <input type="number" step="any" className="input text-lg font-bold" value={fOriginalAmount} onChange={(e) => setFOriginalAmount(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('voice.remainingAmount')}</label>
+              <input type="number" step="any" className="input" value={fRemainingAmount} onChange={(e) => setFRemainingAmount(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('voice.lender')}</label>
+              <input className="input" value={fLender} onChange={(e) => setFLender(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('voice.interestRate')}</label>
+              <input type="number" step="0.1" className="input" value={fInterestRate} onChange={(e) => setFInterestRate(e.target.value)} placeholder="%" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('voice.monthlyPayment')}</label>
+              <input type="number" step="any" className="input" value={fMonthlyPayment} onChange={(e) => setFMonthlyPayment(e.target.value)} />
+            </div>
+          </>
+        );
+
+      case 'saving':
+        return (
+          <>
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('voice.savingName')}</label>
+              <input className="input" value={fName} onChange={(e) => setFName(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('voice.targetAmountLabel')}</label>
+              <input type="number" step="any" className="input text-lg font-bold" value={fTargetAmount} onChange={(e) => setFTargetAmount(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('voice.currentAmountLabel')}</label>
+              <input type="number" step="any" className="input" value={fCurrentAmount} onChange={(e) => setFCurrentAmount(e.target.value)} />
+            </div>
+          </>
+        );
+
+      case 'goal':
+        return (
+          <>
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('voice.goalName')}</label>
+              <input className="input" value={fName} onChange={(e) => setFName(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('voice.targetAmountLabel')}</label>
+              <input type="number" step="any" className="input text-lg font-bold" value={fTargetAmount} onChange={(e) => setFTargetAmount(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('voice.currentAmountLabel')}</label>
+              <input type="number" step="any" className="input" value={fCurrentAmount} onChange={(e) => setFCurrentAmount(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('voice.targetDateLabel')}</label>
+              <input type="date" className="input" value={fTargetDate} onChange={(e) => setFTargetDate(e.target.value)} />
+            </div>
+          </>
+        );
+
+      case 'budget':
+        return (
+          <>
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('voice.budgetCategory')}</label>
+              <select className="input" value={fBudgetCategoryId} onChange={(e) => setFBudgetCategoryId(e.target.value)}>
+                <option value="">{t('voice.noCategory')}</option>
+                {expenseCategories.map((c) => <option key={c.id} value={c.id}>{getCategoryDisplayName(c.name, c.slug, t)}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('voice.budgetAmount')}</label>
+              <input type="number" step="any" className="input text-lg font-bold" value={fAmount} onChange={(e) => setFAmount(e.target.value)} />
+            </div>
+          </>
+        );
+
+      case 'forex':
+        return (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium mb-1">{t('voice.fromCurrency')}</label>
+                <select className="input" value={fFromCurrency} onChange={(e) => setFFromCurrency(e.target.value)}>
+                  <option value="ILS">ILS</option><option value="USD">USD</option><option value="EUR">EUR</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">{t('voice.toCurrency')}</label>
+                <select className="input" value={fToCurrency} onChange={(e) => setFToCurrency(e.target.value)}>
+                  <option value="USD">USD</option><option value="EUR">EUR</option><option value="ILS">ILS</option>
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium mb-1">{t('voice.fromAmountLabel')}</label>
+                <input type="number" step="any" className="input" value={fFromAmount} onChange={(e) => setFFromAmount(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">{t('voice.toAmountLabel')}</label>
+                <input type="number" step="any" className="input" value={fToAmount} onChange={(e) => setFToAmount(e.target.value)} />
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('voice.exchangeRateLabel')}</label>
+              <input type="number" step="any" className="input" value={fExchangeRate} onChange={(e) => setFExchangeRate(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('voice.date')}</label>
+              <input type="date" className="input" value={fDate} onChange={(e) => setFDate(e.target.value)} />
+            </div>
+          </>
+        );
+
+      case 'mortgage':
+        return (
+          <>
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('voice.mortgageName')}</label>
+              <input className="input" value={fName} onChange={(e) => setFName(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('voice.totalAmountLabel')}</label>
+              <input type="number" step="any" className="input text-lg font-bold" value={fTotalAmount} onChange={(e) => setFTotalAmount(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('voice.bankName')}</label>
+              <input className="input" value={fBank} onChange={(e) => setFBank(e.target.value)} />
+            </div>
+          </>
+        );
+
+      case 'stock_portfolio':
+        return (
+          <>
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('voice.portfolioName')}</label>
+              <input className="input" value={fName} onChange={(e) => setFName(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('voice.brokerName')}</label>
+              <input className="input" value={fBroker} onChange={(e) => setFBroker(e.target.value)} />
+            </div>
+          </>
+        );
+
+      case 'account':
+        return (
+          <>
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('voice.accountName')}</label>
+              <input className="input" value={fName} onChange={(e) => setFName(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">{t('voice.accountTypeLabel')}</label>
+              <select className="input" value={fAccountType} onChange={(e) => setFAccountType(e.target.value)}>
+                <option value="BANK">{t('voice.accountTypes.bank')}</option>
+                <option value="CREDIT_CARD">{t('voice.accountTypes.creditCard')}</option>
+                <option value="CASH">{t('voice.accountTypes.cash')}</option>
+                <option value="INVESTMENT">{t('voice.accountTypes.investment')}</option>
+                <option value="INSURANCE">{t('voice.accountTypes.insurance')}</option>
+                <option value="PENSION">{t('voice.accountTypes.pension')}</option>
+              </select>
+            </div>
+          </>
+        );
+    }
+  };
 
   return (
     <>
@@ -206,7 +663,7 @@ export default function VoiceTransaction() {
               {/* ── IDLE: Start recording ── */}
               {step === 'idle' && (
                 <div className="text-center py-6">
-                  <p className="text-sm text-slate-500 mb-6">{t('voice.hint')}</p>
+                  <p className="text-sm text-slate-500 mb-6">{t('voice.hintExpanded')}</p>
                   <button
                     type="button"
                     onClick={handleStartRecording}
@@ -273,108 +730,22 @@ export default function VoiceTransaction() {
                     </div>
                   )}
 
-                  {/* Type toggle */}
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setParsedType('expense')}
-                      className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${parsedType === 'expense' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 ring-1 ring-red-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}
-                    >
-                      {t('voice.expense')}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setParsedType('income')}
-                      className={`flex-1 py-2 rounded-xl text-sm font-medium transition-colors ${parsedType === 'income' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 ring-1 ring-green-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}
-                    >
-                      {t('voice.income')}
-                    </button>
+                  {/* Action type badge */}
+                  <div className="flex items-center justify-center">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400">
+                      {actionLabel}
+                    </span>
                   </div>
 
-                  {/* Amount */}
-                  <div>
-                    <label className="block text-sm font-medium mb-1">{t('voice.amount')}</label>
-                    <div className="flex gap-2">
-                      <input
-                        type="number"
-                        step="any"
-                        className="input flex-1 text-lg font-bold"
-                        value={parsedAmount}
-                        onChange={(e) => setParsedAmount(e.target.value)}
-                      />
-                      <select
-                        className="input w-20"
-                        value={parsedCurrency}
-                        onChange={(e) => setParsedCurrency(e.target.value)}
-                      >
-                        <option value="ILS">ILS</option>
-                        <option value="USD">USD</option>
-                        <option value="EUR">EUR</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Description */}
-                  <div>
-                    <label className="block text-sm font-medium mb-1">{t('voice.description')}</label>
-                    <input
-                      className="input"
-                      value={parsedDescription}
-                      onChange={(e) => setParsedDescription(e.target.value)}
-                    />
-                  </div>
-
-                  {/* Account */}
-                  <div>
-                    <label className="block text-sm font-medium mb-1">{t('voice.account')}</label>
-                    <select
-                      className="input"
-                      value={parsedAccountId}
-                      onChange={(e) => setParsedAccountId(e.target.value)}
-                    >
-                      {accountList.map((a) => (
-                        <option key={a.id} value={a.id}>{a.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Category */}
-                  <div>
-                    <label className="block text-sm font-medium mb-1">{t('voice.category')}</label>
-                    <select
-                      className="input"
-                      value={parsedCategoryId}
-                      onChange={(e) => setParsedCategoryId(e.target.value)}
-                    >
-                      <option value="">{t('voice.noCategory')}</option>
-                      {relevantCategories.map((c) => (
-                        <option key={c.id} value={c.id}>{getCategoryDisplayName(c.name, c.slug, t)}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Date */}
-                  <div>
-                    <label className="block text-sm font-medium mb-1">{t('voice.date')}</label>
-                    <input
-                      type="date"
-                      className="input"
-                      value={parsedDate}
-                      onChange={(e) => setParsedDate(e.target.value)}
-                    />
-                  </div>
+                  {/* Type-specific form */}
+                  {renderReviewForm()}
 
                   {/* Actions */}
                   <div className="flex gap-3 pt-2">
                     <button type="button" onClick={handleStartRecording} className="btn-secondary flex-1 text-sm">
                       {t('voice.retry')}
                     </button>
-                    <button
-                      type="button"
-                      onClick={handleSave}
-                      disabled={!parsedAmount || !parsedDescription || !parsedAccountId}
-                      className="btn-primary flex-1 text-sm"
-                    >
+                    <button type="button" onClick={handleSave} className="btn-primary flex-1 text-sm">
                       {t('voice.save')}
                     </button>
                   </div>

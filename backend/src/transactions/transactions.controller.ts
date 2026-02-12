@@ -15,7 +15,7 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { HouseholdId } from '../common/decorators/household.decorator';
 import { TransactionsService } from './transactions.service';
-import { VoiceParserService } from './voice-parser.service';
+import { VoiceParserService, ParsedVoiceInput } from './voice-parser.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { TransactionsQueryDto } from './dto/transactions-query.dto';
@@ -37,7 +37,7 @@ export class TransactionsController {
   async parseVoice(
     @HouseholdId() householdId: string,
     @Body() body: { text: string },
-  ) {
+  ): Promise<ParsedVoiceInput | { error: string }> {
     const result = await this.voiceParserService.parseVoiceText(householdId, body.text ?? '');
     return result ?? { error: 'Could not parse voice input' };
   }
