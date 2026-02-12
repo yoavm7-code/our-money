@@ -77,14 +77,17 @@ export class AdminService {
       name: u.name,
       countryCode: u.countryCode,
       phone: u.phone,
+      avatarUrl: null as string | null,
       isAdmin: u.isAdmin,
       emailVerified: u.emailVerified,
-      twoFactorEnabled: u.twoFactorEnabled,
+      twoFactorMethod: u.twoFactorEnabled ? (u.twoFactorMethod || 'TOTP') : null,
       createdAt: u.createdAt,
       householdId: u.householdId,
       householdName: u.household.name,
-      transactionsCount: txMap.get(u.householdId) ?? 0,
-      accountsCount: accMap.get(u.householdId) ?? 0,
+      _count: {
+        accounts: accMap.get(u.householdId) ?? 0,
+        transactions: txMap.get(u.householdId) ?? 0,
+      },
     }));
 
     return { items, total, page, limit, totalPages: Math.ceil(total / limit) };
@@ -482,9 +485,8 @@ export class AdminService {
       totalHouseholds,
       totalTransactions,
       totalAccounts,
-      usersCreatedToday,
-      usersCreatedThisMonth,
-      activeUsers,
+      usersToday: usersCreatedToday,
+      usersThisMonth: usersCreatedThisMonth,
     };
   }
 }
