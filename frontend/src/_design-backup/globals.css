@@ -1,0 +1,141 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground: #0f172a;
+  --background: #f8fafc;
+  --card: #ffffff;
+  --border: #e2e8f0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground: #f1f5f9;
+    --background: #0f172a;
+    --card: #1e293b;
+    --border: #334155;
+  }
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+}
+
+/* Better focus ring */
+*:focus-visible {
+  outline: 2px solid #22c55e;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-sm
+    transition-all duration-200;
+  }
+
+  .card-hover {
+    @apply rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-sm
+    transition-all duration-200
+    hover:shadow-card-hover hover:-translate-y-0.5;
+  }
+
+  .btn-primary {
+    @apply rounded-xl bg-primary-600 px-5 py-2.5 text-white font-medium
+    hover:bg-primary-700 active:scale-[0.98]
+    focus:ring-2 focus:ring-primary-500 focus:ring-offset-2
+    transition-all duration-150 ease-out;
+  }
+
+  .btn-secondary {
+    @apply rounded-xl border border-[var(--border)] bg-[var(--card)] px-5 py-2.5 font-medium
+    hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-[0.98]
+    transition-all duration-150 ease-out;
+  }
+
+  .input {
+    @apply w-full rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-2.5
+    focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20
+    transition-all duration-150;
+  }
+
+  .modal-overlay {
+    @apply fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4;
+  }
+
+  .modal-content {
+    @apply bg-[var(--card)] rounded-2xl shadow-2xl max-w-md w-full p-6
+    animate-scaleIn;
+  }
+
+  .skeleton {
+    @apply bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200
+    dark:from-slate-700 dark:via-slate-600 dark:to-slate-700
+    bg-[length:200%_100%] animate-shimmer rounded-lg;
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-primary-600 to-emerald-500 bg-clip-text text-transparent;
+  }
+}
+
+/* Stagger animation delays */
+.stagger-1 { animation-delay: 0.05s; animation-fill-mode: both; }
+.stagger-2 { animation-delay: 0.1s; animation-fill-mode: both; }
+.stagger-3 { animation-delay: 0.15s; animation-fill-mode: both; }
+.stagger-4 { animation-delay: 0.2s; animation-fill-mode: both; }
+.stagger-5 { animation-delay: 0.25s; animation-fill-mode: both; }
+
+/* Toast animations */
+@keyframes toastIn {
+  0% { transform: translateX(100%); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+@keyframes toastOut {
+  0% { transform: translateX(0); opacity: 1; }
+  100% { transform: translateX(100%); opacity: 0; }
+}
+[dir="rtl"] .toast-enter { animation: toastInRtl 0.3s ease-out; }
+[dir="rtl"] .toast-exit { animation: toastOutRtl 0.3s ease-in forwards; }
+@keyframes toastInRtl {
+  0% { transform: translateX(-100%); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+@keyframes toastOutRtl {
+  0% { transform: translateX(0); opacity: 1; }
+  100% { transform: translateX(-100%); opacity: 0; }
+}
+.toast-enter { animation: toastIn 0.3s ease-out; }
+.toast-exit { animation: toastOut 0.3s ease-in forwards; }
+
+/* Smart tip bounce */
+@keyframes tipBounce {
+  0% { transform: translateY(20px) scale(0.8); opacity: 0; }
+  60% { transform: translateY(-5px) scale(1.02); }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+.tip-bounce { animation: tipBounce 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+/* Slide-in from right for panels */
+@keyframes slideInRight {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(0); }
+}
+[dir="rtl"] .animate-slideInRight { animation: slideInLeft 0.3s ease-out; }
+.animate-slideInRight { animation: slideInRight 0.3s ease-out; }
+@keyframes slideInLeft {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(0); }
+}
+
+/* Fade in */
+@keyframes fadeIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}

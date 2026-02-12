@@ -1,5 +1,9 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CreateForexAccountDto } from './dto/create-forex-account.dto';
+import { UpdateForexAccountDto } from './dto/update-forex-account.dto';
+import { CreateForexTransferDto } from './dto/create-forex-transfer.dto';
+import { UpdateForexTransferDto } from './dto/update-forex-transfer.dto';
 
 interface RateCache {
   rates: Record<string, number>;
@@ -19,109 +23,58 @@ export class ForexService {
 
   // ─── Forex Accounts CRUD ───
 
-  async createAccount(
-    businessId: string,
-    dto: {
-      name: string;
-      currency: string;
-      balance?: number;
-      provider?: string;
-      accountNum?: string;
-      notes?: string;
-    },
-  ) {
+  async createAccount(householdId: string, dto: CreateForexAccountDto) {
     return this.prisma.forexAccount.create({
-      data: {
-        businessId,
-        name: dto.name,
-        currency: dto.currency,
-        balance: dto.balance ?? 0,
-        provider: dto.provider ?? null,
-        accountNum: dto.accountNum ?? null,
-        notes: dto.notes ?? null,
-      },
+      data: { householdId, ...dto },
     });
   }
 
-  async findAllAccounts(businessId: string) {
+  async findAllAccounts(householdId: string) {
     return this.prisma.forexAccount.findMany({
-      where: { businessId, isActive: true },
+      where: { householdId, isActive: true },
       include: { _count: { select: { transfers: true } } },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  async findOneAccount(businessId: string, id: string) {
-    const account = await this.prisma.forexAccount.findFirst({
-      where: { id, businessId },
+  async findOneAccount(householdId: string, id: string) {
+    return this.prisma.forexAccount.findFirst({
+      where: { id, householdId },
       include: { _count: { select: { transfers: true } } },
     });
-    if (!account) throw new NotFoundException('Forex account not found');
-    return account;
   }
 
-  async updateAccount(
-    businessId: string,
-    id: string,
-    dto: {
-      name?: string;
-      currency?: string;
-      balance?: number;
-      provider?: string;
-      accountNum?: string;
-      notes?: string;
-    },
-  ) {
-    const result = await this.prisma.forexAccount.updateMany({
-      where: { id, businessId },
+  async updateAccount(householdId: string, id: string, dto: UpdateForexAccountDto) {
+    return this.prisma.forexAccount.updateMany({
+      where: { id, householdId },
       data: dto,
-    });
-    if (result.count === 0) throw new NotFoundException('Forex account not found');
-    return this.findOneAccount(businessId, id);
+    }).then(() => this.findOneAccount(householdId, id));
   }
 
-  async removeAccount(businessId: string, id: string) {
-    const result = await this.prisma.forexAccount.deleteMany({ where: { id, businessId } });
-    if (result.count === 0) throw new NotFoundException('Forex account not found');
-    return { deleted: true };
+  async removeAccount(householdId: string, id: string) {
+    return this.prisma.forexAccount.deleteMany({ where: { id, householdId } });
   }
 
   // ─── Forex Transfers CRUD ───
 
-  async createTransfer(
-    businessId: string,
-    dto: {
-      forexAccountId?: string;
-      type: string;
-      fromCurrency: string;
-      toCurrency: string;
-      fromAmount: number;
-      toAmount: number;
-      exchangeRate: number;
-      fee?: number;
-      date: string;
-      description?: string;
-      notes?: string;
-    },
-  ) {
+  async createTransfer(householdId: string, dto: CreateForexTransferDto) {
     const transfer = await this.prisma.forexTransfer.create({
       data: {
-        businessId,
+        householdId,
         forexAccountId: dto.forexAccountId || null,
-        type: dto.type as any,
+        type: dto.type,
         fromCurrency: dto.fromCurrency,
         toCurrency: dto.toCurrency,
         fromAmount: dto.fromAmount,
         toAmount: dto.toAmount,
         exchangeRate: dto.exchangeRate,
-        fee: dto.fee ?? null,
+        fee: dto.fee,
         date: new Date(dto.date),
-        description: dto.description ?? null,
-        notes: dto.notes ?? null,
+        description: dto.description,
+        notes: dto.notes,
       },
       include: { forexAccount: { select: { id: true, name: true, currency: true } } },
     });
-
     // Update account balance if linked
     if (dto.forexAccountId) {
       const delta = dto.type === 'SELL' ? -dto.fromAmount : dto.toAmount;
@@ -130,47 +83,38 @@ export class ForexService {
         data: { balance: { increment: delta } },
       });
     }
-
     return transfer;
   }
 
-  async findAllTransfers(businessId: string, forexAccountId?: string) {
+  async findAllTransfers(householdId: string, forexAccountId?: string) {
     return this.prisma.forexTransfer.findMany({
-      where: { businessId, ...(forexAccountId && { forexAccountId }) },
+      where: { householdId, ...(forexAccountId && { forexAccountId }) },
       include: { forexAccount: { select: { id: true, name: true, currency: true } } },
       orderBy: { date: 'desc' },
     });
   }
 
-  async updateTransfer(businessId: string, id: string, dto: Record<string, unknown>) {
-    const data = { ...dto };
-    if (data.date) {
-      data.date = new Date(data.date as string);
-    }
-
-    const result = await this.prisma.forexTransfer.updateMany({
-      where: { id, businessId },
-      data,
+  async updateTransfer(householdId: string, id: string, dto: UpdateForexTransferDto) {
+    await this.prisma.forexTransfer.updateMany({
+      where: { id, householdId },
+      data: {
+        ...dto,
+        ...(dto.date && { date: new Date(dto.date) }),
+      },
     });
-    if (result.count === 0) throw new NotFoundException('Forex transfer not found');
-
     return this.prisma.forexTransfer.findFirst({
-      where: { id, businessId },
+      where: { id, householdId },
       include: { forexAccount: { select: { id: true, name: true, currency: true } } },
     });
   }
 
-  async removeTransfer(businessId: string, id: string) {
-    const result = await this.prisma.forexTransfer.deleteMany({ where: { id, businessId } });
-    if (result.count === 0) throw new NotFoundException('Forex transfer not found');
-    return { deleted: true };
+  async removeTransfer(householdId: string, id: string) {
+    return this.prisma.forexTransfer.deleteMany({ where: { id, householdId } });
   }
-
-  // ─── Exchange Rates (frankfurter.app - free, no API key) ───
 
   /**
    * Get latest exchange rates for a base currency.
-   * Results are cached for 30 minutes.
+   * Uses frankfurter.app (free, no API key needed).
    */
   async getRates(base = 'ILS'): Promise<{ base: string; date: string; rates: Record<string, number> }> {
     const cached = this.cache.get(base);
@@ -192,6 +136,7 @@ export class ForexService {
       return { base: data.base, date: data.date, rates: data.rates };
     } catch (err) {
       this.logger.warn(`Failed to fetch rates: ${err}`);
+      // Return cached even if stale, or fallback rates
       if (cached) {
         return { base: cached.base, date: cached.date, rates: cached.rates };
       }
@@ -219,12 +164,7 @@ export class ForexService {
       const reverseRate = reverse.rates[from];
       if (reverseRate) {
         const actualRate = 1 / reverseRate;
-        return {
-          from, to, amount,
-          result: Math.round(amount * actualRate * 100) / 100,
-          rate: actualRate,
-          date: reverse.date,
-        };
+        return { from, to, amount, result: Math.round(amount * actualRate * 100) / 100, rate: actualRate, date: reverse.date };
       }
       throw new Error(`No rate found for ${from} -> ${to}`);
     }
@@ -248,12 +188,7 @@ export class ForexService {
         `https://api.frankfurter.app/${start}..${end}?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
       );
       if (!res.ok) throw new Error(`Frankfurter history API error: ${res.status}`);
-      const data = (await res.json()) as {
-        base: string;
-        start_date: string;
-        end_date: string;
-        rates: Record<string, Record<string, number>>;
-      };
+      const data = (await res.json()) as { base: string; start_date: string; end_date: string; rates: Record<string, Record<string, number>> };
       const rates = Object.entries(data.rates)
         .map(([date, r]) => ({ date, rate: r[to] }))
         .filter((r) => r.rate != null)
@@ -289,9 +224,8 @@ export class ForexService {
     }
   }
 
-  // ─── Private helpers ───
-
   private getFallbackRates(base: string): Record<string, number> {
+    // Approximate fallback rates relative to ILS
     const ilsRates: Record<string, number> = {
       USD: 0.27, EUR: 0.25, GBP: 0.22, JPY: 40.5,
       CHF: 0.24, CAD: 0.37, AUD: 0.42, CNY: 1.96,
@@ -301,6 +235,7 @@ export class ForexService {
       HKD: 2.11, KRW: 371.0, INR: 22.7, RUB: 25.0,
     };
     if (base === 'ILS') return ilsRates;
+    // Try converting via ILS
     const baseInIls = ilsRates[base];
     if (!baseInIls) return {};
     const rates: Record<string, number> = { ILS: 1 / baseInIls };

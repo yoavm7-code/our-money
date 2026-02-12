@@ -9,67 +9,28 @@ type SearchResults = {
   transactions: Array<{ id: string; date: string; description: string; amount: number; categoryName: string | null }>;
   accounts: Array<{ id: string; name: string; type: string; balance: string }>;
   categories: Array<{ id: string; name: string; slug: string; isIncome: boolean }>;
-  clients: Array<{ id: string; name: string }>;
-  projects: Array<{ id: string; name: string }>;
-  invoices: Array<{ id: string; invoiceNumber: string; clientName: string }>;
 };
 
 const PAGES = [
   { href: '/dashboard', key: 'nav.dashboard', icon: 'grid' },
-  { href: '/clients', key: 'nav.clients', icon: 'users' },
-  { href: '/projects', key: 'nav.projects', icon: 'folder' },
-  { href: '/invoices', key: 'nav.invoices', icon: 'invoice' },
   { href: '/transactions', key: 'nav.transactions', icon: 'list' },
   { href: '/upload', key: 'nav.uploadDocuments', icon: 'upload' },
   { href: '/income', key: 'nav.income', icon: 'trending-up' },
-  { href: '/budgets', key: 'nav.budgets', icon: 'wallet' },
-  { href: '/reports', key: 'nav.reports', icon: 'file-text' },
-  { href: '/insights', key: 'nav.insights', icon: 'sparkles' },
-  { href: '/tax', key: 'nav.tax', icon: 'percent' },
-  { href: '/goals', key: 'nav.goals', icon: 'target' },
-  { href: '/recurring', key: 'nav.recurring', icon: 'repeat' },
-  { href: '/forex', key: 'nav.forex', icon: 'currency' },
-  { href: '/stocks', key: 'nav.stocks', icon: 'bar-chart' },
+  { href: '/expenses', key: 'nav.expenses', icon: 'trending-down' },
   { href: '/loans-savings', key: 'nav.loansSavings', icon: 'banknotes' },
+  { href: '/insurance-funds', key: 'nav.insuranceFunds', icon: 'shield' },
+  { href: '/forex', key: 'nav.forex', icon: 'currency' },
+  { href: '/goals', key: 'nav.goals', icon: 'target' },
+  { href: '/budgets', key: 'nav.budgets', icon: 'wallet' },
+  { href: '/recurring', key: 'nav.recurring', icon: 'repeat' },
+  { href: '/insights', key: 'nav.insights', icon: 'sparkles' },
   { href: '/settings', key: 'nav.settings', icon: 'settings' },
-];
-
-type QuickAction = {
-  id: string;
-  labelKey: string;
-  icon: string;
-  action: 'navigate' | 'event';
-  href?: string;
-  eventName?: string;
-};
-
-const QUICK_ACTIONS: QuickAction[] = [
-  { id: 'new-client', labelKey: 'search.newClient', icon: 'user-plus', action: 'navigate', href: '/clients?new=1' },
-  { id: 'new-invoice', labelKey: 'search.newInvoice', icon: 'file-plus', action: 'navigate', href: '/invoices?new=1' },
-  { id: 'new-transaction', labelKey: 'search.newTransaction', icon: 'plus-circle', action: 'event', eventName: 'open-quick-add' },
-  { id: 'new-project', labelKey: 'search.newProject', icon: 'folder-plus', action: 'navigate', href: '/projects?new=1' },
 ];
 
 function formatCurrency(n: number, locale: string) {
   return new Intl.NumberFormat(locale === 'he' ? 'he-IL' : 'en-IL', {
     style: 'currency', currency: 'ILS', minimumFractionDigits: 0, maximumFractionDigits: 0,
   }).format(n);
-}
-
-function ActionIcon({ name }: { name: string }) {
-  const cn = 'w-4 h-4 shrink-0 text-slate-400';
-  switch (name) {
-    case 'user-plus':
-      return <svg className={cn} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>;
-    case 'file-plus':
-      return <svg className={cn} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>;
-    case 'plus-circle':
-      return <svg className={cn} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>;
-    case 'folder-plus':
-      return <svg className={cn} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>;
-    default:
-      return <svg className={cn} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>;
-  }
 }
 
 export default function CommandPalette() {
@@ -83,7 +44,7 @@ export default function CommandPalette() {
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
-  // Cmd+K / Ctrl+K
+  // Keyboard shortcut: Cmd+K / Ctrl+K
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -96,7 +57,7 @@ export default function CommandPalette() {
     return () => document.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  // Focus on open
+  // Focus input when opened
   useEffect(() => {
     if (open) {
       setTimeout(() => inputRef.current?.focus(), 50);
@@ -129,50 +90,37 @@ export default function CommandPalette() {
     search(value);
   }
 
-  // Build flat list of all navigable items
+  // Build flat list of all results for keyboard navigation
   const filteredPages = query.length > 0
     ? PAGES.filter((p) => t(p.key).toLowerCase().includes(query.toLowerCase()))
     : [];
 
-  const filteredActions = query.length === 0
-    ? QUICK_ACTIONS
-    : QUICK_ACTIONS.filter((a) => t(a.labelKey).toLowerCase().includes(query.toLowerCase()));
+  const allItems: Array<{ type: string; label: string; sublabel?: string; href: string }> = [];
 
-  const allItems: Array<{ type: string; label: string; sublabel?: string; href?: string; action?: QuickAction }> = [];
-
-  // Quick actions first when no query
-  for (const a of filteredActions) {
-    allItems.push({ type: 'action', label: t(a.labelKey), action: a });
-  }
-
-  // Pages
+  // Pages first
   for (const p of filteredPages) {
     allItems.push({ type: 'page', label: t(p.key), href: p.href });
   }
 
-  // Search results
+  // Then search results
   if (results) {
-    for (const cl of (results.clients || [])) {
-      allItems.push({ type: 'client', label: cl.name, href: `/clients/${cl.id}` });
-    }
-    for (const pr of (results.projects || [])) {
-      allItems.push({ type: 'project', label: pr.name, href: `/projects/${pr.id}` });
-    }
-    for (const inv of (results.invoices || [])) {
-      allItems.push({ type: 'invoice', label: `#${inv.invoiceNumber}`, sublabel: inv.clientName, href: `/invoices/${inv.id}` });
-    }
     for (const tx of results.transactions) {
       const amount = formatCurrency(tx.amount, locale);
       const date = new Date(tx.date).toLocaleDateString(locale === 'he' ? 'he-IL' : 'en-IL', { day: 'numeric', month: 'short' });
       allItems.push({
         type: 'transaction',
         label: tx.description,
-        sublabel: `${amount} -- ${date}${tx.categoryName ? ` -- ${tx.categoryName}` : ''}`,
+        sublabel: `${amount} · ${date}${tx.categoryName ? ` · ${tx.categoryName}` : ''}`,
         href: `/transactions?search=${encodeURIComponent(tx.description)}`,
       });
     }
     for (const acc of results.accounts) {
-      allItems.push({ type: 'account', label: acc.name, sublabel: t(`accountType.${acc.type}`), href: '/settings' });
+      allItems.push({
+        type: 'account',
+        label: acc.name,
+        sublabel: t(`accountType.${acc.type}`),
+        href: '/settings',
+      });
     }
     for (const cat of results.categories) {
       const catName = t(`categories.${cat.slug}`) !== `categories.${cat.slug}` ? t(`categories.${cat.slug}`) : cat.name;
@@ -190,15 +138,6 @@ export default function CommandPalette() {
     router.push(href);
   }
 
-  function executeAction(action: QuickAction) {
-    setOpen(false);
-    if (action.action === 'navigate' && action.href) {
-      router.push(action.href);
-    } else if (action.action === 'event' && action.eventName) {
-      document.dispatchEvent(new CustomEvent(action.eventName));
-    }
-  }
-
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
@@ -208,12 +147,7 @@ export default function CommandPalette() {
       setSelectedIndex((i) => Math.max(i - 1, 0));
     } else if (e.key === 'Enter' && allItems[selectedIndex]) {
       e.preventDefault();
-      const item = allItems[selectedIndex];
-      if (item.action) {
-        executeAction(item.action);
-      } else if (item.href) {
-        navigate(item.href);
-      }
+      navigate(allItems[selectedIndex].href);
     }
   }
 
@@ -247,34 +181,13 @@ export default function CommandPalette() {
 
         {/* Results */}
         <div className="max-h-[50vh] overflow-y-auto py-2">
-          {query.length < 2 && filteredActions.length > 0 ? (
-            <>
-              {/* Quick actions when no query */}
-              <div className="px-4 py-1 text-xs font-medium text-slate-400 uppercase">{t('search.quickActions')}</div>
-              {allItems.filter((i) => i.type === 'action').map((item, idx) => {
-                const globalIdx = allItems.indexOf(item);
-                return (
-                  <button
-                    key={`action-${idx}`}
-                    type="button"
-                    className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm text-start transition-colors ${
-                      globalIdx === selectedIndex ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300' : 'hover:bg-slate-50 dark:hover:bg-slate-800'
-                    }`}
-                    onClick={() => item.action && executeAction(item.action)}
-                    onMouseEnter={() => setSelectedIndex(globalIdx)}
-                  >
-                    {item.action && <ActionIcon name={item.action.icon} />}
-                    <span>{item.label}</span>
-                  </button>
-                );
-              })}
-              <div className="px-4 py-4 text-center text-sm text-slate-400">
-                {t('search.hint')}
-              </div>
-            </>
+          {query.length < 2 ? (
+            <div className="px-4 py-6 text-center text-sm text-slate-400">
+              {t('search.hint')}
+            </div>
           ) : loading && !results ? (
             <div className="px-4 py-6 text-center">
-              <div className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+              <div className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
             </div>
           ) : allItems.length === 0 ? (
             <div className="px-4 py-6 text-center text-sm text-slate-400">
@@ -282,34 +195,10 @@ export default function CommandPalette() {
             </div>
           ) : (
             <>
-              {/* Quick actions */}
-              {filteredActions.length > 0 && (
-                <>
-                  <div className="px-4 py-1 text-xs font-medium text-slate-400 uppercase">{t('search.quickActions')}</div>
-                  {allItems.filter((i) => i.type === 'action').map((item, idx) => {
-                    const globalIdx = allItems.indexOf(item);
-                    return (
-                      <button
-                        key={`qa-${idx}`}
-                        type="button"
-                        className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm text-start transition-colors ${
-                          globalIdx === selectedIndex ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300' : 'hover:bg-slate-50 dark:hover:bg-slate-800'
-                        }`}
-                        onClick={() => item.action && executeAction(item.action)}
-                        onMouseEnter={() => setSelectedIndex(globalIdx)}
-                      >
-                        {item.action && <ActionIcon name={item.action.icon} />}
-                        <span>{item.label}</span>
-                      </button>
-                    );
-                  })}
-                </>
-              )}
-
-              {/* Pages */}
+              {/* Pages section */}
               {filteredPages.length > 0 && (
                 <>
-                  <div className="px-4 py-1 mt-1 text-xs font-medium text-slate-400 uppercase">{t('search.pages')}</div>
+                  <div className="px-4 py-1 text-xs font-medium text-slate-400 uppercase">{t('search.pages')}</div>
                   {allItems.filter((i) => i.type === 'page').map((item, idx) => {
                     const globalIdx = allItems.indexOf(item);
                     return (
@@ -317,9 +206,9 @@ export default function CommandPalette() {
                         key={`page-${idx}`}
                         type="button"
                         className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm text-start transition-colors ${
-                          globalIdx === selectedIndex ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300' : 'hover:bg-slate-50 dark:hover:bg-slate-800'
+                          globalIdx === selectedIndex ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300' : 'hover:bg-slate-50 dark:hover:bg-slate-800'
                         }`}
-                        onClick={() => item.href && navigate(item.href)}
+                        onClick={() => navigate(item.href)}
                         onMouseEnter={() => setSelectedIndex(globalIdx)}
                       >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-slate-400">
@@ -332,62 +221,7 @@ export default function CommandPalette() {
                 </>
               )}
 
-              {/* Clients */}
-              {results && (results.clients || []).length > 0 && (
-                <>
-                  <div className="px-4 py-1 mt-1 text-xs font-medium text-slate-400 uppercase">{t('search.clients')}</div>
-                  {allItems.filter((i) => i.type === 'client').map((item, idx) => {
-                    const globalIdx = allItems.indexOf(item);
-                    return (
-                      <button
-                        key={`cl-${idx}`}
-                        type="button"
-                        className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm text-start transition-colors ${
-                          globalIdx === selectedIndex ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300' : 'hover:bg-slate-50 dark:hover:bg-slate-800'
-                        }`}
-                        onClick={() => item.href && navigate(item.href)}
-                        onMouseEnter={() => setSelectedIndex(globalIdx)}
-                      >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-slate-400">
-                          <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
-                        </svg>
-                        <span>{item.label}</span>
-                      </button>
-                    );
-                  })}
-                </>
-              )}
-
-              {/* Invoices */}
-              {results && (results.invoices || []).length > 0 && (
-                <>
-                  <div className="px-4 py-1 mt-1 text-xs font-medium text-slate-400 uppercase">{t('search.invoices')}</div>
-                  {allItems.filter((i) => i.type === 'invoice').map((item, idx) => {
-                    const globalIdx = allItems.indexOf(item);
-                    return (
-                      <button
-                        key={`inv-${idx}`}
-                        type="button"
-                        className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm text-start transition-colors ${
-                          globalIdx === selectedIndex ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300' : 'hover:bg-slate-50 dark:hover:bg-slate-800'
-                        }`}
-                        onClick={() => item.href && navigate(item.href)}
-                        onMouseEnter={() => setSelectedIndex(globalIdx)}
-                      >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-slate-400">
-                          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
-                        </svg>
-                        <div className="flex-1 min-w-0">
-                          <span className="block truncate">{item.label}</span>
-                          {item.sublabel && <span className="block text-xs text-slate-400 truncate">{item.sublabel}</span>}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </>
-              )}
-
-              {/* Transactions */}
+              {/* Transactions section */}
               {results && results.transactions.length > 0 && (
                 <>
                   <div className="px-4 py-1 mt-1 text-xs font-medium text-slate-400 uppercase">{t('search.transactions')}</div>
@@ -398,9 +232,9 @@ export default function CommandPalette() {
                         key={`tx-${idx}`}
                         type="button"
                         className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm text-start transition-colors ${
-                          globalIdx === selectedIndex ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300' : 'hover:bg-slate-50 dark:hover:bg-slate-800'
+                          globalIdx === selectedIndex ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300' : 'hover:bg-slate-50 dark:hover:bg-slate-800'
                         }`}
-                        onClick={() => item.href && navigate(item.href)}
+                        onClick={() => navigate(item.href)}
                         onMouseEnter={() => setSelectedIndex(globalIdx)}
                       >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-slate-400">
@@ -417,7 +251,7 @@ export default function CommandPalette() {
                 </>
               )}
 
-              {/* Accounts */}
+              {/* Accounts section */}
               {results && results.accounts.length > 0 && (
                 <>
                   <div className="px-4 py-1 mt-1 text-xs font-medium text-slate-400 uppercase">{t('search.accounts')}</div>
@@ -428,13 +262,42 @@ export default function CommandPalette() {
                         key={`acc-${idx}`}
                         type="button"
                         className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm text-start transition-colors ${
-                          globalIdx === selectedIndex ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300' : 'hover:bg-slate-50 dark:hover:bg-slate-800'
+                          globalIdx === selectedIndex ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300' : 'hover:bg-slate-50 dark:hover:bg-slate-800'
                         }`}
-                        onClick={() => item.href && navigate(item.href)}
+                        onClick={() => navigate(item.href)}
                         onMouseEnter={() => setSelectedIndex(globalIdx)}
                       >
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-slate-400">
                           <rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" />
+                        </svg>
+                        <div className="flex-1 min-w-0">
+                          <span className="block truncate">{item.label}</span>
+                          <span className="block text-xs text-slate-400 truncate">{item.sublabel}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </>
+              )}
+
+              {/* Categories section */}
+              {results && results.categories.length > 0 && (
+                <>
+                  <div className="px-4 py-1 mt-1 text-xs font-medium text-slate-400 uppercase">{t('search.categories')}</div>
+                  {allItems.filter((i) => i.type === 'category').map((item, idx) => {
+                    const globalIdx = allItems.indexOf(item);
+                    return (
+                      <button
+                        key={`cat-${idx}`}
+                        type="button"
+                        className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm text-start transition-colors ${
+                          globalIdx === selectedIndex ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300' : 'hover:bg-slate-50 dark:hover:bg-slate-800'
+                        }`}
+                        onClick={() => navigate(item.href)}
+                        onMouseEnter={() => setSelectedIndex(globalIdx)}
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-slate-400">
+                          <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" /><line x1="7" y1="7" x2="7.01" y2="7" />
                         </svg>
                         <div className="flex-1 min-w-0">
                           <span className="block truncate">{item.label}</span>
@@ -451,8 +314,8 @@ export default function CommandPalette() {
 
         {/* Footer */}
         <div className="flex items-center gap-4 px-4 py-2 border-t border-[var(--border)] text-[10px] text-slate-400">
-          <span><kbd className="px-1.5 py-0.5 rounded border border-[var(--border)] font-mono">up/down</kbd> {t('search.navigate')}</span>
-          <span><kbd className="px-1.5 py-0.5 rounded border border-[var(--border)] font-mono">enter</kbd> {t('search.select')}</span>
+          <span><kbd className="px-1.5 py-0.5 rounded border border-[var(--border)] font-mono">↑↓</kbd> {t('search.navigate')}</span>
+          <span><kbd className="px-1.5 py-0.5 rounded border border-[var(--border)] font-mono">↵</kbd> {t('search.select')}</span>
           <span><kbd className="px-1.5 py-0.5 rounded border border-[var(--border)] font-mono">esc</kbd> {t('search.close')}</span>
         </div>
       </div>

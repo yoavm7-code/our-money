@@ -20,14 +20,6 @@ export class TransactionsQueryDto {
 
   @IsOptional()
   @IsString()
-  clientId?: string;
-
-  @IsOptional()
-  @IsString()
-  projectId?: string;
-
-  @IsOptional()
-  @IsString()
   search?: string;
 
   @IsOptional()

@@ -9,60 +9,47 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { AuthGuard } from '@nestjs/passport';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { HouseholdId } from '../common/decorators/household.decorator';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 
-interface RequestUser {
-  userId: string;
-  email: string;
-  businessId: string;
-  isAdmin: boolean;
-}
-
 @Controller('api/categories')
-@UseGuards(AuthGuard('jwt'))
+@UseGuards(JwtAuthGuard)
 export class CategoriesController {
-  constructor(private readonly categoriesService: CategoriesService) {}
+  constructor(private categoriesService: CategoriesService) {}
 
-  /** GET /api/categories - list categories with optional ?income=true/false filter */
+  @Post()
+  create(@HouseholdId() householdId: string, @Body() dto: CreateCategoryDto) {
+    return this.categoriesService.create(householdId, dto);
+  }
+
   @Get()
   findAll(
-    @CurrentUser() user: RequestUser,
-    @Query('income') income?: string,
+    @HouseholdId() householdId: string,
+    @Query('incomeOnly') incomeOnly?: string,
   ) {
-    const isIncome =
-      income === 'true' ? true : income === 'false' ? false : undefined;
-    return this.categoriesService.findAll(user.businessId, isIncome);
+    const income = incomeOnly === 'true' ? true : incomeOnly === 'false' ? false : undefined;
+    return this.categoriesService.findAll(householdId, income);
   }
 
-  /** POST /api/categories - create custom category */
-  @Post()
-  create(
-    @CurrentUser() user: RequestUser,
-    @Body() dto: CreateCategoryDto,
-  ) {
-    return this.categoriesService.create(user.businessId, dto);
+  @Get(':id')
+  findOne(@HouseholdId() householdId: string, @Param('id') id: string) {
+    return this.categoriesService.findById(householdId, id);
   }
 
-  /** PUT /api/categories/:id - update category */
   @Put(':id')
   update(
-    @CurrentUser() user: RequestUser,
+    @HouseholdId() householdId: string,
     @Param('id') id: string,
     @Body() dto: UpdateCategoryDto,
   ) {
-    return this.categoriesService.update(user.businessId, id, dto);
+    return this.categoriesService.update(householdId, id, dto);
   }
 
-  /** DELETE /api/categories/:id - delete (only non-default) */
   @Delete(':id')
-  remove(
-    @CurrentUser() user: RequestUser,
-    @Param('id') id: string,
-  ) {
-    return this.categoriesService.remove(user.businessId, id);
+  remove(@HouseholdId() householdId: string, @Param('id') id: string) {
+    return this.categoriesService.remove(householdId, id);
   }
 }

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -10,13 +10,13 @@ export class BudgetsService {
    * For each budget, calculates `spent` by summing negative transactions
    * in that category for the current month.
    */
-  async list(businessId: string) {
+  async list(householdId: string) {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
     const budgets = await this.prisma.budget.findMany({
-      where: { businessId, isActive: true },
+      where: { householdId, isActive: true },
       include: {
         category: {
           select: { id: true, name: true, slug: true, color: true, icon: true },
@@ -31,7 +31,7 @@ export class BudgetsService {
     const spending = await this.prisma.transaction.groupBy({
       by: ['categoryId'],
       where: {
-        businessId,
+        householdId,
         categoryId: { in: categoryIds },
         amount: { lt: 0 },
         date: { gte: monthStart, lt: monthEnd },
@@ -64,18 +64,18 @@ export class BudgetsService {
 
   /**
    * Create or update a budget for a category.
-   * Uses Prisma upsert with unique constraint on [businessId, categoryId].
+   * Uses Prisma upsert with unique constraint on [householdId, categoryId].
    */
-  async upsert(businessId: string, dto: { categoryId: string; amount: number }) {
+  async upsert(householdId: string, dto: { categoryId: string; amount: number }) {
     return this.prisma.budget.upsert({
       where: {
-        businessId_categoryId: {
-          businessId,
+        householdId_categoryId: {
+          householdId,
           categoryId: dto.categoryId,
         },
       },
       create: {
-        businessId,
+        householdId,
         categoryId: dto.categoryId,
         amount: dto.amount,
         isActive: true,
@@ -95,20 +95,18 @@ export class BudgetsService {
   /**
    * Soft delete a budget by setting isActive = false.
    */
-  async remove(businessId: string, id: string) {
-    const result = await this.prisma.budget.updateMany({
-      where: { id, businessId },
+  async remove(householdId: string, id: string) {
+    return this.prisma.budget.updateMany({
+      where: { id, householdId },
       data: { isActive: false },
     });
-    if (result.count === 0) throw new NotFoundException('Budget not found');
-    return { deleted: true };
   }
 
   /**
    * Get budget summary for a specific month (YYYY-MM format).
    * Returns total budgeted, total spent, remaining, and categories over budget.
    */
-  async getSummary(businessId: string, month?: string) {
+  async getSummary(householdId: string, month?: string) {
     const now = new Date();
     let year = now.getFullYear();
     let monthIndex = now.getMonth();
@@ -123,7 +121,7 @@ export class BudgetsService {
     const monthEnd = new Date(year, monthIndex + 1, 1);
 
     const budgets = await this.prisma.budget.findMany({
-      where: { businessId, isActive: true },
+      where: { householdId, isActive: true },
       include: {
         category: {
           select: { id: true, name: true, slug: true, color: true, icon: true },
@@ -136,7 +134,7 @@ export class BudgetsService {
     const spending = await this.prisma.transaction.groupBy({
       by: ['categoryId'],
       where: {
-        businessId,
+        householdId,
         categoryId: { in: categoryIds },
         amount: { lt: 0 },
         date: { gte: monthStart, lt: monthEnd },

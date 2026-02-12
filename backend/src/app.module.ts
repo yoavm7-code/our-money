@@ -18,64 +18,37 @@ import { ForexModule } from './forex/forex.module';
 import { GoalsModule } from './goals/goals.module';
 import { RecurringModule } from './recurring/recurring.module';
 import { BudgetsModule } from './budgets/budgets.module';
+import { MortgagesModule } from './mortgages/mortgages.module';
 import { StocksModule } from './stocks/stocks.module';
 import { AlertsModule } from './alerts/alerts.module';
 import { EmailModule } from './email/email.module';
 import { AdminModule } from './admin/admin.module';
-import { ClientsModule } from './clients/clients.module';
-import { ProjectsModule } from './projects/projects.module';
-import { InvoicesModule } from './invoices/invoices.module';
-import { TaxModule } from './tax/tax.module';
-import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
-    // Global configuration
     ConfigModule.forRoot({ isGlobal: true }),
-
-    // Rate limiting: 60 requests per minute by default
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }]),
-
-    // Core infrastructure
     PrismaModule,
-    EmailModule,
-
-    // Authentication & users
     AuthModule,
     UsersModule,
-    TwoFactorModule,
-
-    // Financial core
     AccountsModule,
     TransactionsModule,
     CategoriesModule,
-    BudgetsModule,
-
-    // Documents & rules
     DocumentsModule,
     RulesModule,
-
-    // Freelancer business modules
-    ClientsModule,
-    ProjectsModule,
-    InvoicesModule,
-    TaxModule,
-
-    // Analytics & reporting
     DashboardModule,
     InsightsModule,
-    ReportsModule,
-
-    // Financial products
     LoansModule,
     SavingsModule,
+    TwoFactorModule,
+    ForexModule,
     GoalsModule,
     RecurringModule,
-    ForexModule,
+    BudgetsModule,
+    MortgagesModule,
     StocksModule,
-
-    // Notifications & admin
     AlertsModule,
+    EmailModule,
     AdminModule,
   ],
   providers: [],

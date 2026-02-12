@@ -1,20 +1,14 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { Controller, Get, UseGuards, Req } from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { AlertsService } from './alerts.service';
 
 @Controller('api/alerts')
-@UseGuards(JwtAuthGuard)
+@UseGuards(AuthGuard('jwt'))
 export class AlertsController {
   constructor(private service: AlertsService) {}
 
-  /**
-   * GET /api/alerts
-   * Generate and return all active alerts for the business.
-   * Alerts are dynamically computed (not stored) based on current data.
-   */
   @Get()
-  async getAlerts(@CurrentUser() user: { businessId: string }) {
-    return this.service.generate(user.businessId);
+  async getAlerts(@Req() req: any) {
+    return this.service.generate(req.user.householdId);
   }
 }
