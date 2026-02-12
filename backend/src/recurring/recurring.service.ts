@@ -20,14 +20,14 @@ export class RecurringService {
    * Groups by normalized description, checks for roughly monthly intervals (25-35 days),
    * and creates/updates RecurringPattern records for both income and expenses.
    */
-  async detect(householdId: string) {
+  async detect(businessId: string) {
     const now = new Date();
     const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, now.getDate());
 
     // Fetch all transactions from the last 6 months
     const transactions = await this.prisma.transaction.findMany({
       where: {
-        householdId,
+        businessId,
         date: { gte: sixMonthsAgo, lte: now },
       },
       select: {
@@ -43,7 +43,7 @@ export class RecurringService {
 
     // Fetch already dismissed patterns so we can skip them
     const dismissedPatterns = await this.prisma.recurringPattern.findMany({
-      where: { householdId, isDismissed: true },
+      where: { businessId, isDismissed: true },
       select: { description: true },
     });
     const dismissedDescriptions = new Set(
@@ -107,7 +107,6 @@ export class RecurringService {
               monthlyMatches.reduce((sum, t) => sum + t.amount, 0) / monthlyMatches.length;
             const lastTx = monthlyMatches[monthlyMatches.length - 1];
 
-            // Use the most common categoryId and accountId
             const categoryId = this.mostCommon(monthlyMatches.map((t) => t.categoryId));
             const accountId = this.mostCommon(monthlyMatches.map((t) => t.accountId)) ?? lastTx.accountId;
 
@@ -130,7 +129,7 @@ export class RecurringService {
     for (const pattern of detected) {
       const existing = await this.prisma.recurringPattern.findFirst({
         where: {
-          householdId,
+          businessId,
           description: pattern.description,
           type: pattern.type,
         },
@@ -151,7 +150,7 @@ export class RecurringService {
       } else {
         const created = await this.prisma.recurringPattern.create({
           data: {
-            householdId,
+            businessId,
             description: pattern.description,
             amount: new Decimal(pattern.amount.toFixed(2)),
             type: pattern.type,
@@ -170,17 +169,17 @@ export class RecurringService {
   }
 
   /**
-   * List all non-dismissed recurring patterns for the household,
-   * ordered by type (income first) then by absolute amount descending.
+   * List all non-dismissed recurring patterns for the business,
+   * ordered by type then by absolute amount descending.
    */
-  async list(householdId: string) {
+  async list(businessId: string) {
     return this.prisma.recurringPattern.findMany({
       where: {
-        householdId,
+        businessId,
         isDismissed: false,
       },
       orderBy: [
-        { type: 'asc' }, // 'expense' before 'income' alphabetically, but we sort in code below
+        { type: 'asc' },
         { amount: 'desc' },
       ],
     });
@@ -189,14 +188,14 @@ export class RecurringService {
   /**
    * Confirm a recurring pattern and mark all matching transactions as recurring.
    */
-  async confirm(householdId: string, id: string) {
+  async confirm(businessId: string, id: string) {
     const pattern = await this.prisma.recurringPattern.update({
-      where: { id, householdId },
+      where: { id, businessId },
       data: { isConfirmed: true, isDismissed: false },
     });
 
     // Mark matching transactions as recurring
-    await this.markMatchingTransactions(householdId, pattern);
+    await this.markMatchingTransactions(businessId, pattern);
 
     return pattern;
   }
@@ -204,9 +203,9 @@ export class RecurringService {
   /**
    * Dismiss a recurring pattern so it won't be shown or re-detected.
    */
-  async dismiss(householdId: string, id: string) {
+  async dismiss(businessId: string, id: string) {
     return this.prisma.recurringPattern.update({
-      where: { id, householdId },
+      where: { id, businessId },
       data: { isDismissed: true, isConfirmed: false },
     });
   }
@@ -215,10 +214,10 @@ export class RecurringService {
    * For all confirmed patterns, find new matching transactions
    * and mark them as isRecurring = true.
    */
-  async applyConfirmed(householdId: string) {
+  async applyConfirmed(businessId: string) {
     const confirmedPatterns = await this.prisma.recurringPattern.findMany({
       where: {
-        householdId,
+        businessId,
         isConfirmed: true,
         isDismissed: false,
       },
@@ -226,29 +225,19 @@ export class RecurringService {
 
     let totalUpdated = 0;
     for (const pattern of confirmedPatterns) {
-      const count = await this.markMatchingTransactions(householdId, pattern);
+      const count = await this.markMatchingTransactions(businessId, pattern);
       totalUpdated += count;
     }
 
     return { patternsApplied: confirmedPatterns.length, transactionsUpdated: totalUpdated };
   }
 
-  // ---------------------------------------------------------------------------
-  // Private helpers
-  // ---------------------------------------------------------------------------
+  // ─── Private helpers ───
 
-  /**
-   * Normalize a description for matching: trim whitespace and lowercase.
-   */
   private normalize(description: string): string {
     return description.trim().toLowerCase();
   }
 
-  /**
-   * Cluster transactions by amount similarity (within 10% variance of the cluster average).
-   * Uses a simple greedy approach: iterate sorted by absolute amount and merge into existing
-   * cluster if within tolerance, otherwise start a new cluster.
-   */
   private clusterByAmount(txList: GroupedTransaction[]): GroupedTransaction[][] {
     if (txList.length === 0) return [];
 
@@ -266,7 +255,6 @@ export class RecurringService {
         const clusterAvg =
           cluster.reduce((s, t) => s + Math.abs(t.amount), 0) / cluster.length;
         const diff = Math.abs(Math.abs(tx.amount) - clusterAvg);
-        // Within 10% of the cluster average (or both are zero)
         if (clusterAvg === 0 || diff / clusterAvg <= 0.1) {
           cluster.push(tx);
           placed = true;
@@ -282,15 +270,9 @@ export class RecurringService {
     return clusters;
   }
 
-  /**
-   * From a sorted-by-date list, find the longest chain of transactions
-   * where consecutive transactions are roughly one month apart (25-35 days).
-   * Returns the chain with the most occurrences (at least 2).
-   */
   private findMonthlyOccurrences(sorted: GroupedTransaction[]): GroupedTransaction[] {
     if (sorted.length < 2) return [];
 
-    // Build all chains of monthly intervals
     let bestChain: GroupedTransaction[] = [];
 
     for (let startIdx = 0; startIdx < sorted.length; startIdx++) {
@@ -313,17 +295,11 @@ export class RecurringService {
     return bestChain.length >= 2 ? bestChain : [];
   }
 
-  /**
-   * Calculate the number of days between two dates.
-   */
   private daysBetween(a: Date, b: Date): number {
     const msPerDay = 1000 * 60 * 60 * 24;
     return Math.round(Math.abs(b.getTime() - a.getTime()) / msPerDay);
   }
 
-  /**
-   * Find the most common non-null value in an array.
-   */
   private mostCommon<T>(values: (T | null)[]): T | null {
     const counts = new Map<string, { value: T; count: number }>();
     for (const v of values) {
@@ -345,13 +321,8 @@ export class RecurringService {
     return best?.value ?? null;
   }
 
-  /**
-   * Mark all transactions matching a confirmed pattern as isRecurring = true.
-   * Matches by normalized description and amount within 10% variance.
-   * Returns the number of transactions updated.
-   */
   private async markMatchingTransactions(
-    householdId: string,
+    businessId: string,
     pattern: { description: string; amount: Decimal | number; type: string },
   ): Promise<number> {
     const patternAmount = Number(pattern.amount);
@@ -359,13 +330,12 @@ export class RecurringService {
     const minAmount = patternAmount - tolerance;
     const maxAmount = patternAmount + tolerance;
 
-    // For expenses (negative amounts), min and max are swapped
     const lowerBound = Math.min(minAmount, maxAmount);
     const upperBound = Math.max(minAmount, maxAmount);
 
     const matchingTransactions = await this.prisma.transaction.findMany({
       where: {
-        householdId,
+        businessId,
         isRecurring: false,
         amount: {
           gte: new Decimal(lowerBound.toFixed(2)),
@@ -375,7 +345,6 @@ export class RecurringService {
       select: { id: true, description: true },
     });
 
-    // Filter by normalized description match in application code
     const normalizedPattern = this.normalize(pattern.description);
     const idsToUpdate = matchingTransactions
       .filter((tx) => this.normalize(tx.description) === normalizedPattern)

@@ -1,97 +1,123 @@
-import { Body, Controller, Delete, Get, Post, Put, Res, UseGuards, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Post,
+  Put,
+  UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
+} from '@nestjs/common';
+import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { Response } from 'express';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { UsersService } from './users.service';
 
-@Controller('api/users')
-@UseGuards(JwtAuthGuard)
-export class UsersController {
-  constructor(private usersService: UsersService) {}
+interface RequestUser {
+  userId: string;
+  email: string;
+  businessId: string;
+  isAdmin: boolean;
+}
 
+@Controller('api/users')
+@UseGuards(AuthGuard('jwt'))
+export class UsersController {
+  constructor(private readonly usersService: UsersService) {}
+
+  /** GET /api/users/me - get current user profile with business info */
   @Get('me')
-  async me(@CurrentUser() user: { id: string }) {
-    return this.usersService.findById(user.id);
+  async me(@CurrentUser() user: RequestUser) {
+    return this.usersService.findById(user.userId);
   }
 
+  /** PUT /api/users/me - update name, email, password, countryCode, phone */
   @Put('me')
   async updateMe(
-    @CurrentUser() user: { id: string },
-    @Body() body: { name?: string; email?: string; password?: string; countryCode?: string | null; phone?: string | null },
+    @CurrentUser() user: RequestUser,
+    @Body()
+    body: {
+      name?: string;
+      email?: string;
+      password?: string;
+      countryCode?: string | null;
+      phone?: string | null;
+    },
   ) {
-    return this.usersService.update(user.id, body);
+    return this.usersService.update(user.userId, body);
   }
 
+  /** POST /api/users/me/avatar - upload avatar (file -> base64) */
+  @Post('me/avatar')
+  @UseInterceptors(FileInterceptor('avatar'))
+  async uploadAvatar(
+    @CurrentUser() user: RequestUser,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) throw new BadRequestException('No file uploaded');
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowed.includes(file.mimetype)) {
+      throw new BadRequestException(
+        'Only JPEG, PNG, WebP, and GIF images are allowed',
+      );
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      throw new BadRequestException('File must be under 2MB');
+    }
+    return this.usersService.uploadAvatar(user.userId, file);
+  }
+
+  /** DELETE /api/users/me/avatar - remove avatar */
+  @Delete('me/avatar')
+  async deleteAvatar(@CurrentUser() user: RequestUser) {
+    return this.usersService.deleteAvatar(user.userId);
+  }
+
+  /** GET /api/users/me/notification-settings - get notification prefs */
   @Get('me/notification-settings')
-  async getNotificationSettings(@CurrentUser() user: { id: string }) {
-    return this.usersService.getNotificationSettings(user.id);
+  async getNotificationSettings(@CurrentUser() user: RequestUser) {
+    return this.usersService.getNotificationSettings(user.userId);
   }
 
+  /** PUT /api/users/me/notification-settings - update notification prefs */
   @Put('me/notification-settings')
   async updateNotificationSettings(
-    @CurrentUser() user: { id: string },
-    @Body() body: {
+    @CurrentUser() user: RequestUser,
+    @Body()
+    body: {
       notifyLogin?: boolean;
       notifyLargeTransaction?: boolean;
       notifyBudgetExceeded?: boolean;
       notifyGoalDeadline?: boolean;
       notifyWeeklyReport?: boolean;
       notifyMonthlyReport?: boolean;
+      notifyInvoiceOverdue?: boolean;
       largeTransactionThreshold?: number | null;
     },
   ) {
-    return this.usersService.updateNotificationSettings(user.id, body);
+    return this.usersService.updateNotificationSettings(user.userId, body);
   }
 
+  /** POST /api/users/me/complete-onboarding - mark onboarding done */
   @Post('me/complete-onboarding')
-  async completeOnboarding(@CurrentUser() user: { id: string }) {
-    return this.usersService.completeOnboarding(user.id);
+  async completeOnboarding(@CurrentUser() user: RequestUser) {
+    return this.usersService.completeOnboarding(user.userId);
   }
 
-  @Get('me/avatar')
-  async getAvatar(
-    @CurrentUser() user: { id: string },
-    @Res() res: Response,
-  ) {
-    const avatar = await this.usersService.getAvatarData(user.id);
-    if (!avatar) {
-      res.status(404).json({ message: 'No avatar' });
-      return;
-    }
-    res.set('Content-Type', avatar.mime);
-    res.set('Cache-Control', 'public, max-age=86400');
-    res.send(avatar.data);
-  }
-
-  @Post('me/avatar')
-  @UseInterceptors(FileInterceptor('avatar'))
-  async uploadAvatar(
-    @CurrentUser() user: { id: string },
-    @UploadedFile() file: Express.Multer.File,
-  ) {
-    if (!file) throw new BadRequestException('No file uploaded');
-    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-    if (!allowed.includes(file.mimetype)) throw new BadRequestException('Only JPEG, PNG, WebP, and GIF images are allowed');
-    if (file.size > 2 * 1024 * 1024) throw new BadRequestException('File must be under 2MB');
-    return this.usersService.uploadAvatar(user.id, file);
-  }
-
-  @Delete('me/avatar')
-  async deleteAvatar(@CurrentUser() user: { id: string }) {
-    return this.usersService.deleteAvatar(user.id);
-  }
-
+  /** GET /api/users/me/dashboard-config - get dashboard widget config */
   @Get('me/dashboard-config')
-  async getDashboardConfig(@CurrentUser() user: { id: string }) {
-    return this.usersService.getDashboardConfig(user.id);
+  async getDashboardConfig(@CurrentUser() user: RequestUser) {
+    return this.usersService.getDashboardConfig(user.userId);
   }
 
+  /** PUT /api/users/me/dashboard-config - save dashboard widget config */
   @Put('me/dashboard-config')
   async saveDashboardConfig(
-    @CurrentUser() user: { id: string },
+    @CurrentUser() user: RequestUser,
     @Body() body: { widgets: unknown[] },
   ) {
-    return this.usersService.saveDashboardConfig(user.id, body);
+    return this.usersService.saveDashboardConfig(user.userId, body);
   }
 }

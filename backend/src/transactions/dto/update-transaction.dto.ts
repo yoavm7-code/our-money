@@ -10,6 +10,14 @@ export class UpdateTransactionDto {
   categoryId?: string;
 
   @IsOptional()
+  @IsString()
+  clientId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  projectId?: string | null;
+
+  @IsOptional()
   @IsDateString()
   date?: string;
 
@@ -20,6 +28,18 @@ export class UpdateTransactionDto {
   @IsOptional()
   @IsNumber()
   amount?: number;
+
+  @IsOptional()
+  @IsNumber()
+  vatAmount?: number | null;
+
+  @IsOptional()
+  @IsBoolean()
+  isVatIncluded?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isTaxDeductible?: boolean;
 
   @IsOptional()
   @IsNumber()

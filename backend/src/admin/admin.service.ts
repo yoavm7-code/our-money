@@ -6,8 +6,6 @@ import {
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class AdminService {
@@ -45,7 +43,7 @@ export class AdminService {
         take: limit,
         orderBy: { createdAt: 'desc' },
         include: {
-          household: {
+          business: {
             select: { name: true },
           },
         },
@@ -53,23 +51,23 @@ export class AdminService {
       this.prisma.user.count({ where }),
     ]);
 
-    // Enrich with household-level counts
-    const householdIds = [...new Set(users.map((u) => u.householdId))];
+    // Enrich with business-level counts
+    const businessIds = [...new Set(users.map((u) => u.businessId))];
     const [txCounts, accCounts] = await Promise.all([
       this.prisma.transaction.groupBy({
-        by: ['householdId'],
-        where: { householdId: { in: householdIds } },
+        by: ['businessId'],
+        where: { businessId: { in: businessIds } },
         _count: true,
       }),
       this.prisma.account.groupBy({
-        by: ['householdId'],
-        where: { householdId: { in: householdIds } },
+        by: ['businessId'],
+        where: { businessId: { in: businessIds } },
         _count: true,
       }),
     ]);
 
-    const txMap = new Map(txCounts.map((t) => [t.householdId, t._count]));
-    const accMap = new Map(accCounts.map((a) => [a.householdId, a._count]));
+    const txMap = new Map(txCounts.map((t) => [t.businessId, t._count]));
+    const accMap = new Map(accCounts.map((a) => [a.businessId, a._count]));
 
     const items = users.map((u) => ({
       id: u.id,
@@ -82,11 +80,11 @@ export class AdminService {
       emailVerified: u.emailVerified,
       twoFactorMethod: u.twoFactorEnabled ? (u.twoFactorMethod || 'TOTP') : null,
       createdAt: u.createdAt,
-      householdId: u.householdId,
-      householdName: u.household.name,
+      businessId: u.businessId,
+      businessName: u.business.name,
       _count: {
-        accounts: accMap.get(u.householdId) ?? 0,
-        transactions: txMap.get(u.householdId) ?? 0,
+        accounts: accMap.get(u.businessId) ?? 0,
+        transactions: txMap.get(u.businessId) ?? 0,
       },
     }));
 
@@ -110,8 +108,8 @@ export class AdminService {
         dashboardConfig: true,
         createdAt: true,
         updatedAt: true,
-        householdId: true,
-        household: {
+        businessId: true,
+        business: {
           select: { id: true, name: true, createdAt: true },
         },
       },
@@ -119,7 +117,7 @@ export class AdminService {
 
     if (!user) throw new NotFoundException('User not found');
 
-    const householdId = user.householdId;
+    const businessId = user.businessId;
 
     const [
       accountsCount,
@@ -129,28 +127,30 @@ export class AdminService {
       budgetsCount,
       loansCount,
       savingsCount,
-      mortgagesCount,
       stockPortfoliosCount,
+      invoicesCount,
+      clientsCount,
       totalBalance,
     ] = await Promise.all([
-      this.prisma.account.count({ where: { householdId } }),
-      this.prisma.transaction.count({ where: { householdId } }),
-      this.prisma.category.count({ where: { householdId } }),
-      this.prisma.goal.count({ where: { householdId } }),
-      this.prisma.budget.count({ where: { householdId } }),
-      this.prisma.loan.count({ where: { householdId } }),
-      this.prisma.saving.count({ where: { householdId } }),
-      this.prisma.mortgage.count({ where: { householdId } }),
-      this.prisma.stockPortfolio.count({ where: { householdId } }),
+      this.prisma.account.count({ where: { businessId } }),
+      this.prisma.transaction.count({ where: { businessId } }),
+      this.prisma.category.count({ where: { businessId } }),
+      this.prisma.goal.count({ where: { businessId } }),
+      this.prisma.budget.count({ where: { businessId } }),
+      this.prisma.loan.count({ where: { businessId } }),
+      this.prisma.saving.count({ where: { businessId } }),
+      this.prisma.stockPortfolio.count({ where: { businessId } }),
+      this.prisma.invoice.count({ where: { businessId } }),
+      this.prisma.client.count({ where: { businessId } }),
       this.prisma.account.aggregate({
-        where: { householdId },
+        where: { businessId },
         _sum: { balance: true },
       }),
     ]);
 
     return {
       ...user,
-      householdSummary: {
+      businessSummary: {
         accountsCount,
         transactionsCount,
         totalBalance: totalBalance._sum.balance ?? 0,
@@ -159,13 +159,24 @@ export class AdminService {
         budgetsCount,
         loansCount,
         savingsCount,
-        mortgagesCount,
         stockPortfoliosCount,
+        invoicesCount,
+        clientsCount,
       },
     };
   }
 
-  async updateUser(userId: string, dto: UpdateUserDto) {
+  async updateUser(
+    userId: string,
+    dto: {
+      name?: string;
+      email?: string;
+      countryCode?: string;
+      phone?: string;
+      isAdmin?: boolean;
+      emailVerified?: boolean;
+    },
+  ) {
     const existing = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!existing) throw new NotFoundException('User not found');
 
@@ -208,17 +219,23 @@ export class AdminService {
   async deleteUser(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, householdId: true },
+      select: { id: true, businessId: true },
     });
     if (!user) throw new NotFoundException('User not found');
 
-    // Delete the household (cascades to all related data) and the user
-    await this.prisma.household.delete({ where: { id: user.householdId } });
+    // Delete the business (cascades to all related data) and the user
+    await this.prisma.business.delete({ where: { id: user.businessId } });
 
     return { deleted: true };
   }
 
-  async createUser(dto: CreateUserDto) {
+  async createUser(dto: {
+    email: string;
+    password: string;
+    name?: string;
+    countryCode?: string;
+    isAdmin?: boolean;
+  }) {
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email.trim().toLowerCase() },
     });
@@ -226,8 +243,8 @@ export class AdminService {
 
     const passwordHash = await bcrypt.hash(dto.password, 10);
 
-    const household = await this.prisma.household.create({
-      data: { name: `${dto.name || 'User'}'s Household` },
+    const business = await this.prisma.business.create({
+      data: { name: `${dto.name || 'User'}'s Business` },
     });
 
     const user = await this.prisma.user.create({
@@ -239,7 +256,7 @@ export class AdminService {
           ? dto.countryCode.toUpperCase().slice(0, 2)
           : null,
         isAdmin: dto.isAdmin ?? false,
-        householdId: household.id,
+        businessId: business.id,
         emailVerified: true, // Admin-created users are pre-verified
       },
     });
@@ -250,7 +267,7 @@ export class AdminService {
       name: user.name,
       countryCode: user.countryCode,
       isAdmin: user.isAdmin,
-      householdId: user.householdId,
+      businessId: user.businessId,
       createdAt: user.createdAt,
     };
   }
@@ -278,8 +295,9 @@ export class AdminService {
     budgets: 'budget',
     loans: 'loan',
     savings: 'saving',
-    mortgages: 'mortgage',
     stockPortfolios: 'stockPortfolio',
+    invoices: 'invoice',
+    clients: 'client',
   };
 
   private getModel(modelName: string) {
@@ -301,17 +319,17 @@ export class AdminService {
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { householdId: true },
+      select: { businessId: true },
     });
     if (!user) throw new NotFoundException('User not found');
 
     const skip = (page - 1) * limit;
-    const householdId = user.householdId;
+    const businessId = user.businessId;
 
     const model = this.getModel(prismaModel);
     const [items, total] = await Promise.all([
       model.findMany({
-        where: { householdId },
+        where: { businessId },
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
@@ -324,8 +342,11 @@ export class AdminService {
         ...(dataType === 'budgets'
           ? { include: { category: true } }
           : {}),
+        ...(dataType === 'invoices'
+          ? { include: { client: true } }
+          : {}),
       }),
-      model.count({ where: { householdId } }),
+      model.count({ where: { businessId } }),
     ]);
 
     return { items, total, page, limit, totalPages: Math.ceil(total / limit) };
@@ -339,8 +360,9 @@ export class AdminService {
     budgets: 'budget',
     loans: 'loan',
     savings: 'saving',
-    mortgages: 'mortgage',
     stockPortfolios: 'stockPortfolio',
+    invoices: 'invoice',
+    clients: 'client',
   };
 
   async deleteRecord(tableName: string, recordId: string) {
@@ -377,15 +399,15 @@ export class AdminService {
         onboardingCompleted: true,
         createdAt: true,
         updatedAt: true,
-        householdId: true,
+        businessId: true,
       },
     });
     if (!user) throw new NotFoundException('User not found');
 
-    const householdId = user.householdId;
+    const businessId = user.businessId;
 
     const [
-      household,
+      business,
       accounts,
       transactions,
       categories,
@@ -393,45 +415,47 @@ export class AdminService {
       budgets,
       loans,
       savings,
-      mortgages,
       stockPortfolios,
       forexAccounts,
       forexTransfers,
       recurringPatterns,
       documents,
+      invoices,
+      clients,
     ] = await Promise.all([
-      this.prisma.household.findUnique({ where: { id: householdId } }),
-      this.prisma.account.findMany({ where: { householdId } }),
+      this.prisma.business.findUnique({ where: { id: businessId } }),
+      this.prisma.account.findMany({ where: { businessId } }),
       this.prisma.transaction.findMany({
-        where: { householdId },
+        where: { businessId },
         include: { account: true, category: true },
       }),
-      this.prisma.category.findMany({ where: { householdId } }),
-      this.prisma.goal.findMany({ where: { householdId } }),
+      this.prisma.category.findMany({ where: { businessId } }),
+      this.prisma.goal.findMany({ where: { businessId } }),
       this.prisma.budget.findMany({
-        where: { householdId },
+        where: { businessId },
         include: { category: true },
       }),
-      this.prisma.loan.findMany({ where: { householdId } }),
-      this.prisma.saving.findMany({ where: { householdId } }),
-      this.prisma.mortgage.findMany({
-        where: { householdId },
-        include: { tracks: true },
-      }),
+      this.prisma.loan.findMany({ where: { businessId } }),
+      this.prisma.saving.findMany({ where: { businessId } }),
       this.prisma.stockPortfolio.findMany({
-        where: { householdId },
+        where: { businessId },
         include: { holdings: true },
       }),
-      this.prisma.forexAccount.findMany({ where: { householdId } }),
-      this.prisma.forexTransfer.findMany({ where: { householdId } }),
-      this.prisma.recurringPattern.findMany({ where: { householdId } }),
-      this.prisma.document.findMany({ where: { householdId } }),
+      this.prisma.forexAccount.findMany({ where: { businessId } }),
+      this.prisma.forexTransfer.findMany({ where: { businessId } }),
+      this.prisma.recurringPattern.findMany({ where: { businessId } }),
+      this.prisma.document.findMany({ where: { businessId } }),
+      this.prisma.invoice.findMany({
+        where: { businessId },
+        include: { items: true, client: true },
+      }),
+      this.prisma.client.findMany({ where: { businessId } }),
     ]);
 
     return {
       exportedAt: new Date().toISOString(),
       user,
-      household,
+      business,
       accounts,
       transactions,
       categories,
@@ -439,12 +463,13 @@ export class AdminService {
       budgets,
       loans,
       savings,
-      mortgages,
       stockPortfolios,
       forexAccounts,
       forexTransfers,
       recurringPatterns,
       documents,
+      invoices,
+      clients,
     };
   }
 
@@ -458,17 +483,21 @@ export class AdminService {
 
     const [
       totalUsers,
-      totalHouseholds,
+      totalBusinesses,
       totalTransactions,
       totalAccounts,
+      totalInvoices,
+      totalClients,
       usersCreatedToday,
       usersCreatedThisMonth,
       activeUsers,
     ] = await Promise.all([
       this.prisma.user.count(),
-      this.prisma.household.count(),
+      this.prisma.business.count(),
       this.prisma.transaction.count(),
       this.prisma.account.count(),
+      this.prisma.invoice.count(),
+      this.prisma.client.count(),
       this.prisma.user.count({
         where: { createdAt: { gte: startOfToday } },
       }),
@@ -482,11 +511,14 @@ export class AdminService {
 
     return {
       totalUsers,
-      totalHouseholds,
+      totalBusinesses,
       totalTransactions,
       totalAccounts,
+      totalInvoices,
+      totalClients,
       usersToday: usersCreatedToday,
       usersThisMonth: usersCreatedThisMonth,
+      activeUsersLast30Days: activeUsers,
     };
   }
 }

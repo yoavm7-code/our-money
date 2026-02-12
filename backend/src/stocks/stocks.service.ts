@@ -1,24 +1,31 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { StockPriceService } from './stock-price.service';
-import { CreatePortfolioDto } from './dto/create-portfolio.dto';
-import { UpdatePortfolioDto } from './dto/update-portfolio.dto';
-import { CreateHoldingDto } from './dto/create-holding.dto';
-import { UpdateHoldingDto } from './dto/update-holding.dto';
 
 @Injectable()
 export class StocksService {
+  private readonly logger = new Logger(StocksService.name);
+
   constructor(
     private prisma: PrismaService,
-    private stockPriceService: StockPriceService,
+    private priceService: StockPriceService,
   ) {}
 
-  // ---- Portfolios ----
+  // ─── Portfolios ───
 
-  async createPortfolio(householdId: string, dto: CreatePortfolioDto) {
+  async createPortfolio(
+    businessId: string,
+    dto: {
+      name: string;
+      broker?: string;
+      accountNum?: string;
+      currency?: string;
+      notes?: string;
+    },
+  ) {
     return this.prisma.stockPortfolio.create({
       data: {
-        householdId,
+        businessId,
         name: dto.name,
         broker: dto.broker ?? null,
         accountNum: dto.accountNum ?? null,
@@ -29,48 +36,153 @@ export class StocksService {
     });
   }
 
-  async findAllPortfolios(householdId: string) {
-    return this.prisma.stockPortfolio.findMany({
-      where: { householdId, isActive: true },
-      include: { holdings: { where: { isActive: true }, orderBy: { ticker: 'asc' } } },
+  async listPortfolios(businessId: string) {
+    const portfolios = await this.prisma.stockPortfolio.findMany({
+      where: { businessId, isActive: true },
+      include: {
+        holdings: {
+          where: { isActive: true },
+          orderBy: { ticker: 'asc' },
+        },
+      },
       orderBy: { name: 'asc' },
     });
+
+    return portfolios.map((p) => {
+      let totalInvested = 0;
+      let totalCurrentValue = 0;
+
+      const holdings = p.holdings.map((h) => {
+        const shares = Number(h.shares);
+        const avgBuy = Number(h.avgBuyPrice);
+        const current = h.currentPrice ? Number(h.currentPrice) : avgBuy;
+        const invested = shares * avgBuy;
+        const currentValue = shares * current;
+        totalInvested += invested;
+        totalCurrentValue += currentValue;
+        return {
+          ...h,
+          shares,
+          avgBuyPrice: avgBuy,
+          currentPrice: h.currentPrice ? Number(h.currentPrice) : null,
+          invested: Math.round(invested * 100) / 100,
+          currentValue: Math.round(currentValue * 100) / 100,
+          pnl: Math.round((currentValue - invested) * 100) / 100,
+          pnlPercent: invested > 0 ? Math.round(((currentValue - invested) / invested) * 10000) / 100 : 0,
+        };
+      });
+
+      const totalPnl = totalCurrentValue - totalInvested;
+      const totalPnlPercent = totalInvested > 0 ? (totalPnl / totalInvested) * 100 : 0;
+
+      return {
+        ...p,
+        holdings,
+        holdingsCount: holdings.length,
+        totalInvested: Math.round(totalInvested * 100) / 100,
+        totalCurrentValue: Math.round(totalCurrentValue * 100) / 100,
+        totalPnl: Math.round(totalPnl * 100) / 100,
+        totalPnlPercent: Math.round(totalPnlPercent * 100) / 100,
+      };
+    });
   }
 
-  async findOnePortfolio(householdId: string, id: string) {
-    return this.prisma.stockPortfolio.findFirst({
-      where: { id, householdId },
+  async findOnePortfolio(businessId: string, id: string) {
+    const portfolio = await this.prisma.stockPortfolio.findFirst({
+      where: { id, businessId },
       include: { holdings: { where: { isActive: true }, orderBy: { ticker: 'asc' } } },
     });
+    if (!portfolio) throw new NotFoundException('Portfolio not found');
+    return portfolio;
   }
 
-  async updatePortfolio(householdId: string, id: string, dto: UpdatePortfolioDto) {
-    return this.prisma.stockPortfolio.updateMany({
-      where: { id, householdId },
-      data: dto as Record<string, unknown>,
+  async updatePortfolio(
+    businessId: string,
+    id: string,
+    dto: {
+      name?: string;
+      broker?: string;
+      accountNum?: string;
+      currency?: string;
+      notes?: string;
+    },
+  ) {
+    const result = await this.prisma.stockPortfolio.updateMany({
+      where: { id, businessId },
+      data: dto,
     });
+    if (result.count === 0) throw new NotFoundException('Portfolio not found');
+    return this.findOnePortfolio(businessId, id);
   }
 
-  async removePortfolio(householdId: string, id: string) {
-    return this.prisma.stockPortfolio.updateMany({
-      where: { id, householdId },
+  async removePortfolio(businessId: string, id: string) {
+    const result = await this.prisma.stockPortfolio.updateMany({
+      where: { id, businessId },
       data: { isActive: false },
     });
+    if (result.count === 0) throw new NotFoundException('Portfolio not found');
+    return { deleted: true };
   }
 
-  // ---- Holdings ----
+  // ─── Holdings ───
 
-  async addHolding(householdId: string, portfolioId: string, dto: CreateHoldingDto) {
-    // Verify portfolio belongs to household
+  async listHoldings(businessId: string, portfolioId: string) {
     const portfolio = await this.prisma.stockPortfolio.findFirst({
-      where: { id: portfolioId, householdId },
+      where: { id: portfolioId, businessId },
     });
-    if (!portfolio) return null;
+    if (!portfolio) throw new NotFoundException('Portfolio not found');
+
+    const holdings = await this.prisma.stockHolding.findMany({
+      where: { portfolioId, isActive: true },
+      orderBy: { ticker: 'asc' },
+    });
+
+    return holdings.map((h) => {
+      const shares = Number(h.shares);
+      const avgBuy = Number(h.avgBuyPrice);
+      const current = h.currentPrice ? Number(h.currentPrice) : null;
+      const invested = shares * avgBuy;
+      const currentValue = current != null ? shares * current : null;
+      const pnl = currentValue != null ? currentValue - invested : null;
+      const pnlPercent = pnl != null && invested > 0 ? (pnl / invested) * 100 : null;
+
+      return {
+        ...h,
+        shares,
+        avgBuyPrice: avgBuy,
+        currentPrice: current,
+        invested: Math.round(invested * 100) / 100,
+        currentValue: currentValue != null ? Math.round(currentValue * 100) / 100 : null,
+        pnl: pnl != null ? Math.round(pnl * 100) / 100 : null,
+        pnlPercent: pnlPercent != null ? Math.round(pnlPercent * 100) / 100 : null,
+      };
+    });
+  }
+
+  async createHolding(
+    businessId: string,
+    portfolioId: string,
+    dto: {
+      ticker: string;
+      name: string;
+      exchange?: string;
+      sector?: string;
+      shares: number;
+      avgBuyPrice: number;
+      currency?: string;
+      buyDate?: string;
+      notes?: string;
+    },
+  ) {
+    const portfolio = await this.prisma.stockPortfolio.findFirst({
+      where: { id: portfolioId, businessId },
+    });
+    if (!portfolio) throw new NotFoundException('Portfolio not found');
 
     return this.prisma.stockHolding.create({
       data: {
         portfolioId,
-        ticker: dto.ticker,
+        ticker: dto.ticker.toUpperCase(),
         name: dto.name,
         exchange: dto.exchange ?? null,
         sector: dto.sector ?? null,
@@ -83,64 +195,129 @@ export class StocksService {
     });
   }
 
-  async updateHolding(householdId: string, portfolioId: string, holdingId: string, dto: UpdateHoldingDto) {
-    // Verify portfolio belongs to household
-    const portfolio = await this.prisma.stockPortfolio.findFirst({
-      where: { id: portfolioId, householdId },
+  async updateHolding(
+    businessId: string,
+    id: string,
+    dto: {
+      ticker?: string;
+      name?: string;
+      exchange?: string;
+      sector?: string;
+      shares?: number;
+      avgBuyPrice?: number;
+      currency?: string;
+      buyDate?: string;
+      notes?: string;
+    },
+  ) {
+    const holding = await this.prisma.stockHolding.findFirst({
+      where: { id },
+      include: { portfolio: { select: { businessId: true } } },
     });
-    if (!portfolio) return null;
-
-    const data: Record<string, unknown> = { ...dto };
-    if (dto.buyDate !== undefined) {
-      data.buyDate = dto.buyDate ? new Date(dto.buyDate) : null;
+    if (!holding || holding.portfolio.businessId !== businessId) {
+      throw new NotFoundException('Holding not found');
     }
 
-    return this.prisma.stockHolding.updateMany({
-      where: { id: holdingId, portfolioId },
+    const data: Record<string, unknown> = {};
+    if (dto.ticker !== undefined) data.ticker = dto.ticker.toUpperCase();
+    if (dto.name !== undefined) data.name = dto.name;
+    if (dto.exchange !== undefined) data.exchange = dto.exchange;
+    if (dto.sector !== undefined) data.sector = dto.sector;
+    if (dto.shares !== undefined) data.shares = dto.shares;
+    if (dto.avgBuyPrice !== undefined) data.avgBuyPrice = dto.avgBuyPrice;
+    if (dto.currency !== undefined) data.currency = dto.currency;
+    if (dto.buyDate !== undefined) data.buyDate = dto.buyDate ? new Date(dto.buyDate) : null;
+    if (dto.notes !== undefined) data.notes = dto.notes;
+
+    return this.prisma.stockHolding.update({
+      where: { id },
       data,
     });
   }
 
-  async removeHolding(householdId: string, portfolioId: string, holdingId: string) {
-    // Verify portfolio belongs to household
-    const portfolio = await this.prisma.stockPortfolio.findFirst({
-      where: { id: portfolioId, householdId },
+  async removeHolding(businessId: string, id: string) {
+    const holding = await this.prisma.stockHolding.findFirst({
+      where: { id },
+      include: { portfolio: { select: { businessId: true } } },
     });
-    if (!portfolio) return null;
+    if (!holding || holding.portfolio.businessId !== businessId) {
+      throw new NotFoundException('Holding not found');
+    }
 
-    return this.prisma.stockHolding.updateMany({
-      where: { id: holdingId, portfolioId },
+    await this.prisma.stockHolding.update({
+      where: { id },
       data: { isActive: false },
     });
+    return { deleted: true };
   }
 
-  // ---- Price Refresh ----
+  // ─── Price Refresh ───
 
-  async refreshPrices(householdId: string, portfolioId: string) {
-    // Verify portfolio belongs to household
+  async refreshPrices(businessId: string, portfolioId: string) {
     const portfolio = await this.prisma.stockPortfolio.findFirst({
-      where: { id: portfolioId, householdId },
-      include: { holdings: { where: { isActive: true } } },
+      where: { id: portfolioId, businessId },
+      include: {
+        holdings: {
+          where: { isActive: true },
+          select: { id: true, ticker: true },
+        },
+      },
     });
-    if (!portfolio) return null;
+    if (!portfolio) throw new NotFoundException('Portfolio not found');
+
+    const results: Array<{ ticker: string; price: number | null; error?: string }> = [];
 
     for (const holding of portfolio.holdings) {
-      const quote = await this.stockPriceService.getQuote(holding.ticker);
-      if (quote) {
-        await this.prisma.stockHolding.update({
-          where: { id: holding.id },
-          data: {
-            currentPrice: quote.price,
-            priceUpdatedAt: new Date(),
-          },
-        });
+      try {
+        const quote = await this.priceService.getQuote(holding.ticker);
+        if (quote && quote.price > 0) {
+          await this.prisma.stockHolding.update({
+            where: { id: holding.id },
+            data: { currentPrice: quote.price, priceUpdatedAt: new Date() },
+          });
+          results.push({ ticker: holding.ticker, price: quote.price });
+        } else {
+          results.push({ ticker: holding.ticker, price: null, error: 'Price not available' });
+        }
+      } catch (err) {
+        this.logger.warn(`Failed to fetch price for ${holding.ticker}: ${err}`);
+        results.push({ ticker: holding.ticker, price: null, error: String(err) });
       }
     }
 
-    // Return updated portfolio
-    return this.prisma.stockPortfolio.findFirst({
-      where: { id: portfolioId, householdId },
-      include: { holdings: { where: { isActive: true }, orderBy: { ticker: 'asc' } } },
-    });
+    return {
+      portfolioId,
+      refreshed: results.filter((r) => r.price != null).length,
+      total: results.length,
+      results,
+    };
+  }
+
+  // ─── Summary ───
+
+  async getSummary(businessId: string) {
+    const portfolios = await this.listPortfolios(businessId);
+
+    let totalInvested = 0;
+    let totalCurrentValue = 0;
+    let totalHoldings = 0;
+
+    for (const p of portfolios) {
+      totalInvested += p.totalInvested;
+      totalCurrentValue += p.totalCurrentValue;
+      totalHoldings += p.holdingsCount;
+    }
+
+    const totalPnl = totalCurrentValue - totalInvested;
+    const totalPnlPercent = totalInvested > 0 ? (totalPnl / totalInvested) * 100 : 0;
+
+    return {
+      portfolioCount: portfolios.length,
+      holdingsCount: totalHoldings,
+      totalInvested: Math.round(totalInvested * 100) / 100,
+      totalCurrentValue: Math.round(totalCurrentValue * 100) / 100,
+      totalPnl: Math.round(totalPnl * 100) / 100,
+      totalPnlPercent: Math.round(totalPnlPercent * 100) / 100,
+    };
   }
 }
