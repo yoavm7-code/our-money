@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -18,36 +19,65 @@ import { DocumentsService } from './documents.service';
 export class DocumentsController {
   constructor(private documentsService: DocumentsService) {}
 
+  /**
+   * POST /api/documents/upload
+   * Upload a file (image/PDF/CSV/Excel/Word) linked to an accountId.
+   * Triggers async processing: OCR -> AI extract -> create transactions.
+   */
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
   async upload(
-    @HouseholdId() householdId: string,
+    @HouseholdId() businessId: string,
     @Body('accountId') accountId: string,
     @UploadedFile() file: Express.Multer.File,
   ) {
-    if (!accountId || !file) throw new Error('accountId and file are required');
-    return this.documentsService.createFromFile(householdId, accountId, file);
+    if (!accountId) {
+      throw new BadRequestException('accountId is required');
+    }
+    if (!file) {
+      throw new BadRequestException('file is required');
+    }
+    return this.documentsService.createFromFile(businessId, accountId, file);
   }
 
+  /**
+   * GET /api/documents
+   * List all documents for this business.
+   */
   @Get()
-  findAll(@HouseholdId() householdId: string) {
-    return this.documentsService.findAll(householdId);
+  findAll(@HouseholdId() businessId: string) {
+    return this.documentsService.findAll(businessId);
   }
 
+  /**
+   * GET /api/documents/:id
+   * Get a single document with its extracted transactions.
+   */
   @Get(':id')
-  findOne(@HouseholdId() householdId: string, @Param('id') id: string) {
-    return this.documentsService.findOne(householdId, id);
+  findOne(@HouseholdId() businessId: string, @Param('id') id: string) {
+    return this.documentsService.findOne(businessId, id);
   }
 
+  /**
+   * POST /api/documents/:id/confirm-import
+   * Confirm importing extracted transactions from a document in PENDING_REVIEW status.
+   * Actions: 'add_all' | 'skip_duplicates' | 'add_none'
+   * Optionally provide selectedIndices to import only specific transactions.
+   */
   @Post(':id/confirm-import')
   confirmImport(
-    @HouseholdId() householdId: string,
+    @HouseholdId() businessId: string,
     @Param('id') id: string,
-    @Body() body: { accountId: string; action: 'add_all' | 'skip_duplicates' | 'add_none'; selectedIndices?: number[] },
+    @Body()
+    body: {
+      accountId: string;
+      action: 'add_all' | 'skip_duplicates' | 'add_none';
+      selectedIndices?: number[];
+    },
   ) {
     if (!body?.accountId || !body?.action) {
-      throw new Error('accountId and action are required');
+      throw new BadRequestException('accountId and action are required');
     }
-    return this.documentsService.confirmImport(householdId, id, body);
+    return this.documentsService.confirmImport(businessId, id, body);
   }
 }

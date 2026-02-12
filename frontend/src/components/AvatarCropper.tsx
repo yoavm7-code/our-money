@@ -7,98 +7,112 @@ interface AvatarCropperProps {
   file: File;
   onCrop: (blob: Blob) => void;
   onCancel: () => void;
+  outputSize?: number;
 }
 
-const OUTPUT_SIZE = 256;
-
-export default function AvatarCropper({ file, onCrop, onCancel }: AvatarCropperProps) {
+export default function AvatarCropper({ file, onCrop, onCancel, outputSize = 256 }: AvatarCropperProps) {
   const { t } = useTranslation();
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const imgRef = useRef<HTMLImageElement | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const imageRef = useRef<HTMLImageElement | null>(null);
 
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
-  const dragStart = useRef({ x: 0, y: 0, ox: 0, oy: 0 });
-  const [loaded, setLoaded] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [imageLoaded, setImageLoaded] = useState(false);
 
-  // Base scale: fit the shorter dimension to the circle
-  const [baseScale, setBaseScale] = useState(1);
-  const [imgSize, setImgSize] = useState({ w: 0, h: 0 });
-
-  const CIRCLE_SIZE = 240;
+  const canvasSize = 280;
 
   // Load image
   useEffect(() => {
     const img = new Image();
     img.onload = () => {
-      imgRef.current = img;
-      setImgSize({ w: img.naturalWidth, h: img.naturalHeight });
-      // Scale so shorter side fills circle
-      const scale = CIRCLE_SIZE / Math.min(img.naturalWidth, img.naturalHeight);
-      setBaseScale(scale);
-      setZoom(1);
-      setOffset({ x: 0, y: 0 });
-      setLoaded(true);
+      imageRef.current = img;
+      setImageLoaded(true);
+      // Compute initial zoom to fit image in circle
+      const minDim = Math.min(img.naturalWidth, img.naturalHeight);
+      const initialZoom = canvasSize / minDim;
+      setZoom(initialZoom);
+      // Center the image
+      setOffset({
+        x: (canvasSize - img.naturalWidth * initialZoom) / 2,
+        y: (canvasSize - img.naturalHeight * initialZoom) / 2,
+      });
     };
     img.src = URL.createObjectURL(file);
     return () => URL.revokeObjectURL(img.src);
   }, [file]);
 
-  // Draw preview
+  // Render canvas
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
-    const img = imgRef.current;
-    if (!canvas || !img || !loaded) return;
+    const img = imageRef.current;
+    if (!canvas || !img) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    canvas.width = CIRCLE_SIZE;
-    canvas.height = CIRCLE_SIZE;
+    canvas.width = canvasSize;
+    canvas.height = canvasSize;
 
-    ctx.clearRect(0, 0, CIRCLE_SIZE, CIRCLE_SIZE);
+    // Clear
+    ctx.clearRect(0, 0, canvasSize, canvasSize);
 
-    // Clip to circle
+    // Draw image
     ctx.save();
+    // Clip to circle
     ctx.beginPath();
-    ctx.arc(CIRCLE_SIZE / 2, CIRCLE_SIZE / 2, CIRCLE_SIZE / 2, 0, Math.PI * 2);
+    ctx.arc(canvasSize / 2, canvasSize / 2, canvasSize / 2, 0, Math.PI * 2);
     ctx.clip();
 
-    const scale = baseScale * zoom;
-    const drawW = img.naturalWidth * scale;
-    const drawH = img.naturalHeight * scale;
-    const dx = (CIRCLE_SIZE - drawW) / 2 + offset.x;
-    const dy = (CIRCLE_SIZE - drawH) / 2 + offset.y;
-
-    ctx.drawImage(img, dx, dy, drawW, drawH);
+    ctx.drawImage(
+      img,
+      offset.x,
+      offset.y,
+      img.naturalWidth * zoom,
+      img.naturalHeight * zoom
+    );
     ctx.restore();
 
-    // Draw circle border overlay
+    // Draw overlay outside circle
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(0, 0, canvasSize, canvasSize);
+    // Cut out circle
+    ctx.globalCompositeOperation = 'destination-out';
     ctx.beginPath();
-    ctx.arc(CIRCLE_SIZE / 2, CIRCLE_SIZE / 2, CIRCLE_SIZE / 2 - 1, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(34, 197, 94, 0.6)';
+    ctx.arc(canvasSize / 2, canvasSize / 2, canvasSize / 2 - 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Circle border
+    ctx.strokeStyle = 'rgba(99, 102, 241, 0.8)';
     ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(canvasSize / 2, canvasSize / 2, canvasSize / 2 - 1, 0, Math.PI * 2);
     ctx.stroke();
-  }, [loaded, zoom, offset, baseScale]);
+  }, [offset, zoom]);
 
   useEffect(() => {
-    draw();
-  }, [draw]);
+    if (imageLoaded) {
+      requestAnimationFrame(draw);
+    }
+  }, [imageLoaded, draw]);
 
-  // Mouse drag handlers
+  // Pointer events for dragging
   const handlePointerDown = (e: React.PointerEvent) => {
+    e.preventDefault();
     setDragging(true);
-    dragStart.current = { x: e.clientX, y: e.clientY, ox: offset.x, oy: offset.y };
+    setDragStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
     if (!dragging) return;
-    const dx = e.clientX - dragStart.current.x;
-    const dy = e.clientY - dragStart.current.y;
-    setOffset({ x: dragStart.current.ox + dx, y: dragStart.current.oy + dy });
+    setOffset({
+      x: e.clientX - dragStart.x,
+      y: e.clientY - dragStart.y,
+    });
   };
 
   const handlePointerUp = () => {
@@ -108,111 +122,106 @@ export default function AvatarCropper({ file, onCrop, onCancel }: AvatarCropperP
   // Wheel zoom
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
-    setZoom((z) => Math.max(0.5, Math.min(4, z - e.deltaY * 0.002)));
+    const delta = e.deltaY > 0 ? -0.05 : 0.05;
+    setZoom((z) => Math.max(0.1, Math.min(5, z + delta)));
   };
 
-  // Export cropped image
-  const handleCrop = () => {
-    const img = imgRef.current;
+  // Crop and export
+  function handleCrop() {
+    const img = imageRef.current;
     if (!img) return;
 
-    const outCanvas = document.createElement('canvas');
-    outCanvas.width = OUTPUT_SIZE;
-    outCanvas.height = OUTPUT_SIZE;
-    const ctx = outCanvas.getContext('2d');
+    const outputCanvas = document.createElement('canvas');
+    outputCanvas.width = outputSize;
+    outputCanvas.height = outputSize;
+    const ctx = outputCanvas.getContext('2d');
     if (!ctx) return;
 
-    // Circle clip
+    // Scale from display size to output size
+    const scale = outputSize / canvasSize;
+
+    // Clip to circle
     ctx.beginPath();
-    ctx.arc(OUTPUT_SIZE / 2, OUTPUT_SIZE / 2, OUTPUT_SIZE / 2, 0, Math.PI * 2);
+    ctx.arc(outputSize / 2, outputSize / 2, outputSize / 2, 0, Math.PI * 2);
     ctx.clip();
 
-    const scale = baseScale * zoom;
-    const ratio = OUTPUT_SIZE / CIRCLE_SIZE;
-    const drawW = img.naturalWidth * scale * ratio;
-    const drawH = img.naturalHeight * scale * ratio;
-    const dx = (OUTPUT_SIZE - drawW) / 2 + offset.x * ratio;
-    const dy = (OUTPUT_SIZE - drawH) / 2 + offset.y * ratio;
+    ctx.drawImage(
+      img,
+      offset.x * scale,
+      offset.y * scale,
+      img.naturalWidth * zoom * scale,
+      img.naturalHeight * zoom * scale
+    );
 
-    ctx.drawImage(img, dx, dy, drawW, drawH);
-
-    outCanvas.toBlob(
+    outputCanvas.toBlob(
       (blob) => {
         if (blob) onCrop(blob);
       },
       'image/png',
-      1,
+      1
     );
-  };
+  }
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[70] p-4" onClick={onCancel}>
+    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4" onClick={onCancel}>
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
       <div
-        className="bg-[var(--card)] rounded-2xl shadow-2xl max-w-sm w-full p-6 animate-scaleIn"
+        className="relative bg-[var(--card)] rounded-2xl shadow-2xl border border-[var(--border)] p-6 max-w-sm w-full animate-scaleIn"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="font-semibold text-lg mb-4">{t('profile.cropAvatar')}</h3>
+        <h3 className="font-bold text-lg mb-4 text-center">{t('profile.cropAvatar')}</h3>
 
-        <div className="flex flex-col items-center gap-4">
-          {/* Preview area */}
-          <div
-            ref={containerRef}
-            className="relative rounded-full overflow-hidden bg-slate-100 dark:bg-slate-800"
-            style={{ width: CIRCLE_SIZE, height: CIRCLE_SIZE, cursor: dragging ? 'grabbing' : 'grab' }}
+        <div className="flex justify-center mb-4">
+          <canvas
+            ref={canvasRef}
+            width={canvasSize}
+            height={canvasSize}
+            className="cursor-grab active:cursor-grabbing rounded-full"
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
             onWheel={handleWheel}
+            style={{ touchAction: 'none', width: canvasSize, height: canvasSize }}
+          />
+        </div>
+
+        {/* Zoom slider */}
+        <div className="flex items-center gap-3 mb-6">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-slate-400 shrink-0">
+            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /><line x1="8" y1="11" x2="14" y2="11" />
+          </svg>
+          <input
+            type="range"
+            min="0.1"
+            max="5"
+            step="0.01"
+            value={zoom}
+            onChange={(e) => setZoom(parseFloat(e.target.value))}
+            className="flex-1 h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full appearance-none cursor-pointer accent-indigo-500"
+          />
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-slate-400 shrink-0">
+            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /><line x1="11" y1="8" x2="11" y2="14" /><line x1="8" y1="11" x2="14" y2="11" />
+          </svg>
+        </div>
+
+        <p className="text-xs text-slate-400 text-center mb-4">{t('profile.cropHint')}</p>
+
+        {/* Actions */}
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 py-2.5 rounded-xl border border-[var(--border)] text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
           >
-            <canvas
-              ref={canvasRef}
-              width={CIRCLE_SIZE}
-              height={CIRCLE_SIZE}
-              className="w-full h-full"
-              onPointerDown={handlePointerDown}
-              onPointerMove={handlePointerMove}
-              onPointerUp={handlePointerUp}
-              style={{ touchAction: 'none' }}
-            />
-          </div>
-
-          <p className="text-xs text-slate-500">{t('profile.cropHint')}</p>
-
-          {/* Zoom slider */}
-          <div className="flex items-center gap-3 w-full max-w-[240px]">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-slate-400 shrink-0">
-              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-              <line x1="8" y1="11" x2="14" y2="11"/>
-            </svg>
-            <input
-              type="range"
-              min="0.5"
-              max="4"
-              step="0.05"
-              value={zoom}
-              onChange={(e) => setZoom(Number(e.target.value))}
-              className="flex-1 accent-primary-500"
-            />
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-slate-400 shrink-0">
-              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-              <line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/>
-            </svg>
-          </div>
-
-          {/* Actions */}
-          <div className="flex gap-3 w-full">
-            <button
-              type="button"
-              className="btn-primary flex-1"
-              onClick={handleCrop}
-            >
-              {t('profile.cropConfirm')}
-            </button>
-            <button
-              type="button"
-              className="btn-secondary flex-1"
-              onClick={onCancel}
-            >
-              {t('common.cancel')}
-            </button>
-          </div>
+            {t('common.cancel')}
+          </button>
+          <button
+            type="button"
+            onClick={handleCrop}
+            className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white text-sm font-semibold shadow-lg hover:shadow-xl transition-all"
+          >
+            {t('common.save')}
+          </button>
         </div>
       </div>
     </div>

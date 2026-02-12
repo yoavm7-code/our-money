@@ -1,514 +1,455 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useTranslation } from '@/i18n/context';
+import { users, accounts, clients } from '@/lib/api';
 
-/* ---------- Types ---------- */
+type Step = 1 | 2 | 3 | 4;
 
-type StepPosition = 'top' | 'bottom' | 'left' | 'right';
+const STEPS = [
+  { key: 'business', icon: 'briefcase' },
+  { key: 'bank', icon: 'bank' },
+  { key: 'client', icon: 'user' },
+  { key: 'firstAction', icon: 'rocket' },
+] as const;
 
-interface TourStep {
-  id: string;
-  title: string;       // i18n key
-  description: string;  // i18n key
-  page: string;         // route
-  elementSelector: string;
-  position: StepPosition;
+function StepIcon({ icon, active, completed }: { icon: string; active: boolean; completed: boolean }) {
+  const cn = `w-6 h-6 ${completed ? 'text-white' : active ? 'text-indigo-600' : 'text-slate-400'}`;
+  switch (icon) {
+    case 'briefcase':
+      return <svg className={cn} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/><line x1="12" y1="12" x2="12" y2="12.01"/></svg>;
+    case 'bank':
+      return <svg className={cn} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 21h18"/><path d="M3 10h18"/><path d="M5 6l7-3 7 3"/><path d="M4 10v11"/><path d="M20 10v11"/><path d="M8 14v3"/><path d="M12 14v3"/><path d="M16 14v3"/></svg>;
+    case 'user':
+      return <svg className={cn} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>;
+    case 'rocket':
+      return <svg className={cn} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 00-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 012-3.95A12.88 12.88 0 0122 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 01-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>;
+    default:
+      return null;
+  }
 }
 
-export interface OnboardingWizardProps {
+interface OnboardingWizardProps {
   onComplete: () => void;
 }
 
-/* ---------- Tour Step Definitions ---------- */
+export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
+  const router = useRouter();
+  const { t } = useTranslation();
+  const [step, setStep] = useState<Step>(1);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-const TOUR_STEPS: TourStep[] = [
-  {
-    id: 'dashboard-overview',
-    title: 'onboarding.step1Title',
-    description: 'onboarding.step1Desc',
-    page: '/dashboard',
-    elementSelector: 'main',
-    position: 'bottom',
-  },
-  {
-    id: 'stat-widgets',
-    title: 'onboarding.step2Title',
-    description: 'onboarding.step2Desc',
-    page: '/dashboard',
-    elementSelector: '[data-tour="stat-widgets"], .card:first-child',
-    position: 'bottom',
-  },
-  {
-    id: 'date-range-filter',
-    title: 'onboarding.step3Title',
-    description: 'onboarding.step3Desc',
-    page: '/dashboard',
-    elementSelector: '[data-tour="date-range"], [class*="dateRange"], button:has(svg)',
-    position: 'bottom',
-  },
-  {
-    id: 'customize-dashboard',
-    title: 'onboarding.step4Title',
-    description: 'onboarding.step4Desc',
-    page: '/dashboard',
-    elementSelector: '[data-tour="customize"], button:last-of-type',
-    position: 'bottom',
-  },
-  {
-    id: 'transactions-page',
-    title: 'onboarding.step5Title',
-    description: 'onboarding.step5Desc',
-    page: '/transactions',
-    elementSelector: 'main',
-    position: 'bottom',
-  },
-  {
-    id: 'upload-documents',
-    title: 'onboarding.step6Title',
-    description: 'onboarding.step6Desc',
-    page: '/upload',
-    elementSelector: 'main',
-    position: 'bottom',
-  },
-  {
-    id: 'income-expenses',
-    title: 'onboarding.step7Title',
-    description: 'onboarding.step7Desc',
-    page: '/income',
-    elementSelector: 'main',
-    position: 'bottom',
-  },
-  {
-    id: 'goals',
-    title: 'onboarding.step8Title',
-    description: 'onboarding.step8Desc',
-    page: '/goals',
-    elementSelector: 'main',
-    position: 'bottom',
-  },
-  {
-    id: 'budgets',
-    title: 'onboarding.step9Title',
-    description: 'onboarding.step9Desc',
-    page: '/budgets',
-    elementSelector: 'main',
-    position: 'bottom',
-  },
-  {
-    id: 'reports',
-    title: 'onboarding.step10Title',
-    description: 'onboarding.step10Desc',
-    page: '/reports',
-    elementSelector: 'main',
-    position: 'bottom',
-  },
-  {
-    id: 'settings',
-    title: 'onboarding.step11Title',
-    description: 'onboarding.step11Desc',
-    page: '/settings',
-    elementSelector: 'main',
-    position: 'bottom',
-  },
-  {
-    id: 'help-tooltips',
-    title: 'onboarding.step12Title',
-    description: 'onboarding.step12Desc',
-    page: '/dashboard',
-    elementSelector: 'main',
-    position: 'bottom',
-  },
-];
+  // Step 1: Business details
+  const [businessName, setBusinessName] = useState('');
+  const [businessType, setBusinessType] = useState('freelancer');
+  const [taxId, setTaxId] = useState('');
+  const [countryCode, setCountryCode] = useState('IL');
 
-/* ---------- Helpers ---------- */
+  // Step 2: Bank account
+  const [accountName, setAccountName] = useState('');
+  const [accountType, setAccountType] = useState('checking');
+  const [accountBalance, setAccountBalance] = useState('');
 
-interface ElementRect {
-  top: number;
-  left: number;
-  width: number;
-  height: number;
-}
+  // Step 3: First client
+  const [clientName, setClientName] = useState('');
+  const [clientEmail, setClientEmail] = useState('');
+  const [clientPhone, setClientPhone] = useState('');
+  const [clientCompany, setClientCompany] = useState('');
 
-const PADDING = 8;
+  const totalSteps = 4;
 
-function getElementRect(selector: string): ElementRect | null {
-  const selectors = selector.split(',').map((s) => s.trim());
-  for (const sel of selectors) {
+  async function handleStep1Next() {
+    setError('');
+    if (!businessName.trim()) {
+      setError(t('onboarding.businessNameRequired'));
+      return;
+    }
+    setLoading(true);
     try {
-      const el = document.querySelector(sel);
-      if (el) {
-        const rect = el.getBoundingClientRect();
-        return {
-          top: rect.top + window.scrollY,
-          left: rect.left + window.scrollX,
-          width: rect.width,
-          height: rect.height,
-        };
+      await users.update({ name: businessName, countryCode: countryCode || null });
+      setStep(2);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('errors.generic'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleStep2Next() {
+    setError('');
+    setLoading(true);
+    try {
+      if (accountName.trim()) {
+        await accounts.create({
+          name: accountName,
+          type: accountType,
+          balance: accountBalance ? parseFloat(accountBalance) : 0,
+          currency: 'ILS',
+        });
+      }
+      setStep(3);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('errors.generic'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleStep3Next() {
+    setError('');
+    setLoading(true);
+    try {
+      if (clientName.trim()) {
+        await clients.create({
+          name: clientName,
+          email: clientEmail || undefined,
+          phone: clientPhone || undefined,
+          company: clientCompany || undefined,
+        });
+      }
+      setStep(4);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('errors.generic'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleFinish(action: 'invoice' | 'upload' | 'dashboard') {
+    setLoading(true);
+    try {
+      await users.completeOnboarding();
+      onComplete();
+      if (action === 'invoice') {
+        router.push('/invoices?new=1');
+      } else if (action === 'upload') {
+        router.push('/upload');
+      } else {
+        router.push('/dashboard');
       }
     } catch {
-      // invalid selector, try next
-    }
-  }
-  return null;
-}
-
-function computeTooltipPosition(
-  rect: ElementRect,
-  position: StepPosition,
-  tooltipWidth: number,
-  tooltipHeight: number,
-): { top: number; left: number } {
-  const GAP = 16;
-  let top = 0;
-  let left = 0;
-
-  switch (position) {
-    case 'bottom':
-      top = rect.top + rect.height + PADDING + GAP;
-      left = rect.left + rect.width / 2 - tooltipWidth / 2;
-      break;
-    case 'top':
-      top = rect.top - PADDING - GAP - tooltipHeight;
-      left = rect.left + rect.width / 2 - tooltipWidth / 2;
-      break;
-    case 'left':
-      top = rect.top + rect.height / 2 - tooltipHeight / 2;
-      left = rect.left - PADDING - GAP - tooltipWidth;
-      break;
-    case 'right':
-      top = rect.top + rect.height / 2 - tooltipHeight / 2;
-      left = rect.left + rect.width + PADDING + GAP;
-      break;
-  }
-
-  // Keep within viewport
-  const scrollX = window.scrollX;
-  const scrollY = window.scrollY;
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-
-  if (left < scrollX + 16) left = scrollX + 16;
-  if (left + tooltipWidth > scrollX + vw - 16) left = scrollX + vw - 16 - tooltipWidth;
-  if (top < scrollY + 16) top = scrollY + 16;
-  if (top + tooltipHeight > scrollY + vh - 16) top = scrollY + vh - 16 - tooltipHeight;
-
-  return { top, left };
-}
-
-/* ---------- Component ---------- */
-
-export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) {
-  const { t, isRtl } = useTranslation();
-  const router = useRouter();
-  const pathname = usePathname();
-
-  const [currentStep, setCurrentStep] = useState(0);
-  const [targetRect, setTargetRect] = useState<ElementRect | null>(null);
-  const [isNavigating, setIsNavigating] = useState(false);
-  const [tooltipMeasured, setTooltipMeasured] = useState(false);
-  const tooltipRef = useRef<HTMLDivElement>(null);
-  const [tooltipSize, setTooltipSize] = useState({ width: 380, height: 200 });
-
-  const step = useMemo(() => TOUR_STEPS[currentStep], [currentStep]);
-  const totalSteps = TOUR_STEPS.length;
-
-  // Find and highlight the target element
-  const findTarget = useCallback(() => {
-    const rect = getElementRect(step.elementSelector);
-    setTargetRect(rect);
-
-    if (rect) {
-      // Scroll the highlighted element into view if needed
-      const viewTop = window.scrollY;
-      const viewBottom = viewTop + window.innerHeight;
-      const elCenter = rect.top + rect.height / 2;
-      if (elCenter < viewTop + 100 || elCenter > viewBottom - 100) {
-        window.scrollTo({ top: Math.max(0, rect.top - 150), behavior: 'smooth' });
-      }
-    }
-  }, [step]);
-
-  // Measure tooltip size after render
-  useEffect(() => {
-    if (tooltipRef.current) {
-      const { offsetWidth, offsetHeight } = tooltipRef.current;
-      setTooltipSize({ width: offsetWidth, height: offsetHeight });
-      setTooltipMeasured(true);
-    }
-  }, [currentStep, targetRect]);
-
-  // When step changes, navigate if needed and then find the target
-  useEffect(() => {
-    if (step.page !== pathname) {
-      setIsNavigating(true);
-      setTargetRect(null);
-      router.push(step.page);
-    } else {
-      // Already on the right page: find target after a short delay for DOM readiness
-      setIsNavigating(false);
-      const timer = setTimeout(findTarget, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [step, pathname, router, findTarget]);
-
-  // After navigation completes (pathname changed to match step.page)
-  useEffect(() => {
-    if (isNavigating && pathname === step.page) {
-      setIsNavigating(false);
-      const timer = setTimeout(findTarget, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [isNavigating, pathname, step.page, findTarget]);
-
-  // Re-measure on resize
-  useEffect(() => {
-    const onResize = () => findTarget();
-    window.addEventListener('resize', onResize);
-    window.addEventListener('scroll', onResize, true);
-    return () => {
-      window.removeEventListener('resize', onResize);
-      window.removeEventListener('scroll', onResize, true);
-    };
-  }, [findTarget]);
-
-  // Keyboard navigation
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onComplete();
-      } else if (e.key === 'ArrowRight' || e.key === 'Enter') {
-        if (currentStep < totalSteps - 1) {
-          setTooltipMeasured(false);
-          setCurrentStep((s) => s + 1);
-        } else {
-          onComplete();
-        }
-      } else if (e.key === 'ArrowLeft') {
-        if (currentStep > 0) {
-          setTooltipMeasured(false);
-          setCurrentStep((s) => s - 1);
-        }
-      }
-    };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [currentStep, totalSteps, onComplete]);
-
-  const handleNext = useCallback(() => {
-    if (currentStep < totalSteps - 1) {
-      setTooltipMeasured(false);
-      setCurrentStep((s) => s + 1);
-    } else {
       onComplete();
     }
-  }, [currentStep, totalSteps, onComplete]);
+  }
 
-  const handlePrev = useCallback(() => {
-    if (currentStep > 0) {
-      setTooltipMeasured(false);
-      setCurrentStep((s) => s - 1);
+  function handleSkip() {
+    if (step < 4) {
+      setStep((s) => (s + 1) as Step);
+    } else {
+      handleFinish('dashboard');
     }
-  }, [currentStep]);
-
-  // Compute spotlight "hole" clip-path
-  const spotlightClipPath = useMemo(() => {
-    if (!targetRect) return undefined;
-    const p = PADDING;
-    const x = targetRect.left - p;
-    const y = targetRect.top - p;
-    const w = targetRect.width + p * 2;
-    const h = targetRect.height + p * 2;
-    const r = 12; // border-radius of the hole
-
-    // Create polygon with a rectangular hole with rounded corners
-    // Outer: full viewport, Inner: rectangle (counterclockwise for hole)
-    return `polygon(
-      0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%,
-      ${x + r}px ${y}px,
-      ${x}px ${y + r}px,
-      ${x}px ${y + h - r}px,
-      ${x + r}px ${y + h}px,
-      ${x + w - r}px ${y + h}px,
-      ${x + w}px ${y + h - r}px,
-      ${x + w}px ${y + r}px,
-      ${x + w - r}px ${y}px,
-      ${x + r}px ${y}px
-    )`;
-  }, [targetRect]);
-
-  // Tooltip positioning
-  const tooltipPos = useMemo(() => {
-    if (!targetRect) return { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' };
-    const pos = computeTooltipPosition(
-      targetRect,
-      step.position,
-      tooltipSize.width,
-      tooltipSize.height,
-    );
-    return { top: `${pos.top}px`, left: `${pos.left}px`, transform: 'none' };
-  }, [targetRect, step.position, tooltipSize]);
-
-  const isLastStep = currentStep === totalSteps - 1;
+  }
 
   return (
-    <div
-      className="fixed inset-0 z-[9999]"
-      style={{ pointerEvents: 'auto' }}
-    >
-      {/* Dark overlay with spotlight cutout */}
-      <div
-        className="absolute inset-0 transition-all duration-500 ease-out"
-        style={{
-          background: 'rgba(0, 0, 0, 0.6)',
-          clipPath: targetRect ? spotlightClipPath : undefined,
-          WebkitClipPath: targetRect ? spotlightClipPath : undefined,
-        }}
-        onClick={onComplete}
-      />
-
-      {/* Spotlight border glow */}
-      {targetRect && (
-        <div
-          className="absolute pointer-events-none transition-all duration-500 ease-out"
-          style={{
-            top: targetRect.top - PADDING,
-            left: targetRect.left - PADDING,
-            width: targetRect.width + PADDING * 2,
-            height: targetRect.height + PADDING * 2,
-            borderRadius: 12,
-            boxShadow: '0 0 0 3px rgba(34, 197, 94, 0.5), 0 0 24px rgba(34, 197, 94, 0.15)',
-          }}
-        />
-      )}
-
-      {/* Tooltip card */}
-      <div
-        ref={tooltipRef}
-        className="absolute z-[10000] w-[380px] max-w-[calc(100vw-32px)] transition-all duration-400 ease-out"
-        style={{
-          ...tooltipPos,
-          opacity: isNavigating ? 0 : tooltipMeasured || !targetRect ? 1 : 0,
-          direction: isRtl ? 'rtl' : 'ltr',
-        }}
-      >
-        <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl shadow-2xl overflow-hidden">
-          {/* Progress bar */}
-          <div className="h-1 bg-[var(--border)]">
-            <div
-              className="h-full bg-emerald-500 transition-all duration-500 ease-out"
-              style={{ width: `${((currentStep + 1) / totalSteps) * 100}%` }}
-            />
+    <div className="fixed inset-0 z-[80] bg-gradient-to-br from-indigo-600 via-blue-600 to-purple-700 flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+        {/* Progress indicator */}
+        <div className="px-6 pt-6 pb-4">
+          <div className="flex items-center justify-between mb-6">
+            {STEPS.map((s, idx) => {
+              const stepNum = (idx + 1) as Step;
+              const isCompleted = step > stepNum;
+              const isCurrent = step === stepNum;
+              return (
+                <div key={s.key} className="flex items-center">
+                  <div className={`
+                    w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300
+                    ${isCompleted ? 'bg-indigo-500' : isCurrent ? 'bg-indigo-100 dark:bg-indigo-900/30 ring-2 ring-indigo-500' : 'bg-slate-100 dark:bg-slate-800'}
+                  `}>
+                    {isCompleted ? (
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    ) : (
+                      <StepIcon icon={s.icon} active={isCurrent} completed={false} />
+                    )}
+                  </div>
+                  {idx < STEPS.length - 1 && (
+                    <div className={`w-8 sm:w-16 h-0.5 mx-1 transition-colors duration-300 ${isCompleted ? 'bg-indigo-500' : 'bg-slate-200 dark:bg-slate-700'}`} />
+                  )}
+                </div>
+              );
+            })}
           </div>
 
-          <div className="p-5">
-            {/* Step counter */}
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-medium text-emerald-500 bg-emerald-500/10 px-2.5 py-1 rounded-full">
-                {t('onboarding.stepOf', { current: currentStep + 1, total: totalSteps })}
-              </span>
-              <button
-                type="button"
-                onClick={onComplete}
-                className="text-xs text-[#a0a3bd] hover:text-[var(--foreground)] transition-colors"
-              >
-                {t('onboarding.skip')}
-              </button>
+          <p className="text-xs text-slate-400 text-center">
+            {t('onboarding.stepOf', { current: String(step), total: String(totalSteps) })}
+          </p>
+        </div>
+
+        {/* Step content */}
+        <div className="px-6 pb-6">
+          {error && (
+            <div className="mb-4 p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm">
+              {error}
             </div>
+          )}
 
-            {/* Title */}
-            <h3 className="text-base font-semibold text-[var(--foreground)] mb-2">
-              {t(step.title)}
-            </h3>
+          {/* Step 1: Business details */}
+          {step === 1 && (
+            <div className="space-y-4 animate-fadeIn">
+              <div className="text-center mb-6">
+                <h2 className="text-xl font-bold">{t('onboarding.step1Title')}</h2>
+                <p className="text-sm text-slate-500 mt-1">{t('onboarding.step1Desc')}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5">{t('onboarding.businessName')}</label>
+                <input
+                  type="text"
+                  value={businessName}
+                  onChange={(e) => setBusinessName(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder={t('onboarding.businessNamePlaceholder')}
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5">{t('onboarding.businessType')}</label>
+                <select
+                  value={businessType}
+                  onChange={(e) => setBusinessType(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="freelancer">{t('onboarding.typeFreelancer')}</option>
+                  <option value="exempt">{t('onboarding.typeExempt')}</option>
+                  <option value="licensed">{t('onboarding.typeLicensed')}</option>
+                  <option value="company">{t('onboarding.typeCompany')}</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">{t('onboarding.taxId')}</label>
+                  <input
+                    type="text"
+                    value={taxId}
+                    onChange={(e) => setTaxId(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder={t('onboarding.taxIdPlaceholder')}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">{t('onboarding.country')}</label>
+                  <select
+                    value={countryCode}
+                    onChange={(e) => setCountryCode(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="IL">{t('countries.IL')}</option>
+                    <option value="US">{t('countries.US')}</option>
+                    <option value="GB">{t('countries.GB')}</option>
+                    <option value="DE">{t('countries.DE')}</option>
+                    <option value="FR">{t('countries.FR')}</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={handleSkip} className="flex-1 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                  {t('onboarding.skip')}
+                </button>
+                <button type="button" onClick={handleStep1Next} disabled={loading} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white text-sm font-semibold shadow-lg hover:shadow-xl disabled:opacity-50 transition-all">
+                  {loading ? t('auth.pleaseWait') : t('onboarding.next')}
+                </button>
+              </div>
+            </div>
+          )}
 
-            {/* Description */}
-            <p className="text-sm text-[#a0a3bd] leading-relaxed mb-5">
-              {t(step.description)}
-            </p>
+          {/* Step 2: Bank account */}
+          {step === 2 && (
+            <div className="space-y-4 animate-fadeIn">
+              <div className="text-center mb-6">
+                <h2 className="text-xl font-bold">{t('onboarding.step2Title')}</h2>
+                <p className="text-sm text-slate-500 mt-1">{t('onboarding.step2Desc')}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5">{t('onboarding.accountName')}</label>
+                <input
+                  type="text"
+                  value={accountName}
+                  onChange={(e) => setAccountName(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder={t('onboarding.accountNamePlaceholder')}
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5">{t('onboarding.accountType')}</label>
+                <select
+                  value={accountType}
+                  onChange={(e) => setAccountType(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="checking">{t('accountType.checking')}</option>
+                  <option value="savings">{t('accountType.savings')}</option>
+                  <option value="credit_card">{t('accountType.credit_card')}</option>
+                  <option value="business">{t('accountType.business')}</option>
+                  <option value="cash">{t('accountType.cash')}</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5">{t('onboarding.openingBalance')}</label>
+                <input
+                  type="number"
+                  value={accountBalance}
+                  onChange={(e) => setAccountBalance(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="0.00"
+                  step="0.01"
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setStep(1)} className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                  {t('common.back')}
+                </button>
+                <button type="button" onClick={handleSkip} className="flex-1 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                  {t('onboarding.skip')}
+                </button>
+                <button type="button" onClick={handleStep2Next} disabled={loading} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white text-sm font-semibold shadow-lg hover:shadow-xl disabled:opacity-50 transition-all">
+                  {loading ? t('auth.pleaseWait') : t('onboarding.next')}
+                </button>
+              </div>
+            </div>
+          )}
 
-            {/* Navigation buttons */}
-            <div className="flex items-center gap-2">
-              {currentStep > 0 && (
+          {/* Step 3: First client */}
+          {step === 3 && (
+            <div className="space-y-4 animate-fadeIn">
+              <div className="text-center mb-6">
+                <h2 className="text-xl font-bold">{t('onboarding.step3Title')}</h2>
+                <p className="text-sm text-slate-500 mt-1">{t('onboarding.step3Desc')}</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5">{t('clients.name')}</label>
+                <input
+                  type="text"
+                  value={clientName}
+                  onChange={(e) => setClientName(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder={t('onboarding.clientNamePlaceholder')}
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5">{t('clients.email')}</label>
+                <input
+                  type="email"
+                  value={clientEmail}
+                  onChange={(e) => setClientEmail(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder={t('onboarding.clientEmailPlaceholder')}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">{t('clients.phone')}</label>
+                  <input
+                    type="tel"
+                    value={clientPhone}
+                    onChange={(e) => setClientPhone(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">{t('clients.company')}</label>
+                  <input
+                    type="text"
+                    value={clientCompany}
+                    onChange={(e) => setClientCompany(e.target.value)}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setStep(2)} className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                  {t('common.back')}
+                </button>
+                <button type="button" onClick={handleSkip} className="flex-1 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                  {t('onboarding.skip')}
+                </button>
+                <button type="button" onClick={handleStep3Next} disabled={loading} className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 text-white text-sm font-semibold shadow-lg hover:shadow-xl disabled:opacity-50 transition-all">
+                  {loading ? t('auth.pleaseWait') : t('onboarding.next')}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Step 4: Create invoice or upload document */}
+          {step === 4 && (
+            <div className="space-y-4 animate-fadeIn">
+              <div className="text-center mb-6">
+                <h2 className="text-xl font-bold">{t('onboarding.step4Title')}</h2>
+                <p className="text-sm text-slate-500 mt-1">{t('onboarding.step4Desc')}</p>
+              </div>
+
+              <div className="space-y-3">
+                {/* Create invoice */}
                 <button
                   type="button"
-                  onClick={handlePrev}
-                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-[#a0a3bd] hover:text-[var(--foreground)] bg-[var(--background)] border border-[var(--border)] rounded-xl transition-colors"
+                  onClick={() => handleFinish('invoice')}
+                  disabled={loading}
+                  className="flex items-center gap-4 w-full p-4 rounded-xl border border-[var(--border)] hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition-all group text-start"
                 >
-                  <svg
-                    className="w-4 h-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    style={{ transform: isRtl ? 'scaleX(-1)' : undefined }}
-                  >
-                    <polyline points="15 18 9 12 15 6" />
-                  </svg>
-                  {t('onboarding.previous')}
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform shrink-0">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                      <polyline points="14 2 14 8 20 8"/>
+                      <line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm">{t('onboarding.createInvoice')}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{t('onboarding.createInvoiceDesc')}</p>
+                  </div>
                 </button>
-              )}
 
-              <button
-                type="button"
-                onClick={handleNext}
-                className="flex items-center gap-1.5 px-5 py-2 text-sm font-medium text-white bg-emerald-500 hover:bg-emerald-600 rounded-xl transition-colors ms-auto shadow-sm"
-              >
-                {isLastStep ? t('onboarding.finish') : t('onboarding.next')}
-                {!isLastStep && (
-                  <svg
-                    className="w-4 h-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    style={{ transform: isRtl ? 'scaleX(-1)' : undefined }}
-                  >
-                    <polyline points="9 18 15 12 9 6" />
-                  </svg>
-                )}
-                {isLastStep && (
-                  <svg
-                    className="w-4 h-4"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                )}
-              </button>
+                {/* Upload document */}
+                <button
+                  type="button"
+                  onClick={() => handleFinish('upload')}
+                  disabled={loading}
+                  className="flex items-center gap-4 w-full p-4 rounded-xl border border-[var(--border)] hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition-all group text-start"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform shrink-0">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                      <polyline points="17 8 12 3 7 8"/>
+                      <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm">{t('onboarding.uploadDocument')}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{t('onboarding.uploadDocumentDesc')}</p>
+                  </div>
+                </button>
+
+                {/* Go to dashboard */}
+                <button
+                  type="button"
+                  onClick={() => handleFinish('dashboard')}
+                  disabled={loading}
+                  className="flex items-center gap-4 w-full p-4 rounded-xl border border-[var(--border)] hover:border-indigo-300 dark:hover:border-indigo-600 hover:shadow-md transition-all group text-start"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform shrink-0">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                      <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+                      <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm">{t('onboarding.goToDashboard')}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{t('onboarding.goToDashboardDesc')}</p>
+                  </div>
+                </button>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setStep(3)} className="flex-1 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                  {t('common.back')}
+                </button>
+              </div>
             </div>
-          </div>
-
-          {/* Step dots */}
-          <div className="flex items-center justify-center gap-1.5 pb-4">
-            {TOUR_STEPS.map((_, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => {
-                  setTooltipMeasured(false);
-                  setCurrentStep(idx);
-                }}
-                className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                  idx === currentStep
-                    ? 'bg-emerald-500 w-5'
-                    : idx < currentStep
-                      ? 'bg-emerald-500/40'
-                      : 'bg-[var(--border)]'
-                }`}
-                aria-label={`Step ${idx + 1}`}
-              />
-            ))}
-          </div>
+          )}
         </div>
       </div>
     </div>

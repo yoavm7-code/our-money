@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import OpenAI from 'openai';
 import * as fs from 'fs';
 import { PNG } from 'pngjs';
@@ -14,52 +14,48 @@ export interface ExtractedTransaction {
   installmentTotal?: number; // e.g. 3
 }
 
-/** Sign hint from layout/keywords – used to force correct income vs expense. */
+/** Sign hint from layout/keywords - used to force correct income vs expense. */
 export type SignHint = 'income' | 'expense' | 'unknown';
 
 /** Per-line sign hints from deterministic preprocessor (layout + Hebrew keywords). */
 export interface SignHints {
-  /** Line index in original text (or logical row) → suggested sign for that row's amount(s). */
+  /** Line index in original text (or logical row) -> suggested sign for that row's amount(s). */
   byLine: Map<number, SignHint>;
-  /** When a line has TWO amounts: [incomeAmount, expenseAmount] – so we can assign sign by position. */
+  /** When a line has TWO amounts: [incomeAmount, expenseAmount] - so we can assign sign by position. */
   twoAmountsByLine: Map<number, { income: number; expense: number }>;
 }
 
-// Hebrew keywords: income vs expense (substring match)
-// ONLY use keywords that are UNAMBIGUOUS. Many terms can be either income or expense
-// depending on context (e.g., הוראת קבע can be money coming IN or going OUT).
-// 
+// ──────────────────────────────────────────────
+//  Hebrew Keywords: deterministic income vs expense
+// ──────────────────────────────────────────────
+
 // CLEARLY INCOME (no ambiguity):
 const INCOME_KEYWORDS = [
-  'משכורת', 'שכר',           // salary - always income
-  'קצבת ילדים', 'קצבת זקנה', // government allowances
-  'ביטוח לאומי ג', 'בטוח לאומי ג', // ביטוח לאומי גמלה = payout (income)
-  'מ.א.', 'מ.א ', 'אפרויה בע', // known employer names for salary
+  '\u05DE\u05E9\u05DB\u05D5\u05E8\u05EA', '\u05E9\u05DB\u05E8',                       // salary
+  '\u05E7\u05E6\u05D1\u05EA \u05D9\u05DC\u05D3\u05D9\u05DD', '\u05E7\u05E6\u05D1\u05EA \u05D6\u05E7\u05E0\u05D4', // government allowances
+  '\u05D1\u05D9\u05D8\u05D5\u05D7 \u05DC\u05D0\u05D5\u05DE\u05D9 \u05D2', '\u05D1\u05D8\u05D5\u05D7 \u05DC\u05D0\u05D5\u05DE\u05D9 \u05D2',     // NI payout
+  '\u05DE.\u05D0.', '\u05DE.\u05D0 ',                                   // employer prefix
 ];
+
 // CLEARLY EXPENSE (no ambiguity):
 const EXPENSE_KEYWORDS = [
-  'חיוב', 'משיכה',           // charge, withdrawal - always expense
-  'העב\' לאחר', 'העברה לאחר', // transfer TO another = expense
-  'עמ\'הקצאת אשראי', 'הקצאת אשראי', // credit allocation fee
-  'כאל', 'מקס איט פיננסי', 'לאומי קארד', 'ישראכרט', 'אמריקן אקספרס', 'CAL', // credit card companies
-  'איט פיננסי', 'On איט פיננסי', 'מקס איט',
-  'דמי ניהול', 'עמלה', 'עמלת', // fees
-  'שיק',                      // check payment = expense
+  '\u05D7\u05D9\u05D5\u05D1', '\u05DE\u05E9\u05D9\u05DB\u05D4',                             // charge, withdrawal
+  '\u05D4\u05E2\u05D1\' \u05DC\u05D0\u05D7\u05E8', '\u05D4\u05E2\u05D1\u05E8\u05D4 \u05DC\u05D0\u05D7\u05E8',           // transfer TO another
+  '\u05E2\u05DE\'\u05D4\u05E7\u05E6\u05D0\u05EA \u05D0\u05E9\u05E8\u05D0\u05D9', '\u05D4\u05E7\u05E6\u05D0\u05EA \u05D0\u05E9\u05E8\u05D0\u05D9', // credit allocation fee
+  '\u05DB\u05D0\u05DC', '\u05DE\u05E7\u05E1 \u05D0\u05D9\u05D8 \u05E4\u05D9\u05E0\u05E0\u05E1\u05D9', '\u05DC\u05D0\u05D5\u05DE\u05D9 \u05E7\u05D0\u05E8\u05D3', '\u05D9\u05E9\u05E8\u05D0\u05DB\u05E8\u05D8', '\u05D0\u05DE\u05E8\u05D9\u05E7\u05DF \u05D0\u05E7\u05E1\u05E4\u05E8\u05E1', 'CAL',
+  '\u05D0\u05D9\u05D8 \u05E4\u05D9\u05E0\u05E0\u05E1\u05D9', 'On \u05D0\u05D9\u05D8 \u05E4\u05D9\u05E0\u05E0\u05E1\u05D9', '\u05DE\u05E7\u05E1 \u05D0\u05D9\u05D8',
+  '\u05D3\u05DE\u05D9 \u05E0\u05D9\u05D4\u05D5\u05DC', '\u05E2\u05DE\u05DC\u05D4', '\u05E2\u05DE\u05DC\u05EA',             // fees
+  '\u05E9\u05D9\u05E7',                                                    // check payment
 ];
-// AMBIGUOUS - NOT in either list (AI must use judgment):
-// - הוראת קבע / הו"ק (standing order: can be income OR expense)
-// - העברה, העברה-נייד, bit (transfer: can be in OR out)
-// - זיכוי (credit: usually income, but context matters)
-// - ביטוח לאומי חד (one-time: can be payment TO them or payout FROM them)
-// - החזר (refund: usually income, but could be you refunding someone)
-// - תשלום (payment: usually expense, but "תשלום שהתקבל" = income)
 
 /**
- * AI extraction: parse OCR text into structured transactions using OpenAI.
- * Uses a deterministic preprocessor (layout + Hebrew keywords) to fix income vs expense before/after AI.
+ * AI extraction service: parse OCR text or images into structured transactions using OpenAI.
+ * Uses a deterministic preprocessor (layout + Hebrew keywords) to fix income vs expense
+ * before/after AI processing.
  */
 @Injectable()
 export class AiExtractService {
+  private readonly logger = new Logger(AiExtractService.name);
   private openai: OpenAI | null = null;
 
   private getClient(): OpenAI | null {
@@ -69,9 +65,13 @@ export class AiExtractService {
     return this.openai;
   }
 
+  // ──────────────────────────────────────────────
+  //  Deterministic Sign Hints (Hebrew keywords + layout)
+  // ──────────────────────────────────────────────
+
   /**
    * Deterministic sign hints from layout and keywords.
-   * Israeli bank convention: two amount columns per row → first column = income (green), second = expense (red).
+   * Israeli bank convention: two amount columns per row -> first column = income, second = expense.
    */
   getSignHints(ocrText: string): SignHints {
     const byLine = new Map<number, SignHint>();
@@ -87,16 +87,13 @@ export class AiExtractService {
       const amounts = amountStrs
         .map((s) => parseFloat(s.replace(/,/g, '')))
         .filter((n) => n >= 0.01 && n <= 100000);
-      const priceLike = amounts.filter((n) => n > 100 || (n !== Math.floor(n)));
+      const priceLike = amounts.filter((n) => n > 100 || n !== Math.floor(n));
       const candidates = priceLike.length >= 1 ? priceLike : amounts;
 
       if (candidates.length >= 2) {
-        // Two amounts on line: DON'T ASSUME which is income/expense.
-        // Bank statements have separate columns, but OCR order is unreliable (RTL/LTR).
-        // Instead, check if ONE amount is zero (meaning only one transaction).
+        // Two amounts on line: check if one is zero
         const nonZero = candidates.filter((n) => n >= 0.01);
         if (nonZero.length === 1) {
-          // Only one real amount - treat as single-amount line
           const desc = line.replace(dateRe, ' ').replace(amountPattern, ' ').replace(/\s+/g, ' ').trim();
           const hasIncome = INCOME_KEYWORDS.some((k) => desc.includes(k));
           const hasExpense = EXPENSE_KEYWORDS.some((k) => desc.includes(k));
@@ -105,8 +102,7 @@ export class AiExtractService {
           else byLine.set(i, 'unknown');
           continue;
         }
-        // Two real amounts: could be income+expense columns, but we can't reliably tell which is which.
-        // Let AI figure it out based on context.
+        // Two real amounts: let AI figure it out
         byLine.set(i, 'unknown');
         continue;
       }
@@ -123,9 +119,13 @@ export class AiExtractService {
     return { byLine, twoAmountsByLine };
   }
 
+  // ──────────────────────────────────────────────
+  //  Build Annotated Text for AI
+  // ──────────────────────────────────────────────
+
   /**
-   * Build annotated text for AI: add [INCOME_AMT=X] [EXPENSE_AMT=Y] or [SIGN=INCOME/EXPENSE/UNKNOWN] per line
-   * so the model does not have to guess from "green/red" (which it cannot see in plain text).
+   * Build annotated text for AI: add [SIGN=INCOME/EXPENSE/UNKNOWN] per line
+   * so the model does not have to guess from colors (which it cannot see in plain text).
    */
   private buildAnnotatedText(ocrText: string, hints: SignHints): string {
     const lines = ocrText.split(/\n/).filter((l) => l.trim().length > 0);
@@ -158,6 +158,10 @@ export class AiExtractService {
     return out.join('\n');
   }
 
+  // ──────────────────────────────────────────────
+  //  Extract Transactions from OCR Text
+  // ──────────────────────────────────────────────
+
   async extractTransactions(
     ocrText: string,
     userContext?: string,
@@ -173,63 +177,47 @@ export class AiExtractService {
     const system = `You are an expert Israeli financial document parser. You handle both bank statements and credit card statements. Extract transactions with HIGH ACCURACY.
 
 SIGN RULES (CRITICAL):
-• [SIGN=INCOME AMT=X]: This IS income. Return amount = +X (positive).
-• [SIGN=EXPENSE AMT=X]: This IS expense. Return amount = -X (negative).
-• [SIGN=UNKNOWN AMT=X]: Analyze the description carefully:
-  INCOME (+): משכורת, שכר, זיכוי, קצבה, ביטוח לאומי ג׳ (payout), ביטול עסקה (cancellation/refund)
-  EXPENSE (-): חיוב, משיכה, הו"ק (הוראת קבע), העברה, הלוואה, ריבית, עמלה, כאל, מקס, לאומי קארד
+- [SIGN=INCOME AMT=X]: This IS income. Return amount = +X (positive).
+- [SIGN=EXPENSE AMT=X]: This IS expense. Return amount = -X (negative).
+- [SIGN=UNKNOWN AMT=X]: Analyze the description carefully:
+  INCOME (+): \u05DE\u05E9\u05DB\u05D5\u05E8\u05EA, \u05E9\u05DB\u05E8, \u05D6\u05D9\u05DB\u05D5\u05D9, \u05E7\u05E6\u05D1\u05D4, \u05D1\u05D9\u05D8\u05D5\u05D7 \u05DC\u05D0\u05D5\u05DE\u05D9 \u05D2\u05F3 (payout), \u05D1\u05D9\u05D8\u05D5\u05DC \u05E2\u05E1\u05E7\u05D4 (cancellation/refund)
+  EXPENSE (-): \u05D7\u05D9\u05D5\u05D1, \u05DE\u05E9\u05D9\u05DB\u05D4, \u05D4\u05D5"\u05E7 (\u05D4\u05D5\u05E8\u05D0\u05EA \u05E7\u05D1\u05E2), \u05D4\u05E2\u05D1\u05E8\u05D4, \u05D4\u05DC\u05D5\u05D5\u05D0\u05D4, \u05E8\u05D9\u05D1\u05D9\u05EA, \u05E2\u05DE\u05DC\u05D4, \u05DB\u05D0\u05DC, \u05DE\u05E7\u05E1, \u05DC\u05D0\u05D5\u05DE\u05D9 \u05E7\u05D0\u05E8\u05D3
   DEFAULT: If unsure, use NEGATIVE (most transactions are expenses).
 
-=== DESCRIPTION RULES (VERY IMPORTANT) ===
-• Copy the transaction description text as-is.
-• For bank statements: Hebrew operation text (e.g. הוראת קבע, הו"ק הלואה קרן, ביטוח לאומי ג).
-• For credit card statements: Keep merchant names in Latin as-is (e.g. "AMAZON PRIME", "MIDJOURNEY INC", "PAYPAL *EBAY US").
-• Do NOT include: the amount, value date (תאריך ערך: 01/01), or the words "Income"/"Expense".
-• Preserve: "הו"ק הלוי רבית", "הו"ק הלואה קרן", "העברה-נייד", "מ.א. [company]" = employer.
-• NEVER output single letters or broken text. NEVER add numbers or "Income"/"Expense" to description.
+=== DESCRIPTION RULES ===
+- Copy the transaction description text as-is.
+- For bank statements: Hebrew operation text.
+- For credit card statements: Keep merchant names in Latin as-is (e.g. "AMAZON PRIME").
+- Do NOT include amounts, value dates, or "Income"/"Expense" labels.
 
-=== CATEGORY RULES (BE SPECIFIC, NOT LAZY) ===
+=== CATEGORY RULES ===
 Use these EXACT slugs (all lowercase with underscores).
-IMPORTANT: IGNORE any categories shown in the source document. Always assign YOUR OWN category.
+IMPORTANT: IGNORE any categories shown in the source document.
 
 INCOME categories:
-• salary - משכורת, שכר, מ.א. [company]
-• income - קצבת ילדים, ביטוח לאומי ג, and other generic income
+- salary - \u05DE\u05E9\u05DB\u05D5\u05E8\u05EA, \u05E9\u05DB\u05E8, \u05DE.\u05D0. [company]
+- income - \u05E7\u05E6\u05D1\u05EA \u05D9\u05DC\u05D3\u05D9\u05DD, \u05D1\u05D9\u05D8\u05D5\u05D7 \u05DC\u05D0\u05D5\u05DE\u05D9 \u05D2, and other generic income
 
 EXPENSE categories:
-• loan_payment - הלואה, הלוואה, קרן הלואה, הו"ק הלואה
-• loan_interest - ריבית, הלוי רבית, ריבית הלואה
-• credit_charges - כאל, מקס איט, לאומי קארד, ישראכרט, אמריקן אקספרס (credit card company charges)
-• bank_fees - דמי ניהול, עמלת, עמלה בנק, הקצאת אשראי
-• transfers - העברה, העברה-נייד, bit, פייבוקס (money transfers)
-• standing_order - הוראת קבע, הו"ק (when not loan/specific bill)
-• utilities - חשמל, גז, מים, ארנונה, עירייה
-• insurance - ביטוח, פוליסה
-• pension - פנסיה, גמל, קופת גמל, מיטב דש
-• groceries - סופרמרקט, שופרסל, רמי לוי, מגה, ויקטורי
-• transport - דלק, רכבת, אגד, דן, חניה
-• dining - מסעדה, קפה, בית קפה, פיצה
-• shopping - קניות, חנות, רשת
-• online_shopping - AMAZON, EBAY, ALIEXPRESS, PAYPAL *EBAY, online purchases
-• subscriptions - NETFLIX, SPOTIFY, AMAZON PRIME, VPN services, SaaS, MIDJOURNEY, AI tools, monthly digital services
-• healthcare - בריאות, מכבי, כללית, לאומית, מאוחדת, קופת חולים
-• entertainment - בידור, סרט, הופעה, FACEBOOK (ads/gaming)
+- loan_payment, loan_interest, credit_charges, bank_fees, transfers, standing_order
+- utilities, insurance, pension, groceries, transport, dining, shopping
+- healthcare, entertainment, subscriptions, online_shopping, education, other
 
-NEVER use "unknown", "finance", "other" unless truly nothing else fits.
-Read the Hebrew carefully - "הו"ק הלוי רבית" is loan_interest, NOT transfers!
+NEVER use "unknown" or "finance" unless truly nothing else fits.
 
 === OUTPUT FORMAT ===
-JSON: { "transactions": [{ "date": "YYYY-MM-DD", "description": "text as-is (Hebrew or Latin)", "amount": number, "categorySlug": "exact_slug" }] }
+JSON: { "transactions": [{ "date": "YYYY-MM-DD", "description": "text", "amount": number, "categorySlug": "slug" }] }
 Include installment fields when relevant: totalAmount, installmentCurrent, installmentTotal.
 Extract EVERY transaction row. Never skip.`;
 
     try {
-      const model = process.env.OPENAI_MODEL || 'gpt-5.2';
-      let userContent = `Extract transactions. Each row is pre-annotated with [INCOME_AMT]/[EXPENSE_AMT] or [SIGN=... AMT=...]. Use these signs exactly.\n\n${annotated.slice(0, 14000)}`;
+      const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+      let userContent = `Extract transactions. Each row is pre-annotated with [SIGN=... AMT=...]. Use these signs exactly.\n\n${annotated.slice(0, 14000)}`;
       if (userContext?.trim()) {
-        userContent += `\n\n---\nUser preferences (if a description was categorized as "salary", use categorySlug "salary" and POSITIVE amount):\n${userContext.trim().slice(0, 2000)}`;
+        userContent += `\n\n---\nUser preferences:\n${userContext.trim().slice(0, 2000)}`;
       }
-      const ocrMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+
+      const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
         { role: 'system', content: system },
         { role: 'user', content: userContent },
       ];
@@ -238,16 +226,16 @@ Extract EVERY transaction row. Never skip.`;
       try {
         const completion = await client.chat.completions.create({
           model,
-          messages: ocrMessages,
+          messages,
           response_format: { type: 'json_object' },
         });
         content = completion.choices[0]?.message?.content;
       } catch (jsonFormatErr: unknown) {
         const errMsg = jsonFormatErr instanceof Error ? jsonFormatErr.message : String(jsonFormatErr);
-        console.warn('[AI-Extract] OCR json_object format failed, retrying without:', errMsg);
+        this.logger.warn('json_object format failed, retrying without:', errMsg);
         const fallbackCompletion = await client.chat.completions.create({
           model,
-          messages: ocrMessages,
+          messages,
         });
         content = fallbackCompletion.choices[0]?.message?.content;
         if (content) {
@@ -255,15 +243,17 @@ Extract EVERY transaction row. Never skip.`;
           content = jsonMatch ? jsonMatch[0] : content;
         }
       }
+
       if (!content) return this.fallbackExtractWithHints(ocrText, hints);
+
       const parsed = JSON.parse(content);
       const list = Array.isArray(parsed.transactions) ? parsed.transactions : Array.isArray(parsed) ? parsed : [];
       const today = new Date().toISOString().slice(0, 10);
-      // Accept any slug that looks valid (lowercase, a-z, underscores) – the backend will create categories if needed
       const isValidSlug = (s: string | undefined) => s && /^[a-z][a-z0-9_]*$/.test(s) && s.length <= 50;
+
       const mapped = list.map((t: Record<string, unknown>) => {
         let date = String(t.date || '').trim();
-        if (!date || date === today) date = today;
+        if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) date = today;
         let amount = Number(t.amount) || 0;
         if (amount !== 0) amount = amount > 0 ? Math.abs(amount) : -Math.abs(amount);
         const rawSlug = t.categorySlug ? String(t.categorySlug).toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '') : undefined;
@@ -281,84 +271,75 @@ Extract EVERY transaction row. Never skip.`;
           ...(installmentTotal != null && { installmentTotal }),
         };
       });
+
       const fixed = this.applySignHintsOverlay(mapped, ocrText, hints);
       const withCleanDesc = fixed.map((t) => ({ ...t, description: this.sanitizeDescription(t.description) }));
       const withSignFix = this.applySignCorrectionSafetyNet(withCleanDesc);
       const withCategorySign = this.applySignFromCategory(withSignFix);
       return this.fixInstallmentAmounts(withCategorySign).filter((t: ExtractedTransaction) => Math.abs(t.amount) >= 0.01);
-    } catch {
+    } catch (err) {
+      this.logger.error('AI text extraction failed:', err);
       return this.fallbackExtractWithHints(ocrText, hints);
     }
   }
 
+  // ──────────────────────────────────────────────
+  //  Extract Transactions via Vision API (image)
+  // ──────────────────────────────────────────────
+
   /**
-   * Extract transactions using GPT-4o Vision API - sends image directly without OCR.
-   * This is much more accurate for images as the AI can see colors, layout, and Hebrew text directly.
+   * Extract transactions using GPT Vision API - sends image directly without OCR.
+   * Much more accurate for images as the AI can see colors, layout, and Hebrew text directly.
    */
   async extractWithVision(imagePath: string, userContext?: string): Promise<ExtractedTransaction[]> {
     const client = this.getClient();
     if (!client) {
-      console.warn('[AI-Extract] No OpenAI client, Vision extraction unavailable');
+      this.logger.warn('No OpenAI client, Vision extraction unavailable');
       return [];
     }
 
     // Read image and convert to base64
     const imageBuffer = fs.readFileSync(imagePath);
     const base64Image = imageBuffer.toString('base64');
-    const mimeType = imagePath.toLowerCase().endsWith('.png') ? 'image/png' : 
-                     imagePath.toLowerCase().endsWith('.webp') ? 'image/webp' : 'image/jpeg';
+    const mimeType = imagePath.toLowerCase().endsWith('.png')
+      ? 'image/png'
+      : imagePath.toLowerCase().endsWith('.webp')
+        ? 'image/webp'
+        : 'image/jpeg';
 
     const systemPrompt = `You are an expert at reading Israeli financial documents from screenshots.
-You can handle BOTH bank statements AND credit card statements (e.g. Max, Cal, Leumi Card, Isracard, Amex).
+You can handle BOTH bank statements AND credit card statements.
 
 === DETECT DOCUMENT TYPE ===
-First, determine which type of document this is:
-A) **Bank statement** — has columns like: date, operation, debit (חובה), credit (זכות), and running balance (יתרה).
-B) **Credit card statement** — has columns like: date, business/merchant name, category (ignore!), transaction type (חיוב חודשי, חיוב עסקת חו"ל, ביטול עסקה), foreign currency amount, ILS amount.
+A) **Bank statement** - columns: date, operation, debit (\u05D7\u05D5\u05D1\u05D4), credit (\u05D6\u05DB\u05D5\u05EA), balance (\u05D9\u05EA\u05E8\u05D4).
+B) **Credit card statement** - columns: date, merchant name, transaction type, amount.
 
 === FOR EACH ROW ===
-1) "date": Convert DD/MM/YY or DD.MM.YY to "YYYY-MM-DD". Ignore Hebrew weekday prefix (ב', ה', א').
-2) "description": The transaction description.
-   - For bank statements: The Hebrew operation text (e.g. הוראת קבע, העברה-נייד). "מ.א." + company = employer salary.
-   - For credit card statements: The merchant/business name AS-IS, including Latin characters (e.g. "AMAZON PRIME", "MIDJOURNEY INC", "PAYPAL *FACEBOOK"). Keep the full name, do NOT translate to Hebrew.
-3) "amount": The transaction amount (always positive, e.g. 5000, 82.05).
-   - For bank statements: the number from the חובה or זכות column.
-   - For credit card statements: the ILS amount (₪). If negative (e.g. -600.61 from ביטול עסקה), use the absolute value here; the "type" field indicates sign.
-4) "type": CRITICAL — "income" or "expense":
-   - Bank: Amount in "זכות" (credit) column → "income". Amount in "חובה" (debit) column → "expense".
-   - Credit card: Regular charges (חיוב חודשי, חיוב עסקת חו"ל, etc.) → "expense". Cancellations (ביטול עסקה) or negative amounts → "income".
-5) "balance": The running balance (יתרה) column value, or null if not present (credit cards usually don't have this).
+1) "date": Convert DD/MM/YY to "YYYY-MM-DD".
+2) "description": The transaction text as-is (Hebrew or Latin).
+3) "amount": Transaction amount (always positive).
+4) "type": "income" or "expense":
+   - Bank: \u05D6\u05DB\u05D5\u05EA (credit) column = "income". \u05D7\u05D5\u05D1\u05D4 (debit) column = "expense".
+   - Credit card: Regular charges = "expense". Cancellations (\u05D1\u05D9\u05D8\u05D5\u05DC \u05E2\u05E1\u05E7\u05D4) = "income".
+5) "balance": Running balance, or null if not present.
 6) "categorySlug": YOUR OWN categorization from: salary, income, loan_payment, loan_interest, credit_charges, bank_fees, transfers, standing_order, utilities, insurance, pension, groceries, transport, dining, shopping, healthcare, entertainment, subscriptions, online_shopping, education, other.
-   IMPORTANT: IGNORE any categories shown in the source document (e.g. "חשמל ומחשבים", "שונות", "פנאי, בידור וספורט"). Always assign YOUR OWN category based on the merchant/description:
-   - AMAZON PRIME, NETFLIX, EXPRESSVPN, SPOTIFY → subscriptions
-   - PAYPAL *FACEBOOK, MIDJOURNEY, RAILWAY, ASTRIA.AI → subscriptions or online_shopping
-   - PAYPAL *EBAY → online_shopping
-   - Software/SaaS services → subscriptions
+   IMPORTANT: IGNORE categories shown in the source document.
 
 === RULES ===
-- Extract EVERY visible row. Never skip or merge rows.
-- Amount is always a positive number.
-- "type" MUST be either "income" or "expense".
-- Balance CAN be negative. Read it exactly as shown, or null if no balance column.
+- Extract EVERY visible row. Never skip.
+- Amount is always positive.
+- "type" MUST be "income" or "expense".
 
 === OUTPUT (JSON) ===
-Return a JSON object: { "transactions": [{ "date": "YYYY-MM-DD", "description": "text (Hebrew or Latin as-is)", "amount": <positive number>, "type": "income" or "expense", "balance": <number or null>, "categorySlug": "slug" }] }`;
+{ "transactions": [{ "date": "YYYY-MM-DD", "description": "text", "amount": <positive>, "type": "income"|"expense", "balance": <number|null>, "categorySlug": "slug" }] }`;
 
     try {
-      const model = process.env.OPENAI_MODEL || 'gpt-5.2';
-      let userMessage = `Read this financial document screenshot and extract every transaction row into JSON.
-For EACH row, extract ALL of these fields:
-1. date - in YYYY-MM-DD format
-2. description - the transaction text (Hebrew or Latin as shown). For credit cards keep the merchant name as-is (e.g. "AMAZON PRIME", "PAYPAL *EBAY").
-3. amount - the transaction number in ILS (always positive)
-4. type - "income" or "expense". For bank: check the חובה/זכות column. For credit cards: regular charges = "expense", cancellations (ביטול עסקה) or negative amounts = "income".
-5. balance - the running balance column, or null if not present
-6. categorySlug - YOUR OWN category (ignore any categories shown in the document)`;
+      const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+      let userMessage = `Read this financial document screenshot and extract every transaction row into JSON.`;
       if (userContext?.trim()) {
         userMessage += `\n\nUser preferences:\n${userContext.trim().slice(0, 2000)}`;
       }
 
-      // === PASS 1: Extract all transactions (amounts, dates, descriptions) ===
       const visionMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
         { role: 'system', content: systemPrompt },
         {
@@ -386,17 +367,14 @@ For EACH row, extract ALL of these fields:
         });
         content = completion.choices[0]?.message?.content;
       } catch (jsonFormatErr: unknown) {
-        // Fallback: if response_format: json_object fails (e.g. model requires 'json' keyword in messages),
-        // retry without response_format and extract JSON from the raw text.
         const errMsg = jsonFormatErr instanceof Error ? jsonFormatErr.message : String(jsonFormatErr);
-        console.warn('[AI-Extract] json_object format failed, retrying without response_format:', errMsg);
+        this.logger.warn('Vision json_object format failed, retrying without:', errMsg);
         const fallbackCompletion = await client.chat.completions.create({
           model,
           messages: visionMessages,
           max_completion_tokens: 16384,
         });
         content = fallbackCompletion.choices[0]?.message?.content;
-        // Extract JSON from potential markdown code block or raw text
         if (content) {
           const jsonMatch = content.match(/\{[\s\S]*\}/);
           content = jsonMatch ? jsonMatch[0] : content;
@@ -404,30 +382,28 @@ For EACH row, extract ALL of these fields:
       }
 
       if (!content) {
-        console.warn('[AI-Extract] Vision API returned no content');
+        this.logger.warn('Vision API returned no content');
         return [];
       }
 
-      console.log('[AI-Extract] Pass 1 response length:', content.length);
+      this.logger.log(`Vision pass 1 response length: ${content.length}`);
 
       const parsed = JSON.parse(content);
       const list: Array<Record<string, unknown>> = Array.isArray(parsed.transactions) ? parsed.transactions : Array.isArray(parsed) ? parsed : [];
-      console.log('[AI-Extract] Pass 1 extracted', list.length, 'transactions');
+      this.logger.log(`Vision extracted ${list.length} transactions`);
 
       if (list.length === 0) return [];
 
-      // === STEP 2: Determine sign from BALANCE column (most reliable – pure math) ===
+      // Determine sign from balance column (most reliable - pure math)
       const balanceSigns = this.determineSignsFromBalance(list);
-      const balanceDetermined = balanceSigns.filter((s) => s !== null).length;
-      console.log(`[AI-Extract] Balance-based signs: ${balanceDetermined}/${list.length} determined`);
 
-      // === STEP 3: Color analysis as secondary signal ===
+      // Color analysis as secondary signal
       const colorSignals = await this.analyzeAmountColors(imagePath);
       const colorCountMatch = colorSignals.length === list.length;
       const maxColorDiff = Math.max(3, Math.floor(list.length * 0.2));
       const useColors = colorCountMatch || (colorSignals.length > 0 && Math.abs(colorSignals.length - list.length) <= maxColorDiff);
 
-      // When color rows > transactions, find best alignment offset by matching known keywords
+      // Find best color alignment offset
       let colorOffset = 0;
       if (useColors && !colorCountMatch && colorSignals.length > list.length) {
         const maxOffset = colorSignals.length - list.length;
@@ -437,19 +413,15 @@ For EACH row, extract ALL of these fields:
           for (let i = 0; i < list.length; i++) {
             const desc = String(list[i].description || '');
             const colorType = colorSignals[i + off];
-            if (INCOME_KEYWORDS.some(k => desc.includes(k)) && colorType === 'income') score++;
-            if (EXPENSE_KEYWORDS.some(k => desc.includes(k)) && colorType === 'expense') score++;
+            if (INCOME_KEYWORDS.some((k) => desc.includes(k)) && colorType === 'income') score++;
+            if (EXPENSE_KEYWORDS.some((k) => desc.includes(k)) && colorType === 'expense') score++;
           }
           if (score > bestScore) {
             bestScore = score;
             colorOffset = off;
           }
         }
-        if (colorOffset > 0) {
-          console.log(`[AI-Extract] Color offset: skipping first ${colorOffset} color rows (score=${bestScore})`);
-        }
       }
-      console.log(`[AI-Extract] Color signals: ${colorSignals.length} rows vs ${list.length} transactions. useColors=${useColors}, offset=${colorOffset}`);
 
       const today = new Date().toISOString().slice(0, 10);
       const isValidSlug = (s: string | undefined) => s && /^[a-z][a-z0-9_]*$/.test(s) && s.length <= 50;
@@ -460,34 +432,24 @@ For EACH row, extract ALL of these fields:
 
         const rawSlug = t.categorySlug ? String(t.categorySlug).toLowerCase().replace(/[^a-z0-9_]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '') : undefined;
         const slug: string = isValidSlug(rawSlug) ? (rawSlug as string) : 'other';
-
         const absAmount = Math.abs(Number(t.amount) || 0);
 
-        // Sign priority: 1) Balance math  2) AI-reported column type  3) Color analysis  4) Default expense
+        // Sign priority: 1) Balance math  2) AI-reported type  3) Color analysis  4) Default expense
         let isIncome = false;
-        let signSource = 'default';
-
         if (balanceSigns[index] != null) {
           isIncome = balanceSigns[index] === 'income';
-          signSource = 'balance';
         } else {
           const aiType = String(t.type || '').toLowerCase().trim();
           if (aiType === 'income' || aiType === 'credit') {
             isIncome = true;
-            signSource = 'ai-type';
           } else if (aiType === 'expense' || aiType === 'debit') {
             isIncome = false;
-            signSource = 'ai-type';
           } else if (useColors && (index + colorOffset) < colorSignals.length) {
             isIncome = colorSignals[index + colorOffset] === 'income';
-            signSource = 'color';
           }
         }
-        // else: default expense, safety net will fix unambiguous income keywords
 
         const amount = isIncome ? absAmount : -absAmount;
-
-        console.log(`[AI-Extract] Row ${index}: ${String(t.description || '').slice(0, 30)} | amt=${absAmount} | sign=${signSource}:${isIncome ? 'INCOME' : 'EXPENSE'} | bal=${t.balance ?? 'null'}`);
 
         const totalAmount = t.totalAmount != null ? Number(t.totalAmount) : undefined;
         const installmentCurrent = t.installmentCurrent != null ? Math.max(1, Math.floor(Number(t.installmentCurrent))) : undefined;
@@ -495,7 +457,7 @@ For EACH row, extract ALL of these fields:
 
         return {
           date,
-          description: this.sanitizeDescription(String(t.description || 'לא ידוע').trim().slice(0, 300)),
+          description: this.sanitizeDescription(String(t.description || '\u05DC\u05D0 \u05D9\u05D3\u05D5\u05E2').trim().slice(0, 300)),
           amount,
           categorySlug: slug,
           ...(totalAmount != null && totalAmount > 0 && { totalAmount }),
@@ -504,29 +466,28 @@ For EACH row, extract ALL of these fields:
         };
       });
 
-      // For Vision path: column field is the source of truth for sign.
-      // Do NOT apply applySignFromCategory here – a wrong category must not override column-based sign.
-      // Only apply the safety net for unambiguous markers (e.g. קצבת ילדים is always income).
+      // Apply safety net for unambiguous keywords only
       const withSignFix = this.applySignCorrectionSafetyNet(results);
       return this.fixInstallmentAmounts(withSignFix).filter((t) => Math.abs(t.amount) >= 0.01);
     } catch (err) {
-      console.error('[AI-Extract] Vision extraction error:', err);
+      this.logger.error('Vision extraction error:', err);
       return [];
     }
   }
 
+  // ──────────────────────────────────────────────
+  //  Balance-based Sign Detection
+  // ──────────────────────────────────────────────
+
   /**
-   * Determine income/expense sign from balance (יתרה) column differences.
+   * Determine income/expense sign from balance column differences.
    * For each pair of adjacent rows, delta = balance[newer] - balance[older].
-   * If delta ≈ +amount → income. If delta ≈ -amount → expense.
-   * Returns null for rows where sign can't be determined.
    */
   private determineSignsFromBalance(
     list: Array<Record<string, unknown>>,
   ): Array<'income' | 'expense' | null> {
     const results: Array<'income' | 'expense' | null> = new Array(list.length).fill(null);
 
-    // Extract balances
     const balances = list.map((t) => {
       const b = t.balance;
       if (b == null || b === 'null' || b === '') return null;
@@ -535,15 +496,10 @@ For EACH row, extract ALL of these fields:
     });
 
     const amounts = list.map((t) => Math.abs(Number(t.amount) || 0));
-
-    // Count how many balances we have
     const balanceCount = balances.filter((b) => b !== null).length;
-    if (balanceCount < 2) {
-      console.log(`[AI-Extract] Balance: only ${balanceCount} balance values, skipping balance-based detection`);
-      return results;
-    }
+    if (balanceCount < 2) return results;
 
-    // Detect order: reverse chronological (newest first, typical) or chronological
+    // Detect chronological order
     let isReverse = true;
     for (let i = 0; i < list.length - 1; i++) {
       const d1 = String(list[i].date || '');
@@ -552,40 +508,31 @@ For EACH row, extract ALL of these fields:
       if (d1 > d2) { isReverse = true; break; }
     }
 
-    console.log(`[AI-Extract] Balance: ${balanceCount} values, order=${isReverse ? 'newest-first' : 'oldest-first'}`);
-
-    let determined = 0;
     for (let i = 0; i < list.length; i++) {
-      // Get the "older" adjacent row's balance
       const olderIdx = isReverse ? i + 1 : i - 1;
       if (olderIdx < 0 || olderIdx >= list.length) continue;
       if (balances[i] == null || balances[olderIdx] == null) continue;
 
-      // delta = current_balance - older_balance = signed_amount of current transaction
       const delta = balances[i]! - balances[olderIdx]!;
       const amount = amounts[i];
+      if (amount < 0.01) continue;
 
-      if (amount < 0.01) continue; // skip zero amounts
-
-      // Validate: |delta| should approximately equal amount
-      const tolerance = Math.max(2, amount * 0.05); // 5% tolerance or ₪2
+      const tolerance = Math.max(2, amount * 0.05);
       if (Math.abs(Math.abs(delta) - amount) <= tolerance) {
         results[i] = delta > 0 ? 'income' : 'expense';
-        determined++;
-        console.log(`[AI-Extract] Balance row ${i}: bal=${balances[i]}, older_bal=${balances[olderIdx]}, delta=${delta.toFixed(2)}, amt=${amount} → ${results[i]}`);
-      } else {
-        console.log(`[AI-Extract] Balance row ${i}: bal=${balances[i]}, older_bal=${balances[olderIdx]}, delta=${delta.toFixed(2)}, amt=${amount} → MISMATCH (skipped)`);
       }
     }
 
-    console.log(`[AI-Extract] Balance analysis: determined ${determined}/${list.length} signs`);
     return results;
   }
 
+  // ──────────────────────────────────────────────
+  //  Color Analysis (pixel-based green/red detection)
+  // ──────────────────────────────────────────────
+
   /**
    * Programmatic color analysis: scan image pixels to detect green vs red amount rows.
-   * Returns an ordered array of 'income' | 'expense' for each detected row with colored numbers.
-   * Green text = income (זכות), Red text = expense (חובה).
+   * Green text = income, Red text = expense.
    */
   async analyzeAmountColors(imagePath: string): Promise<Array<'income' | 'expense'>> {
     try {
@@ -594,35 +541,27 @@ For EACH row, extract ALL of these fields:
       let width: number;
       let height: number;
 
-      // Decode image based on format (pure JS – no native dependencies)
       const lowerPath = imagePath.toLowerCase();
       if (lowerPath.endsWith('.png')) {
         const png = PNG.sync.read(fileBuffer);
-        pixelData = png.data; // RGBA
+        pixelData = png.data;
         width = png.width;
         height = png.height;
       } else {
-        // JPEG (also handles .jpg, .jpeg)
         const decoded = jpeg.decode(fileBuffer, { useTArray: true });
-        pixelData = Buffer.from(decoded.data); // RGBA
+        pixelData = Buffer.from(decoded.data);
         width = decoded.width;
         height = decoded.height;
       }
 
-      console.log(`[AI-Extract] Color analysis: image ${width}x${height}, format=${lowerPath.endsWith('.png') ? 'PNG' : 'JPEG'}`);
-
-      // Scan the left ~45% of the image (amount columns in RTL bank statements).
-      // Skip leftmost 2% to avoid border artifacts.
+      // Scan the left ~45% of the image (amount columns in RTL bank statements)
       const scanStart = Math.floor(width * 0.02);
       const scanEnd = Math.floor(width * 0.45);
       const channels = 4; // RGBA
 
-      // Adaptive parameters based on image resolution
-      const bandHeight = Math.max(2, Math.floor(height * 0.003));  // ~0.3% of height per band
-      const minPixelsPerBand = Math.max(8, Math.floor((scanEnd - scanStart) * bandHeight * 0.003)); // 0.3% of scanned area
-      const rowGap = Math.max(8, Math.floor(height * 0.012));  // ~1.2% of height between rows
-
-      console.log(`[AI-Extract] Color scan: x=${scanStart}-${scanEnd}, bandH=${bandHeight}, minPx=${minPixelsPerBand}, rowGap=${rowGap}`);
+      const bandHeight = Math.max(2, Math.floor(height * 0.003));
+      const minPixelsPerBand = Math.max(8, Math.floor((scanEnd - scanStart) * bandHeight * 0.003));
+      const rowGap = Math.max(8, Math.floor(height * 0.012));
 
       const bands: Array<{ greenPixels: number; redPixels: number; y: number }> = [];
 
@@ -637,18 +576,12 @@ For EACH row, extract ALL of these fields:
             const b = pixelData[idx + 2];
             const sum = r + g + b;
 
-            // Skip near-white (background), near-black (borders), and gray pixels
-            if (sum > 600 || sum < 60) continue;              // too bright or too dark
+            if (sum > 600 || sum < 60) continue;
             const maxC = Math.max(r, g, b);
             const minC = Math.min(r, g, b);
-            if (maxC - minC < 25) continue;                   // too gray / unsaturated
+            if (maxC - minC < 25) continue;
 
-            // Green text: G channel clearly dominant
-            // Matches: #008000 (green), #006400 (darkgreen), #228B22, etc.
             if (g > 70 && g > r + 25 && g > b + 15) greenCount++;
-
-            // Red text: R channel clearly dominant
-            // Matches: #FF0000 (red), #CC0000, #B22222, etc.
             if (r > 70 && r > g + 25 && r > b + 15) redCount++;
           }
         }
@@ -657,9 +590,7 @@ For EACH row, extract ALL of these fields:
         }
       }
 
-      console.log(`[AI-Extract] Color analysis: ${bands.length} colored bands found`);
-
-      // Merge adjacent bands into row clusters (each cluster = one table row)
+      // Merge adjacent bands into row clusters
       const rowClusters: Array<{ green: number; red: number; yStart: number; yEnd: number }> = [];
       let cluster: { green: number; red: number; yStart: number; yEnd: number } | null = null;
 
@@ -675,80 +606,72 @@ For EACH row, extract ALL of these fields:
       }
       if (cluster) rowClusters.push(cluster);
 
-      // Skip first row if it looks like a header (has BOTH green and red strongly)
+      // Skip first row if it looks like a header (both green and red strongly)
       if (rowClusters.length > 1) {
         const first = rowClusters[0];
         const minColor = Math.min(first.green, first.red);
         const maxColor = Math.max(first.green, first.red);
         if (minColor > maxColor * 0.3 && minColor > minPixelsPerBand) {
-          console.log(`[AI-Extract] Skipping first row as header (green=${first.green}, red=${first.red})`);
           rowClusters.shift();
         }
       }
 
-      const rows: Array<'income' | 'expense'> = rowClusters.map((c) => {
-        const type = c.green > c.red ? 'income' : 'expense';
-        return type;
-      });
-
-      // Log each detected row for debugging
-      rowClusters.forEach((c, i) => {
-        console.log(`[AI-Extract] Color row ${i}: y=${c.yStart}-${c.yEnd}, green=${c.green}, red=${c.red} → ${rows[i]}`);
-      });
-
-      console.log(`[AI-Extract] Color analysis: ${rows.length} data rows detected`);
-      return rows;
+      return rowClusters.map((c) => (c.green > c.red ? 'income' : 'expense'));
     } catch (err) {
-      console.error('[AI-Extract] Color analysis failed:', err);
+      this.logger.error('Color analysis failed:', err);
       return [];
     }
   }
 
+  // ──────────────────────────────────────────────
+  //  Description Sanitization
+  // ──────────────────────────────────────────────
+
   /**
-   * Remove or fix OCR gibberish in description while preserving intentional Latin text
+   * Remove OCR gibberish from description while preserving intentional Latin text
    * (e.g. credit card merchant names like AMAZON PRIME, MIDJOURNEY, PAYPAL).
    */
   private sanitizeDescription(desc: string): string {
-    if (!desc || !desc.trim()) return 'לא ידוע';
+    if (!desc || !desc.trim()) return '\u05DC\u05D0 \u05D9\u05D3\u05D5\u05E2';
     let s = desc.trim();
 
     // Remove value date and standalone dates
-    s = s.replace(/\(?\s*תאריך\s*ערך[:\s]*\d{1,2}[\/\.]\d{1,2}[\/\.]?\d{0,4}\s*\)?/gi, '');
+    s = s.replace(/\(?\s*\u05EA\u05D0\u05E8\u05D9\u05DA\s*\u05E2\u05E8\u05DA[:\s]*\d{1,2}[\/\.]\d{1,2}[\/\.]?\d{0,4}\s*\)?/gi, '');
     s = s.replace(/\d{1,2}[\/\.]\d{1,2}[\/\.]\d{2,4}/g, '');
 
-    // Remove amount-like numbers (e.g. 8,000.00, 3,820.00, 500.00 ש"ח) from description
-    s = s.replace(/\s*\d{1,3}(?:[,.]\d{3})*(?:[,.]\d{2})?(?:\s*[₪ש"ח])?\s*/g, ' ');
+    // Remove amount-like numbers from description
+    s = s.replace(/\s*\d{1,3}(?:[,.]\d{3})*(?:[,.]\d{2})?(?:\s*[\u20AA\u05E9"\u05D7])?\s*/g, ' ');
     s = s.replace(/\s+\d+\.\d{2}\s*/g, ' ');
 
     // Remove " Income" / " Expense" (AI sometimes appends these)
     s = s.replace(/\s+Income\s*/gi, ' ').replace(/\s+Expense\s*/gi, ' ');
 
-    // Common OCR errors: Latin in place of Hebrew (only specific known patterns)
-    s = s.replace(/xn\s*fe/gi, 'מ.א');
-    s = s.replace(/mawn\s*BE-?/gi, 'העברה-נייד');
-    s = s.replace(/THANK\?\s*wn\s*\d*/gi, "העב' לאחר-נייד");
-
-    // Only remove Latin if the description is primarily Hebrew (has Hebrew chars).
-    // Credit card descriptions can be fully Latin (e.g. "AMAZON PRIME", "PAYPAL *EBAY US").
+    // Only remove Latin if the description is primarily Hebrew
     const hebrewChars = (s.match(/[\u0590-\u05FF]/g) || []).length;
     const latinChars = (s.match(/[a-zA-Z]/g) || []).length;
     if (hebrewChars > 0 && hebrewChars > latinChars) {
-      // Primarily Hebrew text: remove stray Latin sequences (likely OCR noise)
       s = s.replace(/\b[a-zA-Z]{3,}\b/g, '');
     }
-    // If primarily Latin or no Hebrew, keep the Latin text intact
 
     s = s.replace(/\s+/g, ' ').trim();
     s = s.replace(/^[\s\-=:,."']+/, '').replace(/[\s\-=:,."']+$/, '').trim();
 
-    if (s.length < 2) return 'לא ידוע';
+    if (s.length < 2) return '\u05DC\u05D0 \u05D9\u05D3\u05D5\u05E2';
     return s.slice(0, 300);
   }
 
-  /** When category is clearly income or expense, set sign from it (used when column is missing or for OCR path). Do not use standing_order/transfers – they can be either. */
+  // ──────────────────────────────────────────────
+  //  Sign Correction Helpers
+  // ──────────────────────────────────────────────
+
+  /** When category is clearly income or expense, set sign from it (OCR path only). */
   private applySignFromCategory(transactions: ExtractedTransaction[]): ExtractedTransaction[] {
     const INCOME_SLUGS = new Set(['salary', 'income']);
-    const EXPENSE_SLUGS = new Set(['loan_payment', 'loan_interest', 'credit_charges', 'bank_fees', 'fees', 'utilities', 'insurance', 'pension', 'groceries', 'transport', 'dining', 'shopping', 'healthcare', 'entertainment', 'other']);
+    const EXPENSE_SLUGS = new Set([
+      'loan_payment', 'loan_interest', 'credit_charges', 'bank_fees', 'fees',
+      'utilities', 'insurance', 'pension', 'groceries', 'transport', 'dining',
+      'shopping', 'healthcare', 'entertainment', 'other',
+    ]);
     return transactions.map((t) => {
       const abs = Math.abs(t.amount);
       if (t.categorySlug && INCOME_SLUGS.has(t.categorySlug) && t.amount < 0) return { ...t, amount: abs };
@@ -757,16 +680,15 @@ For EACH row, extract ALL of these fields:
     });
   }
 
-  /** Safety net: fix sign ONLY for UNAMBIGUOUS descriptions. Do NOT flip "הוראת קבע" or "העברה" – they can be income OR expense; Vision/column decides. */
+  /** Safety net: fix sign ONLY for UNAMBIGUOUS descriptions. */
   private applySignCorrectionSafetyNet(transactions: ExtractedTransaction[]): ExtractedTransaction[] {
-    const INCOME_MARKERS = ['קצבת ילדים', 'קצבת זקנה', 'ביטוח לאומי ג', 'בטוח לאומי ג', 'משכורת', 'שכר', 'זיכוי', 'מ.א.', 'מ.א '];
+    const INCOME_MARKERS = ['\u05E7\u05E6\u05D1\u05EA \u05D9\u05DC\u05D3\u05D9\u05DD', '\u05E7\u05E6\u05D1\u05EA \u05D6\u05E7\u05E0\u05D4', '\u05D1\u05D9\u05D8\u05D5\u05D7 \u05DC\u05D0\u05D5\u05DE\u05D9 \u05D2', '\u05D1\u05D8\u05D5\u05D7 \u05DC\u05D0\u05D5\u05DE\u05D9 \u05D2', '\u05DE\u05E9\u05DB\u05D5\u05E8\u05EA', '\u05E9\u05DB\u05E8', '\u05D6\u05D9\u05DB\u05D5\u05D9', '\u05DE.\u05D0.', '\u05DE.\u05D0 '];
     const EXPENSE_MARKERS = [
-      'חיוב', 'משיכה',
-      'כאל', 'מקס איט', 'לאומי קארד', 'ישראכרט', 'אמריקן אקספרס',
-      "הו\"ק הלו' רבית", 'הו"ק הלואה קרן', "הו\"ק הלוי רבית",
-      'עמלת', 'דמי ניהול', 'הקצאת אשראי',
-      "העב' לאחר", 'העברה לאחר',   // transfer TO another = always expense
-      // NOTE: 'ביטוח לאומי חד' is AMBIGUOUS (can be payment TO or FROM) – let AI/column decide
+      '\u05D7\u05D9\u05D5\u05D1', '\u05DE\u05E9\u05D9\u05DB\u05D4',
+      '\u05DB\u05D0\u05DC', '\u05DE\u05E7\u05E1 \u05D0\u05D9\u05D8', '\u05DC\u05D0\u05D5\u05DE\u05D9 \u05E7\u05D0\u05E8\u05D3', '\u05D9\u05E9\u05E8\u05D0\u05DB\u05E8\u05D8', '\u05D0\u05DE\u05E8\u05D9\u05E7\u05DF \u05D0\u05E7\u05E1\u05E4\u05E8\u05E1',
+      '\u05D4\u05D5"\u05E7 \u05D4\u05DC\u05D5\' \u05E8\u05D1\u05D9\u05EA', '\u05D4\u05D5"\u05E7 \u05D4\u05DC\u05D5\u05D0\u05D4 \u05E7\u05E8\u05DF', '\u05D4\u05D5"\u05E7 \u05D4\u05DC\u05D5\u05D9 \u05E8\u05D1\u05D9\u05EA',
+      '\u05E2\u05DE\u05DC\u05EA', '\u05D3\u05DE\u05D9 \u05E0\u05D9\u05D4\u05D5\u05DC', '\u05D4\u05E7\u05E6\u05D0\u05EA \u05D0\u05E9\u05E8\u05D0\u05D9',
+      '\u05D4\u05E2\u05D1\' \u05DC\u05D0\u05D7\u05E8', '\u05D4\u05E2\u05D1\u05E8\u05D4 \u05DC\u05D0\u05D7\u05E8',
     ];
     return transactions.map((t) => {
       const d = (t.description || '').trim();
@@ -782,8 +704,8 @@ For EACH row, extract ALL of these fields:
   }
 
   /**
-   * Overlay sign hints on AI output: for each transaction, if we have a strong hint (income/expense from
-   * two-column layout or keyword), force the sign so we never end up with salary as expense.
+   * Overlay sign hints on AI output: for each transaction, if we have a strong hint,
+   * force the sign so we never end up with salary as expense.
    */
   private applySignHintsOverlay(
     transactions: ExtractedTransaction[],
@@ -806,6 +728,7 @@ For EACH row, extract ALL of these fields:
 
       const two = hints.twoAmountsByLine.get(i);
       const signHint = hints.byLine.get(i);
+
       if (two) {
         for (const t of transactions) {
           const abs = Math.abs(t.amount);
@@ -814,6 +737,7 @@ For EACH row, extract ALL of these fields:
         }
         continue;
       }
+
       if ((signHint === 'income' || signHint === 'expense') && lastDate) {
         const lineWithoutDate = line.replace(dateRe, ' ');
         const amountStrs = lineWithoutDate.match(amountPattern) || [];
@@ -822,15 +746,25 @@ For EACH row, extract ALL of these fields:
         const cand = priceLike.length >= 1 ? priceLike : amounts;
         if (cand.length === 1) {
           const expectedAbs = cand[0];
-          const wrongSign = signHint === 'income' ? (t: ExtractedTransaction) => t.amount < 0 : (t: ExtractedTransaction) => t.amount > 0;
-          const fix = signHint === 'income' ? (t: ExtractedTransaction) => { t.amount = expectedAbs; } : (t: ExtractedTransaction) => { t.amount = -expectedAbs; };
-          const idx = transactions.findIndex((t) => t.date === lastDate && Math.abs(Math.abs(t.amount) - expectedAbs) < 0.02 && wrongSign(t));
+          const wrongSign = signHint === 'income'
+            ? (t: ExtractedTransaction) => t.amount < 0
+            : (t: ExtractedTransaction) => t.amount > 0;
+          const fix = signHint === 'income'
+            ? (t: ExtractedTransaction) => { t.amount = expectedAbs; }
+            : (t: ExtractedTransaction) => { t.amount = -expectedAbs; };
+          const idx = transactions.findIndex(
+            (t) => t.date === lastDate && Math.abs(Math.abs(t.amount) - expectedAbs) < 0.02 && wrongSign(t),
+          );
           if (idx >= 0) fix(transactions[idx]);
         }
       }
     }
     return transactions;
   }
+
+  // ──────────────────────────────────────────────
+  //  Fallback Extraction (no AI)
+  // ──────────────────────────────────────────────
 
   /** Fallback extraction using only layout + keywords (no AI). */
   private fallbackExtractWithHints(ocrText: string, hints: SignHints): ExtractedTransaction[] {
@@ -873,13 +807,17 @@ For EACH row, extract ALL of these fields:
       const amount = Math.max(...cand);
 
       const rawDesc = line.replace(dateRe, ' ').replace(amountPattern, ' ').replace(/\s+/g, ' ').trim().slice(0, 200) || 'Unknown';
-      const sign = signHint === 'income' ? 1 : signHint === 'expense' ? -1 : -1; // unknown default expense
+      const sign = signHint === 'income' ? 1 : signHint === 'expense' ? -1 : -1;
       results.push({ date: lastDate, description: this.sanitizeDescription(rawDesc), amount: sign * amount, categorySlug: 'other' });
     }
     return this.fixInstallmentAmounts(results);
   }
 
-  /** If amount was wrongly set to total (full price), replace with the actual payment: totalAmount / installmentTotal. */
+  // ──────────────────────────────────────────────
+  //  Installment Amount Fix
+  // ──────────────────────────────────────────────
+
+  /** If amount was wrongly set to total (full price), replace with the actual payment. */
   private fixInstallmentAmounts(items: ExtractedTransaction[]): ExtractedTransaction[] {
     return items.map((t) => {
       const total = t.totalAmount;
@@ -890,102 +828,5 @@ For EACH row, extract ALL of these fields:
       const paymentPerInstallment = Math.round((total / totalPayments) * 100) / 100;
       return { ...t, amount: -paymentPerInstallment };
     });
-  }
-
-  /** Regex-based fallback: extract date and amount per line. For installments (X מתוך Y), amount = X (payment made), totalAmount = Y. */
-  private fallbackExtract(ocrText: string): ExtractedTransaction[] {
-    const lines = ocrText.split(/\n/).filter((l) => l.trim().length > 0);
-    const today = new Date().toISOString().slice(0, 10);
-    const results: ExtractedTransaction[] = [];
-    const dateRe = /(\d{1,2})[\/.](\d{1,2})[\/.](\d{2,4})/;
-    const amountPattern = /\d{1,3}(?:[,.]\d{3})*(?:[,.]\d{2})?/g;
-    const mitochRe = /(\d{1,3}(?:[,.]\d{3})*(?:[,.]\d{2})?)\s*מתוך\s*(\d{1,3}(?:[,.]\d{3})*(?:[,.]\d{2})?)/g;
-    const installmentNumRe = /(\d+)\s*מתוך\s*(\d+)/g;
-    let lastDate = today;
-
-    for (const line of lines) {
-      const dateMatch = line.match(dateRe);
-      if (dateMatch) {
-        const [, d, m, y] = dateMatch;
-        const year = y!.length === 2 ? `20${y}` : y;
-        lastDate = `${year}-${m!.padStart(2, '0')}-${d!.padStart(2, '0')}`;
-      }
-
-      const lineWithoutDate = line.replace(dateRe, ' ');
-      let amount = 0;
-      let totalAmount: number | undefined;
-      let installmentCurrent: number | undefined;
-      let installmentTotal: number | undefined;
-
-      const mitochMoney = [...lineWithoutDate.matchAll(mitochRe)];
-      const mitochNum = [...line.matchAll(installmentNumRe)];
-
-      // Only treat "X מתוך Y" as MONEY when at least one number looks like a price (decimals or > 100).
-      // Otherwise "2 מתוך 3" (installment 2 of 3) would be wrongly used as amount=2, totalAmount=3.
-      if (mitochMoney.length >= 1) {
-        const pairs = mitochMoney.map((m) => [parseFloat(m[1].replace(/,/g, '')), parseFloat(m[2].replace(/,/g, ''))] as [number, number]);
-        const looksLikePrice = (n: number) => n > 100 || (n !== Math.floor(n));
-        const currencyLike = pairs.filter(
-          ([a, b]) =>
-            (looksLikePrice(a) || looksLikePrice(b)) &&
-            a >= 0.01 &&
-            a <= 100000 &&
-            b >= 0.01 &&
-            b <= 100000,
-        );
-        if (currencyLike.length > 0) {
-          const [pay, total] = currencyLike[0];
-          amount = Math.min(pay, total);
-          totalAmount = Math.max(pay, total);
-        }
-      }
-      if (mitochNum.length >= 1) {
-        const nums = mitochNum.map((m) => [parseInt(m[1], 10), parseInt(m[2], 10)] as [number, number]);
-        const valid = nums.filter(([a, b]) => a >= 1 && a <= b && b <= 120); // current <= total, e.g. 2/3 not 3/1
-        if (valid.length > 0) {
-          const [cur, tot] = valid[0];
-          installmentCurrent = cur;
-          installmentTotal = tot;
-        }
-      }
-
-      if (amount <= 0) {
-        const amountMatches = lineWithoutDate.match(amountPattern) || [];
-        const withDecimals = amountMatches.filter((s) => /\.\d{2}$/.test(s) || /,\d{2}$/.test(s));
-        let candidates = (withDecimals.length > 0 ? withDecimals : amountMatches)
-          .map((s) => parseFloat(s.replace(/,/g, '')))
-          .filter((n) => n >= 0.01 && n <= 100000);
-        // For installments, avoid using small integers (2, 9, 4) as amount – they're often installment numbers.
-        if (line.includes('מתוך') && candidates.length > 1) {
-          const priceLike = candidates.filter((n) => n > 100 || n !== Math.floor(n));
-          if (priceLike.length > 0) candidates = priceLike;
-        }
-        amount = candidates.length > 0 ? (line.includes('מתוך') ? Math.min(...candidates) : Math.max(...candidates)) : 0;
-      }
-      if (amount <= 0) continue;
-
-      const desc = line
-        .replace(dateRe, ' ')
-        .replace(amountPattern, ' ')
-        .replace(mitochRe, ' ')
-        .replace(installmentNumRe, ' ')
-        .replace(/\d+/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .slice(0, 200) || 'Unknown';
-
-      results.push({
-        date: lastDate,
-        description: this.sanitizeDescription(desc),
-        amount: -Math.abs(amount),
-        categorySlug: 'other',
-        ...(totalAmount != null && { totalAmount }),
-        ...(installmentCurrent != null && { installmentCurrent }),
-        ...(installmentTotal != null && { installmentTotal }),
-      });
-    }
-    const withSignFix = this.applySignCorrectionSafetyNet(results);
-    const withCategorySign = this.applySignFromCategory(withSignFix);
-    return this.fixInstallmentAmounts(withCategorySign);
   }
 }

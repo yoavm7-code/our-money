@@ -10,59 +10,49 @@ export class DashboardController {
 
   @Get('summary')
   getSummary(
-    @HouseholdId() householdId: string,
+    @HouseholdId() businessId: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
     @Query('accountId') accountId?: string,
     @Query('categoryId') categoryId?: string,
   ) {
-    return this.dashboardService.getSummary(householdId, from, to, accountId, categoryId);
+    return this.dashboardService.getSummary(businessId, from, to, accountId, categoryId);
   }
 
   @Get('trends')
   getTrends(
-    @HouseholdId() householdId: string,
-    @Query('from') from: string,
-    @Query('to') to: string,
+    @HouseholdId() businessId: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
     @Query('groupBy') groupBy?: 'month' | 'year',
     @Query('accountId') accountId?: string,
     @Query('categoryId') categoryId?: string,
   ) {
     const start = from || new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     const end = to || new Date().toISOString().slice(0, 10);
-    return this.dashboardService.getTrends(householdId, start, end, groupBy || 'month', accountId, categoryId);
+    return this.dashboardService.getTrends(businessId, start, end, groupBy || 'month', accountId, categoryId);
   }
 
   @Get('recent-transactions')
-  getRecentTransactions(@HouseholdId() householdId: string) {
-    return this.dashboardService.getRecentTransactions(householdId);
+  getRecentTransactions(@HouseholdId() businessId: string) {
+    return this.dashboardService.getRecentTransactions(businessId);
+  }
+
+  @Get('cash-flow')
+  getCashFlow(@HouseholdId() businessId: string) {
+    return this.dashboardService.getCashFlow(businessId);
+  }
+
+  @Get('fixed-items')
+  getFixedItems(@HouseholdId() businessId: string) {
+    return this.dashboardService.getFixedItems(businessId);
   }
 
   @Get('search')
   search(
-    @HouseholdId() householdId: string,
+    @HouseholdId() businessId: string,
     @Query('q') q?: string,
   ) {
-    return this.dashboardService.search(householdId, q ?? '');
-  }
-
-  @Get('fixed-expenses')
-  getFixedExpenses(@HouseholdId() householdId: string) {
-    return this.dashboardService.getFixedExpenses(householdId);
-  }
-
-  @Get('fixed-income')
-  getFixedIncome(@HouseholdId() householdId: string) {
-    return this.dashboardService.getFixedIncome(householdId);
-  }
-
-  @Get('report')
-  getReport(
-    @HouseholdId() householdId: string,
-    @Query('month') month?: string,
-    @Query('from') from?: string,
-    @Query('to') to?: string,
-  ) {
-    return this.dashboardService.getReport(householdId, month, from, to);
+    return this.dashboardService.search(businessId, q ?? '');
   }
 }

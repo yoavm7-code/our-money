@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MulterModule } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
+import { PrismaModule } from '../prisma/prisma.module';
 import { DocumentsService } from './documents.service';
 import { DocumentsController } from './documents.controller';
 import { TransactionsModule } from '../transactions/transactions.module';
@@ -11,6 +12,7 @@ import { DocumentParserService } from './document-parser.service';
 
 @Module({
   imports: [
+    PrismaModule,
     TransactionsModule,
     RulesModule,
     MulterModule.register({

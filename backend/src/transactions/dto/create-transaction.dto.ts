@@ -1,4 +1,4 @@
-import { IsDateString, IsInt, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, IsDateString, IsInt, IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class CreateTransactionDto {
   @IsString()
@@ -7,6 +7,14 @@ export class CreateTransactionDto {
   @IsOptional()
   @IsString()
   categoryId?: string;
+
+  @IsOptional()
+  @IsString()
+  clientId?: string;
+
+  @IsOptional()
+  @IsString()
+  projectId?: string;
 
   @IsDateString()
   date: string;
@@ -20,6 +28,18 @@ export class CreateTransactionDto {
   @IsOptional()
   @IsString()
   currency?: string;
+
+  @IsOptional()
+  @IsNumber()
+  vatAmount?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  isVatIncluded?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  isTaxDeductible?: boolean;
 
   @IsOptional()
   @IsString()
@@ -38,5 +58,6 @@ export class CreateTransactionDto {
   installmentTotal?: number;
 
   @IsOptional()
+  @IsBoolean()
   isRecurring?: boolean;
 }

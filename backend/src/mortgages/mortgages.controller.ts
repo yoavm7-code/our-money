@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { HouseholdId } from '../common/decorators/household.decorator';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { MortgagesService } from './mortgages.service';
 import { CreateMortgageDto } from './dto/create-mortgage.dto';
 import { UpdateMortgageDto } from './dto/update-mortgage.dto';
@@ -12,59 +12,59 @@ export class MortgagesController {
   constructor(private mortgagesService: MortgagesService) {}
 
   @Post()
-  create(@HouseholdId() householdId: string, @Body() dto: CreateMortgageDto) {
-    return this.mortgagesService.create(householdId, dto);
+  create(@CurrentUser() user: { businessId: string }, @Body() dto: CreateMortgageDto) {
+    return this.mortgagesService.create(user.businessId, dto);
   }
 
   @Get()
-  findAll(@HouseholdId() householdId: string) {
-    return this.mortgagesService.findAll(householdId);
+  findAll(@CurrentUser() user: { businessId: string }) {
+    return this.mortgagesService.findAll(user.businessId);
   }
 
   @Get(':id')
-  findOne(@HouseholdId() householdId: string, @Param('id') id: string) {
-    return this.mortgagesService.findOne(householdId, id);
+  findOne(@CurrentUser() user: { businessId: string }, @Param('id') id: string) {
+    return this.mortgagesService.findOne(user.businessId, id);
   }
 
   @Put(':id')
   update(
-    @HouseholdId() householdId: string,
+    @CurrentUser() user: { businessId: string },
     @Param('id') id: string,
     @Body() dto: UpdateMortgageDto,
   ) {
-    return this.mortgagesService.update(householdId, id, dto);
+    return this.mortgagesService.update(user.businessId, id, dto);
   }
 
   @Delete(':id')
-  remove(@HouseholdId() householdId: string, @Param('id') id: string) {
-    return this.mortgagesService.remove(householdId, id);
+  remove(@CurrentUser() user: { businessId: string }, @Param('id') id: string) {
+    return this.mortgagesService.remove(user.businessId, id);
   }
 
   @Post(':id/tracks')
   addTrack(
-    @HouseholdId() householdId: string,
+    @CurrentUser() user: { businessId: string },
     @Param('id') id: string,
     @Body() dto: CreateMortgageTrackDto,
   ) {
-    return this.mortgagesService.addTrack(householdId, id, dto);
+    return this.mortgagesService.addTrack(user.businessId, id, dto);
   }
 
   @Put(':id/tracks/:trackId')
   updateTrack(
-    @HouseholdId() householdId: string,
+    @CurrentUser() user: { businessId: string },
     @Param('id') id: string,
     @Param('trackId') trackId: string,
     @Body() dto: CreateMortgageTrackDto,
   ) {
-    return this.mortgagesService.updateTrack(householdId, id, trackId, dto);
+    return this.mortgagesService.updateTrack(user.businessId, id, trackId, dto);
   }
 
   @Delete(':id/tracks/:trackId')
   removeTrack(
-    @HouseholdId() householdId: string,
+    @CurrentUser() user: { businessId: string },
     @Param('id') id: string,
     @Param('trackId') trackId: string,
   ) {
-    return this.mortgagesService.removeTrack(householdId, id, trackId);
+    return this.mortgagesService.removeTrack(user.businessId, id, trackId);
   }
 }

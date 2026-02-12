@@ -673,11 +673,11 @@ export class VoiceParserService {
    *  Public API
    * ──────────────────────────────────────────── */
   async parseVoiceText(
-    householdId: string,
+    businessId: string,
     text: string,
   ): Promise<ParsedVoiceInput | null> {
     const cats = await this.prisma.category.findMany({
-      where: { householdId },
+      where: { businessId },
       select: { slug: true, name: true, isIncome: true },
     });
 

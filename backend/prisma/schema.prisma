@@ -1,4 +1,4 @@
-// Our Money - Database Schema
+// Freelancer Finance Manager - Database Schema
 // PostgreSQL
 
 generator client {
@@ -11,104 +11,287 @@ datasource db {
 }
 
 // --------------------------------------------
-// Household (shared by two users)
+// Business (freelancer's business entity)
 // --------------------------------------------
-model Household {
-  id        String   @id @default(uuid())
-  name      String   @default("Our Household")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model Business {
+  id            String   @id @default(uuid())
+  name          String   @default("העסק שלי")
+  businessNumber String? @map("business_number") // ח.פ. / עוסק מורשה
+  vatId         String?  @map("vat_id") // for VAT reporting
+  address       String?
+  phone         String?
+  email         String?  // business email (for invoices)
+  logoData      String?  @map("logo_data") @db.Text // base64 logo for invoices
+  logoMime      String?  @map("logo_mime")
+  defaultCurrency String @default("ILS") @map("default_currency")
+  vatRate       Decimal  @default(17) @map("vat_rate") @db.Decimal(5, 2) // default VAT rate %
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  users       User[]
-  accounts    Account[]
-  categories  Category[]
-  transactions Transaction[]
-  documents   Document[]
-  rules       CategoryRule[]
-  loans       Loan[]
-  mortgages   Mortgage[]
-  savings     Saving[]
+  users              User[]
+  accounts           Account[]
+  categories         Category[]
+  transactions       Transaction[]
+  documents          Document[]
+  rules              CategoryRule[]
+  loans              Loan[]
+  savings            Saving[]
   goals              Goal[]
   stockPortfolios    StockPortfolio[]
   forexAccounts      ForexAccount[]
   forexTransfers     ForexTransfer[]
   budgets            Budget[]
   recurringPatterns  RecurringPattern[]
+  clients            Client[]
+  projects           Project[]
+  invoices           Invoice[]
+  taxPeriods         TaxPeriod[]
+  mortgages          Mortgage[]
 }
 
 // --------------------------------------------
-// Users (two users per household)
+// Users (freelancer + optional team members)
 // --------------------------------------------
 model User {
   id               String   @id @default(uuid())
   email            String   @unique
   passwordHash     String   @map("password_hash")
   name             String?
-  countryCode      String?  @map("country_code") // ISO 3166-1 alpha-2 (e.g. IL, US)
-  phone            String?  // phone number for SMS 2FA
-  avatarPath       String?  @map("avatar_path")  // path to uploaded avatar image (legacy)
-  avatarData       String?  @map("avatar_data") @db.Text  // base64-encoded avatar image
-  avatarMime       String?  @map("avatar_mime")  // MIME type e.g. image/png
-  twoFactorSecret  String?  @map("two_factor_secret") // TOTP secret
+  countryCode      String?  @map("country_code")
+  phone            String?
+  avatarData       String?  @map("avatar_data") @db.Text
+  avatarMime       String?  @map("avatar_mime")
+  twoFactorSecret  String?  @map("two_factor_secret")
   twoFactorEnabled Boolean  @default(false) @map("two_factor_enabled")
   twoFactorMethod  String?  @map("two_factor_method") // 'totp', 'email', 'sms'
-  dashboardConfig  Json?    @map("dashboard_config") // widget layout, colors, order
+  dashboardConfig  Json?    @map("dashboard_config")
 
-  // Email verification
   emailVerified    Boolean  @default(false) @map("email_verified")
   emailVerifyToken String?  @map("email_verify_token")
   emailVerifyExp   DateTime? @map("email_verify_exp")
 
-  // Notification preferences
   notifyLogin           Boolean @default(false) @map("notify_login")
   notifyLargeTransaction Boolean @default(false) @map("notify_large_tx")
   notifyBudgetExceeded  Boolean @default(true) @map("notify_budget_exceeded")
   notifyGoalDeadline    Boolean @default(true) @map("notify_goal_deadline")
   notifyWeeklyReport    Boolean @default(false) @map("notify_weekly_report")
   notifyMonthlyReport   Boolean @default(false) @map("notify_monthly_report")
+  notifyInvoiceOverdue  Boolean @default(true) @map("notify_invoice_overdue")
   largeTransactionThreshold Decimal? @map("large_tx_threshold") @db.Decimal(14, 2)
 
-  // Onboarding
   onboardingCompleted Boolean @default(false) @map("onboarding_completed")
-
-  // Admin
   isAdmin          Boolean  @default(false) @map("is_admin")
 
-  householdId      String   @map("household_id")
+  businessId       String   @map("business_id")
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
-  @@index([householdId])
+  @@index([businessId])
 }
 
 // --------------------------------------------
-// Accounts (bank, credit card, insurance, investment)
+// Clients (freelancer's clients)
+// --------------------------------------------
+model Client {
+  id             String   @id @default(uuid())
+  businessId     String   @map("business_id")
+  name           String
+  contactName    String?  @map("contact_name")
+  email          String?
+  phone          String?
+  address        String?
+  taxId          String?  @map("tax_id") // client's business number
+  notes          String?  @db.Text
+  hourlyRate     Decimal? @map("hourly_rate") @db.Decimal(14, 2) // default hourly rate
+  currency       String   @default("ILS")
+  color          String?  // hex color for UI
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  projects     Project[]
+  invoices     Invoice[]
+  transactions Transaction[]
+
+  @@index([businessId])
+}
+
+// --------------------------------------------
+// Projects (per client)
+// --------------------------------------------
+model Project {
+  id           String   @id @default(uuid())
+  businessId   String   @map("business_id")
+  clientId     String?  @map("client_id")
+  name         String
+  description  String?  @db.Text
+  status       ProjectStatus @default(ACTIVE)
+  budgetAmount Decimal? @map("budget_amount") @db.Decimal(14, 2)
+  hourlyRate   Decimal? @map("hourly_rate") @db.Decimal(14, 2) // override client rate
+  currency     String   @default("ILS")
+  startDate    DateTime? @map("start_date") @db.Date
+  endDate      DateTime? @map("end_date") @db.Date
+  color        String?  // hex color for UI
+  notes        String?  @db.Text
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  client       Client?       @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  invoices     Invoice[]
+  transactions Transaction[]
+
+  @@index([businessId])
+  @@index([clientId])
+}
+
+enum ProjectStatus {
+  ACTIVE
+  COMPLETED
+  ON_HOLD
+  CANCELLED
+}
+
+// --------------------------------------------
+// Invoices (generated for clients)
+// --------------------------------------------
+model Invoice {
+  id              String   @id @default(uuid())
+  businessId      String   @map("business_id")
+  clientId        String?  @map("client_id")
+  projectId       String?  @map("project_id")
+  invoiceNumber   String   @map("invoice_number") // auto-generated sequential
+  type            InvoiceType @default(TAX_INVOICE)
+  status          InvoiceStatus @default(DRAFT)
+  issueDate       DateTime @map("issue_date") @db.Date
+  dueDate         DateTime? @map("due_date") @db.Date
+  subtotal        Decimal  @db.Decimal(14, 2) // before VAT
+  vatRate         Decimal  @map("vat_rate") @db.Decimal(5, 2)
+  vatAmount       Decimal  @map("vat_amount") @db.Decimal(14, 2)
+  total           Decimal  @db.Decimal(14, 2) // after VAT
+  currency        String   @default("ILS")
+  notes           String?  @db.Text
+  paymentTerms    String?  @map("payment_terms")
+  paidDate        DateTime? @map("paid_date") @db.Date
+  paidAmount      Decimal? @map("paid_amount") @db.Decimal(14, 2)
+  language        String   @default("he") // invoice language
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  business Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  client   Client?        @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  project  Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  items    InvoiceItem[]
+
+  @@unique([businessId, invoiceNumber])
+  @@index([businessId])
+  @@index([clientId])
+  @@index([status])
+}
+
+model InvoiceItem {
+  id          String  @id @default(uuid())
+  invoiceId   String  @map("invoice_id")
+  description String
+  quantity    Decimal @db.Decimal(14, 2)
+  unitPrice   Decimal @map("unit_price") @db.Decimal(14, 2)
+  amount      Decimal @db.Decimal(14, 2) // quantity * unitPrice
+  sortOrder   Int     @default(0) @map("sort_order")
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
+
+enum InvoiceType {
+  TAX_INVOICE       // חשבונית מס
+  TAX_INVOICE_RECEIPT // חשבונית מס קבלה
+  RECEIPT           // קבלה
+  PRICE_QUOTE       // הצעת מחיר
+  DELIVERY_NOTE     // תעודת משלוח
+  CREDIT_NOTE       // חשבונית זיכוי
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  VIEWED
+  PAID
+  PARTIALLY_PAID
+  OVERDUE
+  CANCELLED
+}
+
+// --------------------------------------------
+// Tax Periods (VAT & income tax tracking)
+// --------------------------------------------
+model TaxPeriod {
+  id           String   @id @default(uuid())
+  businessId   String   @map("business_id")
+  type         TaxType
+  periodStart  DateTime @map("period_start") @db.Date
+  periodEnd    DateTime @map("period_end") @db.Date
+  revenue      Decimal  @default(0) @db.Decimal(14, 2) // total revenue in period
+  expenses     Decimal  @default(0) @db.Decimal(14, 2) // total deductible expenses
+  vatCollected Decimal  @default(0) @map("vat_collected") @db.Decimal(14, 2) // VAT on invoices
+  vatPaid      Decimal  @default(0) @map("vat_paid") @db.Decimal(14, 2) // VAT on expenses
+  vatDue       Decimal  @default(0) @map("vat_due") @db.Decimal(14, 2) // net VAT to pay
+  taxAdvance   Decimal  @default(0) @map("tax_advance") @db.Decimal(14, 2) // income tax advance
+  status       TaxPeriodStatus @default(OPEN)
+  filedDate    DateTime? @map("filed_date") @db.Date
+  notes        String?  @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+  @@index([periodStart, periodEnd])
+}
+
+enum TaxType {
+  VAT         // דוח מע"מ
+  INCOME_TAX  // מקדמות מס הכנסה
+  ANNUAL      // דוח שנתי
+}
+
+enum TaxPeriodStatus {
+  OPEN
+  CALCULATED
+  FILED
+  PAID
+}
+
+// --------------------------------------------
+// Accounts (bank, credit card, cash, etc.)
 // --------------------------------------------
 model Account {
   id                  String   @id @default(uuid())
-  householdId         String   @map("household_id")
+  businessId          String   @map("business_id")
   name                String
   type                AccountType
-  provider            String?  // e.g. "bank-xyz", "visa", "pension-fund"
-  externalId          String?  @unique @map("external_id") // from open banking / API
+  provider            String?
+  externalId          String?  @unique @map("external_id")
   balance             Decimal  @default(0) @db.Decimal(14, 2)
-  balanceDate         DateTime? @map("balance_date") @db.Date  // date when the initial balance was recorded
+  balanceDate         DateTime? @map("balance_date") @db.Date
   currency            String   @default("ILS")
   isActive            Boolean  @default(true) @map("is_active")
-  syncToken           String?  @map("sync_token") // for incremental sync
-  linkedBankAccountId String?  @map("linked_bank_account_id") // for credit cards: which bank account charges go to
-  metadata            Json?    // provider-specific (encrypted credentials ref, etc.)
+  syncToken           String?  @map("sync_token")
+  linkedBankAccountId String?  @map("linked_bank_account_id")
+  metadata            Json?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
-  household         Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  business          Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
   transactions      Transaction[]
   linkedBankAccount Account?      @relation("CreditCardToBank", fields: [linkedBankAccountId], references: [id])
   linkedCreditCards Account[]     @relation("CreditCardToBank")
 
-  @@index([householdId])
+  @@index([businessId])
   @@index([type])
 }
 
@@ -122,32 +305,34 @@ enum AccountType {
 }
 
 // --------------------------------------------
-// Categories (default + custom per household)
+// Categories (default + custom per business)
 // --------------------------------------------
 model Category {
   id           String   @id @default(uuid())
-  householdId  String   @map("household_id")
+  businessId   String   @map("business_id")
   name         String
-  slug         String   // e.g. "groceries", "salary"
-  icon         String?  // emoji or icon name
-  color        String?  // hex
+  slug         String
+  icon         String?
+  color        String?
   isDefault    Boolean  @default(false) @map("is_default")
   isIncome     Boolean  @default(false) @map("is_income")
-  excludeFromExpenseTotal Boolean @default(false) @map("exclude_from_expense_total") // e.g. credit card charges – avoid double-count when also uploading card statements
+  isTaxDeductible Boolean @default(true) @map("is_tax_deductible") // can be deducted for tax
+  deductionRate Decimal? @map("deduction_rate") @db.Decimal(5, 2) // % deductible (e.g. 75% for car)
+  excludeFromExpenseTotal Boolean @default(false) @map("exclude_from_expense_total")
   parentId     String?  @map("parent_id")
   sortOrder    Int      @default(0) @map("sort_order")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  household    Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  parent       Category?    @relation("CategoryHierarchy", fields: [parentId], references: [id])
-  children     Category[]   @relation("CategoryHierarchy")
+  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  parent       Category?     @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children     Category[]    @relation("CategoryHierarchy")
   transactions Transaction[]
   rules        CategoryRule[]
   budgets      Budget[]
 
-  @@unique([householdId, slug])
-  @@index([householdId])
+  @@unique([businessId, slug])
+  @@index([businessId])
 }
 
 // --------------------------------------------
@@ -155,33 +340,42 @@ model Category {
 // --------------------------------------------
 model Transaction {
   id                 String    @id @default(uuid())
-  householdId        String    @map("household_id")
-  accountId         String    @map("account_id")
-  categoryId        String?   @map("category_id")
-  date              DateTime  @db.Date
-  description       String
-  amount            Decimal   @db.Decimal(14, 2) // positive = income, negative = expense (for installments = payment made)
-  currency          String    @default("ILS")
-  source            TransactionSource
-  externalId        String?   @unique @map("external_id") // from API sync
-  documentId        String?   @map("document_id") // if extracted from upload
-  rawText           String?   @map("raw_text") // original line from statement/OCR
-  totalAmount       Decimal?  @map("total_amount") @db.Decimal(14, 2) // for installments: full price (e.g. 1950)
-  installmentCurrent Int?     @map("installment_current") // e.g. 2 (payment 2 of 3)
-  installmentTotal   Int?     @map("installment_total") // e.g. 3
-  isRecurring        Boolean  @default(false) @map("is_recurring") // fixed expense or fixed income
-  metadata          Json?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  businessId         String    @map("business_id")
+  accountId          String    @map("account_id")
+  categoryId         String?   @map("category_id")
+  clientId           String?   @map("client_id")
+  projectId          String?   @map("project_id")
+  date               DateTime  @db.Date
+  description        String
+  amount             Decimal   @db.Decimal(14, 2)
+  currency           String    @default("ILS")
+  vatAmount          Decimal?  @map("vat_amount") @db.Decimal(14, 2) // VAT component
+  isVatIncluded      Boolean   @default(true) @map("is_vat_included") // amount includes VAT
+  source             TransactionSource
+  externalId         String?   @unique @map("external_id")
+  documentId         String?   @map("document_id")
+  rawText            String?   @map("raw_text")
+  totalAmount        Decimal?  @map("total_amount") @db.Decimal(14, 2)
+  installmentCurrent Int?      @map("installment_current")
+  installmentTotal   Int?      @map("installment_total")
+  isRecurring        Boolean   @default(false) @map("is_recurring")
+  isTaxDeductible    Boolean   @default(true) @map("is_tax_deductible")
+  metadata           Json?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
-  household  Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  business   Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
   account    Account   @relation(fields: [accountId], references: [id], onDelete: Restrict)
   category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  client     Client?   @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  project    Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
   document   Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
 
-  @@index([householdId, date])
+  @@index([businessId, date])
   @@index([accountId])
   @@index([categoryId])
+  @@index([clientId])
+  @@index([projectId])
   @@index([source])
 }
 
@@ -189,6 +383,7 @@ enum TransactionSource {
   MANUAL
   UPLOAD
   API
+  INVOICE // auto-created from invoice
 }
 
 // --------------------------------------------
@@ -196,22 +391,22 @@ enum TransactionSource {
 // --------------------------------------------
 model Document {
   id           String   @id @default(uuid())
-  householdId  String   @map("household_id")
+  businessId   String   @map("business_id")
   fileName     String   @map("file_name")
   mimeType     String   @map("mime_type")
-  storagePath  String   @map("storage_path") // S3 key or local path
+  storagePath  String   @map("storage_path")
   fileSize     Int      @map("file_size")
   status       DocumentStatus @default(PENDING)
   ocrText      String?  @map("ocr_text") @db.Text
-  extractedJson Json?   @map("extracted_json") // AI-extracted transactions
+  extractedJson Json?   @map("extracted_json")
   errorMessage String?  @map("error_message")
   uploadedAt   DateTime @default(now()) @map("uploaded_at")
   processedAt  DateTime? @map("processed_at")
 
-  household    Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
   transactions Transaction[]
 
-  @@index([householdId])
+  @@index([businessId])
   @@index([status])
 }
 
@@ -220,41 +415,41 @@ enum DocumentStatus {
   PROCESSING
   COMPLETED
   FAILED
-  PENDING_REVIEW  // duplicates found – waiting for user to confirm which to import
+  PENDING_REVIEW
 }
 
 // --------------------------------------------
-// Rules for auto-categorization (learn from user)
+// Rules for auto-categorization
 // --------------------------------------------
 model CategoryRule {
   id          String   @id @default(uuid())
-  householdId String   @map("household_id")
+  businessId  String   @map("business_id")
   categoryId  String   @map("category_id")
-  pattern     String   // regex or keyword (e.g. "SUPER*", "AMAZON")
-  patternType String   @default("contains") @map("pattern_type") // contains, startsWith, regex
-  priority    Int      @default(0) // higher = applied first
+  pattern     String
+  patternType String   @default("contains") @map("pattern_type")
+  priority    Int      @default(0)
   isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  category  Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
-  @@index([householdId])
+  @@index([businessId])
   @@index([categoryId])
 }
 
 // --------------------------------------------
-// Loans (mortgage, personal loans, etc.)
+// Loans
 // --------------------------------------------
 model Loan {
   id              String    @id @default(uuid())
-  householdId     String    @map("household_id")
-  name            String    // e.g. "Mortgage", "Car loan"
-  lender          String?   // e.g. "Bank Hapoalim"
+  businessId      String    @map("business_id")
+  name            String
+  lender          String?
   originalAmount  Decimal   @map("original_amount") @db.Decimal(14, 2)
   remainingAmount Decimal   @map("remaining_amount") @db.Decimal(14, 2)
-  interestRate    Decimal?  @map("interest_rate") @db.Decimal(5, 2) // annual %
+  interestRate    Decimal?  @map("interest_rate") @db.Decimal(5, 2)
   monthlyPayment  Decimal?  @map("monthly_payment") @db.Decimal(14, 2)
   startDate       DateTime? @map("start_date") @db.Date
   endDate         DateTime? @map("end_date") @db.Date
@@ -264,57 +459,59 @@ model Loan {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
-  @@index([householdId])
+  @@index([businessId])
 }
 
 // --------------------------------------------
-// Mortgages (with multiple tracks/routes)
+// Savings goals
 // --------------------------------------------
-model Mortgage {
+model Saving {
+  id            String    @id @default(uuid())
+  businessId    String    @map("business_id")
+  name          String
+  targetAmount  Decimal?  @map("target_amount") @db.Decimal(14, 2)
+  currentAmount Decimal   @default(0) @map("current_amount") @db.Decimal(14, 2)
+  interestRate  Decimal?  @map("interest_rate") @db.Decimal(5, 2)
+  startDate     DateTime? @map("start_date") @db.Date
+  targetDate    DateTime? @map("target_date") @db.Date
+  currency      String    @default("ILS")
+  notes         String?
+  isActive      Boolean   @default(true) @map("is_active")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+}
+
+// --------------------------------------------
+// Goals (financial goals with AI recommendations)
+// --------------------------------------------
+model Goal {
   id              String    @id @default(uuid())
-  householdId     String    @map("household_id")
-  name            String    // e.g. "דירה ברחובות"
-  bank            String?   // e.g. "בנק הפועלים", "בנק לאומי"
-  propertyValue   Decimal?  @map("property_value") @db.Decimal(14, 2)
-  totalAmount     Decimal   @map("total_amount") @db.Decimal(14, 2) // total mortgage amount
-  remainingAmount Decimal?  @map("remaining_amount") @db.Decimal(14, 2)
-  totalMonthly    Decimal?  @map("total_monthly") @db.Decimal(14, 2) // total monthly payment across all tracks
-  startDate       DateTime? @map("start_date") @db.Date
-  endDate         DateTime? @map("end_date") @db.Date
+  businessId      String    @map("business_id")
+  name            String
+  targetAmount    Decimal   @map("target_amount") @db.Decimal(14, 2)
+  currentAmount   Decimal   @default(0) @map("current_amount") @db.Decimal(14, 2)
+  targetDate      DateTime? @map("target_date") @db.Date
+  icon            String?
+  color           String?
+  priority        Int       @default(0)
+  monthlyTarget   Decimal?  @map("monthly_target") @db.Decimal(14, 2)
+  aiTips          String?   @map("ai_tips") @db.Text
+  aiTipsUpdatedAt DateTime? @map("ai_tips_updated_at")
   currency        String    @default("ILS")
   notes           String?
   isActive        Boolean   @default(true) @map("is_active")
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  household Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  tracks    MortgageTrack[]
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
-  @@index([householdId])
-}
-
-model MortgageTrack {
-  id              String    @id @default(uuid())
-  mortgageId      String    @map("mortgage_id")
-  name            String?   // e.g. "מסלול 1", "מסלול פריים"
-  trackType       String    @map("track_type") // PRIME, FIXED, VARIABLE, CPI_FIXED, CPI_VARIABLE
-  indexType       String?   @map("index_type") // CPI, NONE, DOLLAR, EURO (what the track is linked to)
-  amount          Decimal   @db.Decimal(14, 2)  // track amount
-  interestRate    Decimal   @map("interest_rate") @db.Decimal(5, 2) // annual %
-  monthlyPayment  Decimal?  @map("monthly_payment") @db.Decimal(14, 2)
-  totalPayments   Int?      @map("total_payments") // total number of payments (months)
-  remainingPayments Int?    @map("remaining_payments") // remaining payments
-  startDate       DateTime? @map("start_date") @db.Date
-  endDate         DateTime? @map("end_date") @db.Date
-  notes           String?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-
-  mortgage Mortgage @relation(fields: [mortgageId], references: [id], onDelete: Cascade)
-
-  @@index([mortgageId])
+  @@index([businessId])
 }
 
 // --------------------------------------------
@@ -322,9 +519,9 @@ model MortgageTrack {
 // --------------------------------------------
 model StockPortfolio {
   id          String   @id @default(uuid())
-  householdId String   @map("household_id")
-  name        String   // e.g. "תיק IBI", "Interactive Brokers"
-  broker      String?  // e.g. "IBI", "Interactive Brokers", "Alpaca"
+  businessId  String   @map("business_id")
+  name        String
+  broker      String?
   accountNum  String?  @map("account_num")
   currency    String   @default("ILS")
   notes       String?
@@ -332,24 +529,24 @@ model StockPortfolio {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  household Household      @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  holdings  StockHolding[]
+  business Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  holdings StockHolding[]
 
-  @@index([householdId])
+  @@index([businessId])
 }
 
 model StockHolding {
   id            String    @id @default(uuid())
   portfolioId   String    @map("portfolio_id")
-  ticker        String    // e.g. "AAPL", "TEVA.TA"
-  name          String    // e.g. "Apple Inc.", "Teva Pharmaceutical"
-  exchange      String?   // e.g. "NASDAQ", "NYSE", "TASE"
-  sector        String?   // e.g. "Technology", "Healthcare"
-  shares        Decimal   @db.Decimal(14, 4) // number of shares (supports fractional)
-  avgBuyPrice   Decimal   @map("avg_buy_price") @db.Decimal(14, 4) // average price per share
+  ticker        String
+  name          String
+  exchange      String?
+  sector        String?
+  shares        Decimal   @db.Decimal(14, 4)
+  avgBuyPrice   Decimal   @map("avg_buy_price") @db.Decimal(14, 4)
   currency      String    @default("USD")
   buyDate       DateTime? @map("buy_date") @db.Date
-  currentPrice  Decimal?  @map("current_price") @db.Decimal(14, 4) // cached from API
+  currentPrice  Decimal?  @map("current_price") @db.Decimal(14, 4)
   priceUpdatedAt DateTime? @map("price_updated_at")
   notes         String?
   isActive      Boolean   @default(true) @map("is_active")
@@ -363,85 +560,32 @@ model StockHolding {
 }
 
 // --------------------------------------------
-// Savings goals (emergency fund, vacation, etc.)
-// --------------------------------------------
-model Saving {
-  id            String    @id @default(uuid())
-  householdId   String    @map("household_id")
-  name          String    // e.g. "Emergency fund", "Vacation"
-  targetAmount  Decimal?  @map("target_amount") @db.Decimal(14, 2)
-  currentAmount Decimal   @default(0) @map("current_amount") @db.Decimal(14, 2)
-  interestRate  Decimal?  @map("interest_rate") @db.Decimal(5, 2)
-  startDate     DateTime? @map("start_date") @db.Date
-  targetDate    DateTime? @map("target_date") @db.Date
-  currency      String    @default("ILS")
-  notes         String?
-  isActive      Boolean   @default(true) @map("is_active")
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-
-  @@index([householdId])
-}
-
-// --------------------------------------------
-// Goals (financial goals with AI recommendations)
-// --------------------------------------------
-model Goal {
-  id              String    @id @default(uuid())
-  householdId     String    @map("household_id")
-  name            String    // e.g. "Vacation fund", "New car"
-  targetAmount    Decimal   @map("target_amount") @db.Decimal(14, 2)
-  currentAmount   Decimal   @default(0) @map("current_amount") @db.Decimal(14, 2)
-  targetDate      DateTime? @map("target_date") @db.Date
-  icon            String?   // emoji
-  color           String?   // hex accent color
-  priority        Int       @default(0) // higher = more important
-  monthlyTarget   Decimal?  @map("monthly_target") @db.Decimal(14, 2) // auto-calculated or user-set
-  aiTips          String?   @map("ai_tips") @db.Text // cached AI recommendations
-  aiTipsUpdatedAt DateTime? @map("ai_tips_updated_at")
-  currency        String    @default("ILS")
-  notes           String?
-  isActive        Boolean   @default(true) @map("is_active")
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-
-  @@index([householdId])
-}
-
-// --------------------------------------------
-// Forex Accounts (user's foreign currency accounts)
+// Forex
 // --------------------------------------------
 model ForexAccount {
   id          String   @id @default(uuid())
-  householdId String   @map("household_id")
-  name        String   // e.g. "USD Savings", "EUR Travel"
-  currency    String   // e.g. "USD", "EUR"
+  businessId  String   @map("business_id")
+  name        String
+  currency    String
   balance     Decimal  @default(0) @db.Decimal(14, 2)
-  provider    String?  // e.g. "Bank Hapoalim", "Interactive Brokers"
+  provider    String?
   accountNum  String?  @map("account_num")
   notes       String?
   isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  household  Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  business   Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
   transfers  ForexTransfer[]
 
-  @@index([householdId])
+  @@index([businessId])
 }
 
-// --------------------------------------------
-// Forex Transfers (buy/sell/transfer currency)
-// --------------------------------------------
 model ForexTransfer {
   id             String   @id @default(uuid())
-  householdId    String   @map("household_id")
+  businessId     String   @map("business_id")
   forexAccountId String?  @map("forex_account_id")
-  type           ForexTransferType // BUY, SELL, TRANSFER
+  type           ForexTransferType
   fromCurrency   String   @map("from_currency")
   toCurrency     String   @map("to_currency")
   fromAmount     Decimal  @map("from_amount") @db.Decimal(14, 2)
@@ -454,10 +598,10 @@ model ForexTransfer {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  household    Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  business     Business      @relation(fields: [businessId], references: [id], onDelete: Cascade)
   forexAccount ForexAccount? @relation(fields: [forexAccountId], references: [id], onDelete: SetNull)
 
-  @@index([householdId])
+  @@index([businessId])
   @@index([forexAccountId])
   @@index([date])
 }
@@ -473,19 +617,19 @@ enum ForexTransferType {
 // --------------------------------------------
 model Budget {
   id          String   @id @default(uuid())
-  householdId String   @map("household_id")
+  businessId  String   @map("business_id")
   categoryId  String   @map("category_id")
-  amount      Decimal  @db.Decimal(14, 2) // monthly budget limit
+  amount      Decimal  @db.Decimal(14, 2)
   currency    String   @default("ILS")
   isActive    Boolean  @default(true) @map("is_active")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  category  Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
-  @@unique([householdId, categoryId])
-  @@index([householdId])
+  @@unique([businessId, categoryId])
+  @@index([businessId])
 }
 
 // --------------------------------------------
@@ -493,21 +637,69 @@ model Budget {
 // --------------------------------------------
 model RecurringPattern {
   id            String   @id @default(uuid())
-  householdId   String   @map("household_id")
-  description   String   // matched description pattern
-  amount        Decimal  @db.Decimal(14, 2) // typical amount
+  businessId    String   @map("business_id")
+  description   String
+  amount        Decimal  @db.Decimal(14, 2)
   type          String   // 'income' or 'expense'
-  frequency     String   @default("monthly") // monthly, weekly, etc.
+  frequency     String   @default("monthly")
   categoryId    String?  @map("category_id")
   accountId     String?  @map("account_id")
   lastSeenDate  DateTime @map("last_seen_date") @db.Date
-  occurrences   Int      @default(1) // how many times detected
-  isConfirmed   Boolean  @default(false) @map("is_confirmed") // user confirmed
-  isDismissed   Boolean  @default(false) @map("is_dismissed") // user dismissed
+  occurrences   Int      @default(1)
+  isConfirmed   Boolean  @default(false) @map("is_confirmed")
+  isDismissed   Boolean  @default(false) @map("is_dismissed")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
-  @@index([householdId])
+  @@index([businessId])
+}
+
+// --------------------------------------------
+// Mortgages
+// --------------------------------------------
+model Mortgage {
+  id              String    @id @default(uuid())
+  businessId      String    @map("business_id")
+  name            String
+  bank            String?
+  propertyValue   Decimal?  @map("property_value") @db.Decimal(14, 2)
+  totalAmount     Decimal   @map("total_amount") @db.Decimal(14, 2)
+  remainingAmount Decimal?  @map("remaining_amount") @db.Decimal(14, 2)
+  totalMonthly    Decimal?  @map("total_monthly") @db.Decimal(14, 2)
+  startDate       DateTime? @map("start_date") @db.Date
+  endDate         DateTime? @map("end_date") @db.Date
+  currency        String    @default("ILS")
+  notes           String?   @db.Text
+  isActive        Boolean   @default(true) @map("is_active")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  business Business        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  tracks   MortgageTrack[]
+
+  @@index([businessId])
+}
+
+model MortgageTrack {
+  id                String    @id @default(uuid())
+  mortgageId        String    @map("mortgage_id")
+  name              String?
+  trackType         String    @map("track_type")
+  indexType          String?   @map("index_type")
+  amount            Decimal   @db.Decimal(14, 2)
+  interestRate      Decimal   @map("interest_rate") @db.Decimal(5, 2)
+  monthlyPayment    Decimal?  @map("monthly_payment") @db.Decimal(14, 2)
+  totalPayments     Int?      @map("total_payments")
+  remainingPayments Int?      @map("remaining_payments")
+  startDate         DateTime? @map("start_date") @db.Date
+  endDate           DateTime? @map("end_date") @db.Date
+  notes             String?   @db.Text
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  mortgage Mortgage @relation(fields: [mortgageId], references: [id], onDelete: Cascade)
+
+  @@index([mortgageId])
 }

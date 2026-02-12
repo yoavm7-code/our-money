@@ -1,7 +1,14 @@
-import { IsEmail, IsOptional, IsString, MinLength, MaxLength, Matches } from 'class-validator';
+import {
+  IsEmail,
+  IsOptional,
+  IsString,
+  MinLength,
+  MaxLength,
+  Matches,
+} from 'class-validator';
 
 export class RegisterDto {
-  @IsEmail()
+  @IsEmail({}, { message: 'Please provide a valid email address' })
   email: string;
 
   @IsString()
@@ -10,7 +17,13 @@ export class RegisterDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(100)
   name?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  businessName?: string;
 
   @IsOptional()
   @IsString()
@@ -20,9 +33,9 @@ export class RegisterDto {
 
   @IsOptional()
   @IsString()
-  captchaToken?: string;
+  phone?: string;
 
   @IsOptional()
   @IsString()
-  phone?: string;
+  captchaToken?: string;
 }
