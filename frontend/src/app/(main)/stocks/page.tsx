@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { stocks, type StockPortfolioItem, type StockHoldingItem, type StockProviderInfo } from '@/lib/api';
+import { stocks, type StockPortfolioItem, type StockHoldingItem, type StockProviderInfo, type StockQuote } from '@/lib/api';
 import { useTranslation } from '@/i18n/context';
 
 /* ───── helpers ───── */
@@ -37,6 +37,17 @@ function gainColor(gain: number) {
   return '';
 }
 
+const POPULAR_TICKERS = [
+  { symbol: 'AAPL', name: 'Apple' },
+  { symbol: 'MSFT', name: 'Microsoft' },
+  { symbol: 'GOOGL', name: 'Alphabet' },
+  { symbol: 'AMZN', name: 'Amazon' },
+  { symbol: 'TSLA', name: 'Tesla' },
+  { symbol: 'NVDA', name: 'NVIDIA' },
+  { symbol: 'META', name: 'Meta' },
+  { symbol: 'TEVA', name: 'Teva Pharma' },
+];
+
 /* ───── page component ───── */
 
 export default function StocksPage() {
@@ -48,6 +59,15 @@ export default function StocksPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [refreshingId, setRefreshingId] = useState<string | null>(null);
+
+  /* ── stock explorer ── */
+  const [exploreQuery, setExploreQuery] = useState('');
+  const [exploreResults, setExploreResults] = useState<Array<{ symbol: string; description: string; type: string }>>([]);
+  const [exploreSearching, setExploreSearching] = useState(false);
+  const exploreTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [selectedStock, setSelectedStock] = useState<{ symbol: string; name: string } | null>(null);
+  const [selectedQuote, setSelectedQuote] = useState<StockQuote | null>(null);
+  const [loadingQuote, setLoadingQuote] = useState(false);
 
   /* ── portfolio modal ── */
   const [showPortfolioModal, setShowPortfolioModal] = useState(false);
@@ -63,11 +83,11 @@ export default function StocksPage() {
   const [holdingPortfolioId, setHoldingPortfolioId] = useState<string>('');
   const [holdingForm, setHoldingForm] = useState({
     ticker: '', name: '', exchange: '', sector: '',
-    shares: '', avgBuyPrice: '', currency: 'ILS', buyDate: '', notes: '',
+    shares: '', avgBuyPrice: '', currency: 'USD', buyDate: '', notes: '',
   });
   const [savingHolding, setSavingHolding] = useState(false);
 
-  /* ── ticker search ── */
+  /* ── ticker search (inside holding modal) ── */
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Array<{ symbol: string; description: string; type: string }>>([]);
   const [searching, setSearching] = useState(false);
@@ -93,6 +113,82 @@ export default function StocksPage() {
   }, [t]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  /* ───── stock explorer search ───── */
+
+  const handleExploreSearch = (q: string) => {
+    setExploreQuery(q);
+    if (exploreTimeout.current) clearTimeout(exploreTimeout.current);
+    if (q.length < 1) {
+      setExploreResults([]);
+      return;
+    }
+    exploreTimeout.current = setTimeout(async () => {
+      setExploreSearching(true);
+      try {
+        const results = await stocks.search(q);
+        setExploreResults(results);
+      } catch {
+        setExploreResults([]);
+      } finally {
+        setExploreSearching(false);
+      }
+    }, 400);
+  };
+
+  const handleSelectStock = async (symbol: string, name: string) => {
+    setSelectedStock({ symbol, name });
+    setExploreQuery('');
+    setExploreResults([]);
+    setLoadingQuote(true);
+    setSelectedQuote(null);
+    try {
+      const quote = await stocks.quote(symbol);
+      setSelectedQuote(quote);
+    } catch {
+      setSelectedQuote(null);
+    } finally {
+      setLoadingQuote(false);
+    }
+  };
+
+  const handleTrackStock = async () => {
+    if (!selectedStock) return;
+    let targetPortfolioId = portfolios[0]?.id;
+
+    // Auto-create default portfolio if none exists
+    if (!targetPortfolioId) {
+      try {
+        const newPortfolio = await stocks.portfolios.create({
+          name: t('stocks.defaultPortfolioName'),
+          currency: 'USD',
+        });
+        targetPortfolioId = newPortfolio.id;
+        setPortfolios([newPortfolio]);
+      } catch {
+        setError(t('common.somethingWentWrong'));
+        return;
+      }
+    }
+
+    // Open holding modal pre-filled
+    setEditingHolding(null);
+    setHoldingPortfolioId(targetPortfolioId);
+    setHoldingForm({
+      ticker: selectedStock.symbol,
+      name: selectedStock.name,
+      exchange: '',
+      sector: '',
+      shares: '',
+      avgBuyPrice: selectedQuote?.price ? String(selectedQuote.price) : '',
+      currency: 'USD',
+      buyDate: new Date().toISOString().slice(0, 10),
+      notes: '',
+    });
+    setSearchQuery('');
+    setSearchResults([]);
+    setShowHoldingModal(true);
+  };
 
   /* ───── refresh prices ───── */
 
@@ -170,7 +266,7 @@ export default function StocksPage() {
   const openAddHolding = (portfolioId: string) => {
     setEditingHolding(null);
     setHoldingPortfolioId(portfolioId);
-    setHoldingForm({ ticker: '', name: '', exchange: '', sector: '', shares: '', avgBuyPrice: '', currency: 'ILS', buyDate: '', notes: '' });
+    setHoldingForm({ ticker: '', name: '', exchange: '', sector: '', shares: '', avgBuyPrice: '', currency: 'USD', buyDate: '', notes: '' });
     setSearchQuery('');
     setSearchResults([]);
     setShowHoldingModal(true);
@@ -216,6 +312,8 @@ export default function StocksPage() {
         await stocks.holdings.add(holdingPortfolioId, body);
       }
       setShowHoldingModal(false);
+      setSelectedStock(null);
+      setSelectedQuote(null);
       fetchData();
     } catch {
       setError(t('common.somethingWentWrong'));
@@ -240,7 +338,7 @@ export default function StocksPage() {
     }
   };
 
-  /* ───── ticker search ───── */
+  /* ───── ticker search (inside holding modal) ───── */
 
   const handleSearch = (q: string) => {
     setSearchQuery(q);
@@ -285,6 +383,8 @@ export default function StocksPage() {
   const totalGainLoss = totalPortfolioValue - totalCost;
   const totalGainLossPercent = totalCost > 0 ? (totalGainLoss / totalCost) * 100 : 0;
 
+  const hasApiKey = provider?.hasApiKey ?? false;
+
   /* ───── loading state ───── */
 
   if (loading) {
@@ -316,6 +416,133 @@ export default function StocksPage() {
           <button type="button" className="ms-2 underline" onClick={() => setError('')}>{t('common.close')}</button>
         </div>
       )}
+
+      {/* ── Stock Explorer ── */}
+      <div className="card bg-gradient-to-br from-primary-50/50 to-blue-50/50 dark:from-primary-900/10 dark:to-blue-900/10 border-primary-200 dark:border-primary-800">
+        <div className="flex items-center gap-2 mb-3">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary-500 shrink-0"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+          <h2 className="font-semibold">{t('stocks.exploreTitle')}</h2>
+        </div>
+        <p className="text-sm text-slate-500 mb-3">{t('stocks.exploreDesc')}</p>
+
+        {/* Search input */}
+        {hasApiKey ? (
+          <div className="relative">
+            <input
+              className="input text-base py-3 ps-10"
+              value={exploreQuery}
+              onChange={(e) => handleExploreSearch(e.target.value)}
+              placeholder={t('stocks.explorePlaceholder')}
+            />
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="absolute start-3 top-1/2 -translate-y-1/2 text-slate-400"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+            {exploreSearching && (
+              <div className="absolute end-3 top-1/2 -translate-y-1/2">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
+              </div>
+            )}
+
+            {/* Search results dropdown */}
+            {exploreResults.length > 0 && (
+              <div className="absolute z-20 mt-1 w-full bg-[var(--card)] border border-[var(--border)] rounded-xl shadow-lg max-h-64 overflow-y-auto">
+                {exploreResults.map((r) => (
+                  <button
+                    key={r.symbol}
+                    type="button"
+                    className="w-full text-start px-4 py-3 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-sm flex items-center justify-between border-b border-[var(--border)] last:border-0"
+                    onClick={() => handleSelectStock(r.symbol, r.description)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="font-bold text-primary-600 dark:text-primary-400 font-mono">{r.symbol}</span>
+                      <span className="text-slate-700 dark:text-slate-300">{r.description}</span>
+                    </div>
+                    <span className="text-xs text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">{r.type}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 p-3 text-sm text-amber-700 dark:text-amber-300">
+            {t('stocks.providerNoKey')}
+          </div>
+        )}
+
+        {/* Popular stocks chips */}
+        {hasApiKey && !selectedStock && (
+          <div className="flex flex-wrap gap-2 mt-3">
+            <span className="text-xs text-slate-400">{t('stocks.popularStocks')}:</span>
+            {POPULAR_TICKERS.map((s) => (
+              <button
+                key={s.symbol}
+                type="button"
+                onClick={() => handleSelectStock(s.symbol, s.name)}
+                className="text-xs px-2.5 py-1 rounded-full bg-white dark:bg-slate-800 border border-[var(--border)] hover:border-primary-300 hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors font-medium"
+              >
+                {s.symbol}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Selected stock preview card */}
+        {selectedStock && (
+          <div className="mt-4 p-4 rounded-xl bg-white dark:bg-slate-800/80 border border-[var(--border)] animate-fadeIn">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-lg font-bold font-mono text-primary-600 dark:text-primary-400">{selectedStock.symbol}</span>
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedStock(null); setSelectedQuote(null); }}
+                    className="p-0.5 rounded hover:bg-slate-100 dark:hover:bg-slate-700"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-slate-400"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                  </button>
+                </div>
+                <p className="text-sm text-slate-600 dark:text-slate-400">{selectedStock.name}</p>
+              </div>
+
+              {loadingQuote ? (
+                <div className="flex items-center gap-2 text-sm text-slate-400">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
+                  {t('stocks.loadingPrice')}
+                </div>
+              ) : selectedQuote ? (
+                <div className="text-end">
+                  <p className="text-2xl font-bold font-mono">${selectedQuote.price.toFixed(2)}</p>
+                  <p className={`text-sm font-medium ${gainColor(selectedQuote.change)}`}>
+                    {selectedQuote.change >= 0 ? '+' : ''}{selectedQuote.change.toFixed(2)} ({fmtPercent(selectedQuote.changePercent)})
+                  </p>
+                  <div className="flex gap-3 mt-1 text-xs text-slate-400">
+                    <span>{t('stocks.dayHigh')}: ${selectedQuote.high.toFixed(2)}</span>
+                    <span>{t('stocks.dayLow')}: ${selectedQuote.low.toFixed(2)}</span>
+                  </div>
+                </div>
+              ) : (
+                <span className="text-sm text-slate-400">{t('stocks.priceUnavailable')}</span>
+              )}
+            </div>
+
+            <div className="flex gap-2 mt-4">
+              <button
+                type="button"
+                onClick={handleTrackStock}
+                className="btn-primary text-sm flex-1"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="inline -mt-0.5 me-1"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                {t('stocks.trackStock')}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setSelectedStock(null); setSelectedQuote(null); }}
+                className="btn-secondary text-sm"
+              >
+                {t('common.close')}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* ── Provider banner ── */}
       {provider && (
@@ -363,19 +590,8 @@ export default function StocksPage() {
         </div>
       )}
 
-      {/* ── Empty state ── */}
-      {portfolios.length === 0 ? (
-        <div className="card text-center py-12">
-          <div className="text-5xl mb-4">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mx-auto text-slate-300 dark:text-slate-600"><path d="M3 3v18h18" /><path d="M7 16l4-8 4 5 5-9" /></svg>
-          </div>
-          <p className="text-slate-500 mb-4">{t('stocks.noPortfolios')}</p>
-          <button type="button" className="btn-primary" onClick={openAddPortfolio}>
-            {t('stocks.addPortfolio')}
-          </button>
-        </div>
-      ) : (
-        /* ── Portfolio cards ── */
+      {/* ── Portfolio cards ── */}
+      {portfolios.length > 0 && (
         <div className="space-y-6">
           {portfolios.map((portfolio) => {
             const activeHoldings = portfolio.holdings.filter((h) => h.isActive);
@@ -541,6 +757,18 @@ export default function StocksPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* ── Empty state (no portfolios at all) ── */}
+      {portfolios.length === 0 && (
+        <div className="card text-center py-10">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mx-auto text-slate-300 dark:text-slate-600 mb-4"><path d="M3 3v18h18" /><path d="M7 16l4-8 4 5 5-9" /></svg>
+          <p className="text-slate-500 mb-2">{t('stocks.noPortfolios')}</p>
+          <p className="text-sm text-slate-400 mb-4">{t('stocks.noPortfoliosHint')}</p>
+          <button type="button" className="btn-primary" onClick={openAddPortfolio}>
+            {t('stocks.addPortfolio')}
+          </button>
         </div>
       )}
 
@@ -776,6 +1004,22 @@ export default function StocksPage() {
                   />
                 </div>
               </div>
+
+              {/* Portfolio selector (when multiple portfolios exist) */}
+              {portfolios.length > 1 && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">{t('stocks.targetPortfolio')}</label>
+                  <select
+                    className="input"
+                    value={holdingPortfolioId}
+                    onChange={(e) => setHoldingPortfolioId(e.target.value)}
+                  >
+                    {portfolios.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* Notes */}
               <div>

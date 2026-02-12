@@ -123,8 +123,6 @@ export class StocksService {
     });
     if (!portfolio) return null;
 
-    const results: Array<{ holdingId: string; ticker: string; price: number | null }> = [];
-
     for (const holding of portfolio.holdings) {
       const quote = await this.stockPriceService.getQuote(holding.ticker);
       if (quote) {
@@ -135,12 +133,13 @@ export class StocksService {
             priceUpdatedAt: new Date(),
           },
         });
-        results.push({ holdingId: holding.id, ticker: holding.ticker, price: quote.price });
-      } else {
-        results.push({ holdingId: holding.id, ticker: holding.ticker, price: null });
       }
     }
 
-    return results;
+    // Return updated portfolio
+    return this.prisma.stockPortfolio.findFirst({
+      where: { id: portfolioId, householdId },
+      include: { holdings: { where: { isActive: true }, orderBy: { ticker: 'asc' } } },
+    });
   }
 }

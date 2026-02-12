@@ -1199,6 +1199,7 @@
     "refreshPrices": "Refresh Prices",
     "refreshing": "Refreshing...",
     "noPortfolios": "No portfolios yet. Add a portfolio to get started.",
+    "noPortfoliosHint": "Search for stocks above or create a new portfolio to manage your investments.",
     "noHoldings": "No holdings in this portfolio. Add a holding to get started.",
     "lastUpdate": "Last update",
     "providerPoweredBy": "Prices powered by",
@@ -1208,7 +1209,18 @@
     "summaryValue": "Total Value",
     "summaryGain": "Total Gain/Loss",
     "summaryCount": "Number of Holdings",
-    "notes": "Notes"
+    "notes": "Notes",
+    "exploreTitle": "Search Stocks",
+    "exploreDesc": "Search stocks by name or symbol, view real-time prices, and add to your tracking.",
+    "explorePlaceholder": "Search stocks... (e.g., AAPL, Tesla, TEVA)",
+    "popularStocks": "Popular stocks",
+    "trackStock": "Track This Stock",
+    "loadingPrice": "Loading price...",
+    "priceUnavailable": "Price unavailable",
+    "dayHigh": "Day high",
+    "dayLow": "Day low",
+    "defaultPortfolioName": "My Portfolio",
+    "targetPortfolio": "Target Portfolio"
   },
   "onboarding": {
     "title": "Welcome Tour",

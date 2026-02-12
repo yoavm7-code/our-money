@@ -644,9 +644,20 @@ export type StockProviderInfo = {
   description: string;
 };
 
+export type StockQuote = {
+  price: number;
+  change: number;
+  changePercent: number;
+  high: number;
+  low: number;
+  open: number;
+  prevClose: number;
+};
+
 export const stocks = {
   provider: () => api<StockProviderInfo>('/api/stocks/provider'),
   search: (q: string) => api<Array<{ symbol: string; description: string; type: string }>>('/api/stocks/search', { params: { q } }),
+  quote: (ticker: string) => api<StockQuote | null>(`/api/stocks/quote/${encodeURIComponent(ticker)}`),
   portfolios: {
     list: () => api<StockPortfolioItem[]>('/api/stocks/portfolios'),
     get: (id: string) => api<StockPortfolioItem>(`/api/stocks/portfolios/${id}`),

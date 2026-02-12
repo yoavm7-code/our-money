@@ -1198,6 +1198,7 @@
     "refreshPrices": "עדכן מחירים",
     "refreshing": "מעדכן...",
     "noPortfolios": "אין תיקי השקעות. הוסף תיק כדי להתחיל.",
+    "noPortfoliosHint": "חפש מניות למעלה או צור תיק חדש לניהול ההשקעות שלך.",
     "noHoldings": "אין מניות בתיק. הוסף מנייה כדי להתחיל.",
     "lastUpdate": "עדכון אחרון",
     "providerPoweredBy": "מחירים מעודכנים באמצעות",
@@ -1207,7 +1208,18 @@
     "summaryValue": "שווי כולל",
     "summaryGain": "רווח/הפסד כולל",
     "summaryCount": "מספר אחזקות",
-    "notes": "הערות"
+    "notes": "הערות",
+    "exploreTitle": "חיפוש מניות",
+    "exploreDesc": "חפש מניות לפי שם או סימול, צפה במחיר בזמן אמת והוסף למעקב.",
+    "explorePlaceholder": "חפש מנייה... (למשל: AAPL, Tesla, TEVA)",
+    "popularStocks": "מניות פופולריות",
+    "trackStock": "עקוב אחרי מנייה זו",
+    "loadingPrice": "טוען מחיר...",
+    "priceUnavailable": "מחיר לא זמין",
+    "dayHigh": "גבוה יומי",
+    "dayLow": "נמוך יומי",
+    "defaultPortfolioName": "התיק שלי",
+    "targetPortfolio": "תיק יעד"
   },
   "onboarding": {
     "startTour": "סיור באתר",

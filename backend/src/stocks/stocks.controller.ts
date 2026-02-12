@@ -28,6 +28,11 @@ export class StocksController {
     return this.stockPriceService.searchSymbol(query || '');
   }
 
+  @Get('quote/:ticker')
+  getQuote(@Param('ticker') ticker: string) {
+    return this.stockPriceService.getQuote(ticker);
+  }
+
   // ---- Portfolios ----
 
   @Post('portfolios')
