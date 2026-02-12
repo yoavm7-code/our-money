@@ -184,6 +184,11 @@ export const transactions = {
       method: 'POST',
       body: JSON.stringify({ description }),
     }),
+  parseVoice: (text: string) =>
+    api<{ type: 'expense' | 'income'; amount: number; description: string; categorySlug: string | null; date: string; currency: string } | { error: string }>('/api/transactions/parse-voice', {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    }),
   bulkDelete: (ids: string[]) =>
     api<{ count: number }>('/api/transactions/bulk-delete', {
       method: 'POST',
