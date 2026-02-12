@@ -68,6 +68,8 @@ export default function StocksPage() {
   const [selectedStock, setSelectedStock] = useState<{ symbol: string; name: string } | null>(null);
   const [selectedQuote, setSelectedQuote] = useState<StockQuote | null>(null);
   const [loadingQuote, setLoadingQuote] = useState(false);
+  const [trackingStock, setTrackingStock] = useState(false);
+  const [trackSuccess, setTrackSuccess] = useState(false);
 
   /* ── portfolio modal ── */
   const [showPortfolioModal, setShowPortfolioModal] = useState(false);
@@ -153,41 +155,47 @@ export default function StocksPage() {
   };
 
   const handleTrackStock = async () => {
-    if (!selectedStock) return;
-    let targetPortfolioId = portfolios[0]?.id;
+    if (!selectedStock || trackingStock) return;
+    setTrackingStock(true);
+    setTrackSuccess(false);
 
-    // Auto-create default portfolio if none exists
-    if (!targetPortfolioId) {
-      try {
+    try {
+      let targetPortfolioId = portfolios[0]?.id;
+
+      // Auto-create default portfolio if none exists
+      if (!targetPortfolioId) {
         const newPortfolio = await stocks.portfolios.create({
           name: t('stocks.defaultPortfolioName'),
           currency: 'USD',
         });
         targetPortfolioId = newPortfolio.id;
         setPortfolios([newPortfolio]);
-      } catch {
-        setError(t('common.somethingWentWrong'));
-        return;
       }
-    }
 
-    // Open holding modal pre-filled
-    setEditingHolding(null);
-    setHoldingPortfolioId(targetPortfolioId);
-    setHoldingForm({
-      ticker: selectedStock.symbol,
-      name: selectedStock.name,
-      exchange: '',
-      sector: '',
-      shares: '',
-      avgBuyPrice: selectedQuote?.price ? String(selectedQuote.price) : '',
-      currency: 'USD',
-      buyDate: new Date().toISOString().slice(0, 10),
-      notes: '',
-    });
-    setSearchQuery('');
-    setSearchResults([]);
-    setShowHoldingModal(true);
+      // Directly add holding with sensible defaults
+      await stocks.holdings.add(targetPortfolioId, {
+        ticker: selectedStock.symbol,
+        name: selectedStock.name,
+        shares: 1,
+        avgBuyPrice: selectedQuote?.price ?? 0,
+        currency: 'USD',
+        buyDate: new Date().toISOString().slice(0, 10),
+      });
+
+      setTrackSuccess(true);
+      fetchData();
+
+      // Clear after brief success animation
+      setTimeout(() => {
+        setSelectedStock(null);
+        setSelectedQuote(null);
+        setTrackSuccess(false);
+      }, 1500);
+    } catch {
+      setError(t('common.somethingWentWrong'));
+    } finally {
+      setTrackingStock(false);
+    }
   };
 
   /* ───── refresh prices ───── */
@@ -527,14 +535,29 @@ export default function StocksPage() {
               <button
                 type="button"
                 onClick={handleTrackStock}
-                className="btn-primary text-sm flex-1"
+                disabled={trackingStock || trackSuccess}
+                className={`text-sm flex-1 ${trackSuccess ? 'btn-primary bg-green-500 hover:bg-green-500 border-green-500' : 'btn-primary'}`}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="inline -mt-0.5 me-1"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
-                {t('stocks.trackStock')}
+                {trackSuccess ? (
+                  <span className="flex items-center justify-center gap-1">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
+                    {t('stocks.stockAdded')}
+                  </span>
+                ) : trackingStock ? (
+                  <span className="flex items-center justify-center gap-1">
+                    <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    {t('stocks.adding')}
+                  </span>
+                ) : (
+                  <span>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="inline -mt-0.5 me-1"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+                    {t('stocks.trackStock')}
+                  </span>
+                )}
               </button>
               <button
                 type="button"
-                onClick={() => { setSelectedStock(null); setSelectedQuote(null); }}
+                onClick={() => { setSelectedStock(null); setSelectedQuote(null); setTrackSuccess(false); }}
                 className="btn-secondary text-sm"
               >
                 {t('common.close')}

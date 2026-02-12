@@ -12,6 +12,7 @@ import { useTheme } from '@/components/ThemeProvider';
 import AlertsBell from '@/components/AlertsBell';
 import OnboardingProvider, { useOnboarding } from '@/components/OnboardingProvider';
 import QuickAdd from '@/components/QuickAdd';
+import VoiceTransaction from '@/components/VoiceTransaction';
 
 type NavItem = { href: string; key: string; icon: string };
 
@@ -498,6 +499,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
       {/* Quick Add modal */}
       <QuickAdd open={showQuickAdd} onClose={() => setShowQuickAdd(false)} />
+
+      {/* Voice transaction FAB */}
+      <VoiceTransaction />
     </div>
     </OnboardingProvider>
   );

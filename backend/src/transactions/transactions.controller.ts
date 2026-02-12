@@ -15,6 +15,7 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { HouseholdId } from '../common/decorators/household.decorator';
 import { TransactionsService } from './transactions.service';
+import { VoiceParserService } from './voice-parser.service';
 import { CreateTransactionDto } from './dto/create-transaction.dto';
 import { UpdateTransactionDto } from './dto/update-transaction.dto';
 import { TransactionsQueryDto } from './dto/transactions-query.dto';
@@ -22,11 +23,23 @@ import { TransactionsQueryDto } from './dto/transactions-query.dto';
 @Controller('api/transactions')
 @UseGuards(JwtAuthGuard)
 export class TransactionsController {
-  constructor(private transactionsService: TransactionsService) {}
+  constructor(
+    private transactionsService: TransactionsService,
+    private voiceParserService: VoiceParserService,
+  ) {}
 
   @Post()
   create(@HouseholdId() householdId: string, @Body() dto: CreateTransactionDto) {
     return this.transactionsService.create(householdId, dto);
+  }
+
+  @Post('parse-voice')
+  async parseVoice(
+    @HouseholdId() householdId: string,
+    @Body() body: { text: string },
+  ) {
+    const result = await this.voiceParserService.parseVoiceText(householdId, body.text ?? '');
+    return result ?? { error: 'Could not parse voice input' };
   }
 
   @Post('suggest-category')
