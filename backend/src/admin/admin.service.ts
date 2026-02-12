@@ -13,6 +13,18 @@ import { UpdateUserDto } from './dto/update-user.dto';
 export class AdminService {
   constructor(private prisma: PrismaService) {}
 
+  // ─── Admin Setup ──────────────────────────────────────────────────
+
+  async promoteToAdmin(email: string) {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) throw new NotFoundException(`User with email ${email} not found`);
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { isAdmin: true },
+    });
+    return { success: true, email, isAdmin: true };
+  }
+
   // ─── User Management ────────────────────────────────────────────────
 
   async listUsers(search?: string, page = 1, limit = 20) {
