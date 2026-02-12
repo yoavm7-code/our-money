@@ -77,10 +77,16 @@ export default function AdminUserDetailPage() {
     setLoadingTab(true);
     setTabData(null);
     try {
-      const data = await adminApi<Record<string, unknown>[]>(
+      const data = await adminApi<{ items: Record<string, unknown>[] } | Record<string, unknown>[]>(
         `/api/admin/users/${userId}/data/${tab}`,
       );
-      setTabData(Array.isArray(data) ? data : []);
+      if (Array.isArray(data)) {
+        setTabData(data);
+      } else if (data && Array.isArray((data as { items: unknown }).items)) {
+        setTabData((data as { items: Record<string, unknown>[] }).items);
+      } else {
+        setTabData([]);
+      }
     } catch {
       setTabData([]);
     } finally {
