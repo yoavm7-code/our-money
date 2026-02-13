@@ -1284,7 +1284,9 @@
       "investment": "Investment",
       "insurance": "Insurance",
       "pension": "Pension"
-    }
+    },
+    "hide": "Hide voice input",
+    "show": "Show voice input"
   },
   "onboarding": {
     "title": "Welcome Tour",
