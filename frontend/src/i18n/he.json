@@ -1283,7 +1283,9 @@
       "investment": "השקעות",
       "insurance": "ביטוח",
       "pension": "פנסיה"
-    }
+    },
+    "hide": "הסתר הוספה קולית",
+    "show": "הצג הוספה קולית"
   },
   "onboarding": {
     "startTour": "סיור באתר",

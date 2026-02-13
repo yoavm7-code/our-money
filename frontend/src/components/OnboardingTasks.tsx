@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useTranslation } from '@/i18n/context';
-import { users, accounts, categories, budgets as budgetsApi, goals as goalsApi } from '@/lib/api';
+import { accounts, categories, budgets as budgetsApi, goals as goalsApi, transactions } from '@/lib/api';
 
 interface TaskDef {
   id: string;
@@ -42,8 +42,8 @@ export default function OnboardingTasks() {
       icon: 'upload',
       check: async () => {
         try {
-          const me = await users.me();
-          return (me as { transactionCount?: number }).transactionCount ? (me as { transactionCount?: number }).transactionCount! > 0 : false;
+          const result = await transactions.list({ limit: 1 });
+          return result.total > 0;
         } catch { return false; }
       },
     },
