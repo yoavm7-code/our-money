@@ -383,19 +383,23 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
         />
       )}
 
-      {/* Tooltip card */}
+      {/* Tooltip card - FIXED at bottom center, doesn't jump */}
       <div
         ref={tooltipRef}
-        className="absolute z-[10000] w-[380px] max-w-[calc(100vw-32px)] transition-all duration-400 ease-out"
+        className="fixed z-[10000] bottom-6 left-1/2 -translate-x-1/2 w-[420px] max-w-[calc(100vw-32px)]"
         style={{
-          ...tooltipPos,
-          opacity: isNavigating ? 0 : tooltipMeasured || !targetRect ? 1 : 0,
+          opacity: isNavigating ? 0 : 1,
           direction: isRtl ? 'rtl' : 'ltr',
+          transition: 'opacity 0.3s ease-out',
         }}
       >
+        {/* Arrow pointing up to highlighted element */}
+        {targetRect && (
+          <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-b-[12px] border-b-[var(--card)]" />
+        )}
         <div className="bg-[var(--card)] border border-[var(--border)] rounded-2xl shadow-2xl overflow-hidden">
           {/* Progress bar */}
-          <div className="h-1 bg-[var(--border)]">
+          <div className="h-1.5 bg-[var(--border)]">
             <div
               className="h-full bg-emerald-500 transition-all duration-500 ease-out"
               style={{ width: `${((currentStep + 1) / totalSteps) * 100}%` }}

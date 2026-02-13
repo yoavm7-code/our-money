@@ -720,3 +720,40 @@ export const recurring = {
   confirm: (id: string) => api<unknown>(`/api/recurring/${id}/confirm`, { method: 'POST' }),
   dismiss: (id: string) => api<unknown>(`/api/recurring/${id}/dismiss`, { method: 'POST' }),
 };
+
+// Email Integration
+export type EmailIntegrationItem = {
+  id: string;
+  provider: string;
+  email: string;
+  isActive: boolean;
+  lastSyncAt: string | null;
+  createdAt: string;
+  _count: { invoices: number };
+};
+
+export type EmailInvoiceItem = {
+  id: string;
+  emailSubject: string;
+  emailFrom: string;
+  emailDate: string;
+  extractedAmount: number | null;
+  extractedDesc: string | null;
+  extractedType: string | null;
+  status: string;
+  integration: { email: string; provider: string };
+};
+
+export const emailIntegration = {
+  list: () => api<EmailIntegrationItem[]>('/api/email-integration'),
+  connect: (body: { provider: string; email: string; accessToken?: string; refreshToken?: string; imapHost?: string; imapPort?: number }) =>
+    api<EmailIntegrationItem>('/api/email-integration/connect', { method: 'POST', body: JSON.stringify(body) }),
+  disconnect: (id: string) => api<unknown>(`/api/email-integration/${id}`, { method: 'DELETE' }),
+  scan: (id: string) => api<{ found: number; created: number }>(`/api/email-integration/${id}/scan`, { method: 'POST' }),
+  invoices: (status?: string) =>
+    api<EmailInvoiceItem[]>('/api/email-integration/invoices', { params: status ? { status } : undefined }),
+  approveInvoice: (id: string, body: { accountId: string; categoryId?: string }) =>
+    api<{ success: boolean; transactionId: string }>(`/api/email-integration/invoices/${id}/approve`, { method: 'POST', body: JSON.stringify(body) }),
+  dismissInvoice: (id: string) =>
+    api<unknown>(`/api/email-integration/invoices/${id}/dismiss`, { method: 'POST' }),
+};

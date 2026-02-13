@@ -6,6 +6,9 @@ import { useTranslation } from '@/i18n/context';
 import DateRangePicker from '@/components/DateRangePicker';
 import SmartTip from '@/components/SmartTip';
 import HelpTooltip from '@/components/HelpTooltip';
+import PageHeader from '@/components/PageHeader';
+import PageWizard, { type WizardStep } from '@/components/PageWizard';
+import OnboardingTasks from '@/components/OnboardingTasks';
 import WidgetSettings from '@/components/dashboard/WidgetSettings';
 import { DEFAULT_WIDGETS } from '@/components/dashboard/defaults';
 import { getQuickRangeDates } from '@/components/DateRangePicker';
@@ -843,62 +846,77 @@ export default function DashboardPage() {
     );
   }
 
+  const dashboardWizardSteps: WizardStep[] = [
+    { title: t('wizard.dashboard.step1Title'), description: t('wizard.dashboard.step1Desc') },
+    { title: t('wizard.dashboard.step2Title'), description: t('wizard.dashboard.step2Desc') },
+    { title: t('wizard.dashboard.step3Title'), description: t('wizard.dashboard.step3Desc') },
+    { title: t('wizard.dashboard.step4Title'), description: t('wizard.dashboard.step4Desc') },
+  ];
+
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold">{t('dashboard.title')} <HelpTooltip text={t('help.dashboardTitle')} className="ms-1" /></h1>
-        <div className="flex flex-wrap items-center gap-3">
-          <DateRangePicker from={from} to={to} onChange={handleDateRangeChange} />
-          <HelpTooltip text={t('help.dateRange')} className="ms-1" />
-          <select className="input w-auto min-w-[160px]" value={accountId} onChange={(e) => setAccountId(e.target.value)} title={t('common.accounts')}>
-            <option value="">{t('common.allAccounts')}</option>
-            {accountsList.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </select>
-          <select className="input w-auto min-w-[140px]" value={categoryId} onChange={(e) => setCategoryId(e.target.value)} title={t('common.categories')}>
-            <option value="">{t('common.allCategories')}</option>
-            {categoriesList.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-        </div>
-      </div>
-
-      {/* Edit mode toggle */}
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
-            editMode
-              ? 'bg-primary-500 text-white shadow-md'
-              : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700'
-          }`}
-          onClick={() => setEditMode((m) => !m)}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-          </svg>
-          {t('dashboard.customize')}
-          <HelpTooltip text={t('help.customize')} className="ms-1" />
-        </button>
-        {editMode && (
+      <PageHeader
+        title={t('dashboard.title')}
+        description={t('dashboard.pageDescription')}
+        helpText={t('help.dashboardTitle')}
+        actions={
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+                editMode
+                  ? 'bg-primary-500 text-white shadow-md'
+                  : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700'
+              }`}
+              onClick={() => setEditMode((m) => !m)}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+              </svg>
+              {t('dashboard.customize')}
+            </button>
+            {editMode && (
+              <>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 transition-colors"
+                  onClick={() => setEditingWidget('new')}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  {t('dashboard.addWidget')}
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
+                  onClick={handleResetLayout}
+                >
+                  {t('dashboard.resetLayout')}
+                </button>
+              </>
+            )}
+          </div>
+        }
+        filters={
           <>
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200 dark:hover:bg-emerald-900/50 transition-colors"
-              onClick={() => setEditingWidget('new')}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              {t('dashboard.addWidget')}
-            </button>
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
-              onClick={handleResetLayout}
-            >
-              {t('dashboard.resetLayout')}
-            </button>
+            <DateRangePicker from={from} to={to} onChange={handleDateRangeChange} />
+            <select className="input w-auto min-w-[160px]" value={accountId} onChange={(e) => setAccountId(e.target.value)} title={t('common.accounts')}>
+              <option value="">{t('common.allAccounts')}</option>
+              {accountsList.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+            <select className="input w-auto min-w-[140px]" value={categoryId} onChange={(e) => setCategoryId(e.target.value)} title={t('common.categories')}>
+              <option value="">{t('common.allCategories')}</option>
+              {categoriesList.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
           </>
-        )}
-      </div>
+        }
+      />
+
+      {/* Page wizard */}
+      <PageWizard pageKey="dashboard" steps={dashboardWizardSteps} />
+
+      {/* Onboarding tasks for new/returning users */}
+      <OnboardingTasks />
 
       {/* Empty state for new users */}
       {summary && !loading && summary.transactionCount === 0 && summary.income === 0 && summary.expenses === 0 ? (

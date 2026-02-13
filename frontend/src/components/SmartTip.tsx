@@ -88,7 +88,7 @@ export default function SmartTip() {
 
   return (
     <div
-      className={`fixed bottom-6 start-6 md:start-auto md:end-6 z-30 max-w-sm ${
+      className={`fixed bottom-6 start-6 z-20 max-w-sm ${
         visible ? 'tip-bounce' : 'opacity-0 pointer-events-none'
       }`}
     >

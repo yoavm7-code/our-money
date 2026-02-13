@@ -34,6 +34,7 @@ model Household {
   forexTransfers     ForexTransfer[]
   budgets            Budget[]
   recurringPatterns  RecurringPattern[]
+  emailIntegrations  EmailIntegration[]
 }
 
 // --------------------------------------------
@@ -510,4 +511,48 @@ model RecurringPattern {
   household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
   @@index([householdId])
+}
+
+// --------------------------------------------
+// Email Integration (auto-scan invoices from email)
+// --------------------------------------------
+model EmailIntegration {
+  id            String   @id @default(uuid())
+  householdId   String   @map("household_id")
+  provider      String   // gmail, outlook, imap
+  email         String
+  accessToken   String?  @map("access_token") @db.Text
+  refreshToken  String?  @map("refresh_token") @db.Text
+  tokenExpiry   DateTime? @map("token_expiry")
+  imapHost      String?  @map("imap_host")
+  imapPort      Int?     @map("imap_port")
+  lastSyncAt    DateTime? @map("last_sync_at")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  household Household    @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  invoices  EmailInvoice[]
+
+  @@index([householdId])
+}
+
+model EmailInvoice {
+  id              String   @id @default(uuid())
+  integrationId   String   @map("integration_id")
+  emailSubject    String   @map("email_subject")
+  emailFrom       String   @map("email_from")
+  emailDate       DateTime @map("email_date")
+  extractedAmount Decimal? @map("extracted_amount") @db.Decimal(14, 2)
+  extractedDesc   String?  @map("extracted_desc")
+  extractedType   String?  @map("extracted_type") // income or expense
+  status          String   @default("pending") // pending, approved, dismissed
+  transactionId   String?  @map("transaction_id")
+  rawContent      String?  @map("raw_content") @db.Text
+  createdAt       DateTime @default(now())
+
+  integration EmailIntegration @relation(fields: [integrationId], references: [id], onDelete: Cascade)
+
+  @@index([integrationId])
+  @@index([status])
 }

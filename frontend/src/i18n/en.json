@@ -407,6 +407,7 @@
   },
   "dashboard": {
     "title": "Dashboard",
+    "pageDescription": "Overview of your finances. Filter by date, account or category, and customize widgets to your needs.",
     "totalBalance": "Total balance",
     "incomePeriod": "Income (period)",
     "expensesPeriod": "Expenses (period)",
@@ -474,6 +475,7 @@
   },
   "transactions": {
     "title": "Transactions",
+    "pageDescription": "View and manage all your transactions. Search, filter by account or category, and add transactions manually.",
     "payments": "Payments",
     "confirmDeleteOne": "Delete this transaction?",
     "confirmDeleteMany": "Delete {{count}} transactions?",
@@ -575,6 +577,8 @@
   },
   "settings": {
     "title": "Settings",
+    "pageDescription": "Manage your profile, security, accounts and categories",
+    "securityTab": "Security",
     "profile": "Profile",
     "editProfile": "Edit profile",
     "displayName": "Display name",
@@ -1408,5 +1412,96 @@
     "total": "Total",
     "broker": "Broker",
     "holdings": "Holdings"
+  },
+  "wizard": {
+    "showGuide": "Quick guide",
+    "gotIt": "Got it!",
+    "dashboard": {
+      "step1Title": "Filter by dates",
+      "step1Desc": "Use the date range picker to view data from different periods - current month, year, or custom range.",
+      "step2Title": "Filter by account & category",
+      "step2Desc": "Select a specific account or category to see focused data.",
+      "step3Title": "Customize your dashboard",
+      "step3Desc": "Click 'Customize' to add, remove and reorder widgets. Drag widgets to rearrange them.",
+      "step4Title": "Click cards for details",
+      "step4Desc": "Clicking a stat card opens a window with detailed transactions for that metric."
+    },
+    "transactions": {
+      "step1Title": "Add a transaction",
+      "step1Desc": "Click 'Add Transaction' to enter an expense or income manually.",
+      "step2Title": "Search and filter",
+      "step2Desc": "Use the search bar to find transactions by description, amount or date. Filter by account and category.",
+      "step3Title": "Assign categories",
+      "step3Desc": "Click a transaction to change its category. The system learns and will auto-assign in the future."
+    },
+    "upload": {
+      "step1Title": "Select a file",
+      "step1Desc": "Choose a bank statement or credit card file (PDF, image, CSV, Excel).",
+      "step2Title": "Select account",
+      "step2Desc": "Choose which account the file belongs to.",
+      "step3Title": "Review and approve",
+      "step3Desc": "Review the extracted transactions and click approve to import them."
+    },
+    "budgets": {
+      "step1Title": "Set a budget",
+      "step1Desc": "Choose a category and set a monthly budget amount. The system will track spending against your budget.",
+      "step2Title": "Track spending",
+      "step2Desc": "See real-time how much you've spent from your budget. Get alerts when you go over the limit."
+    },
+    "goals": {
+      "step1Title": "Set a goal",
+      "step1Desc": "Create a savings goal with a name, target amount and deadline.",
+      "step2Title": "Track progress",
+      "step2Desc": "Update the current amount and track your progress towards the goal."
+    },
+    "settings": {
+      "step1Title": "Set up accounts",
+      "step1Desc": "Add your bank accounts, credit cards and savings in the 'Accounts' tab.",
+      "step2Title": "Configure security",
+      "step2Desc": "Enable two-factor authentication and set up alerts in the 'Security' tab.",
+      "step3Title": "Connect your email",
+      "step3Desc": "Connect your email account to automatically import invoices in the 'Email' tab."
+    }
+  },
+  "onboardingTasks": {
+    "title": "Getting Started",
+    "subtitle": "Complete these tasks to start using the system",
+    "progress": "Progress",
+    "addAccount": "Add a bank account",
+    "addAccountDesc": "Set up your accounts to track balances",
+    "uploadDocument": "Upload your first statement",
+    "uploadDocumentDesc": "Upload a bank or credit card statement to import transactions",
+    "addCategory": "Set up categories",
+    "addCategoryDesc": "Add categories for your expenses and income",
+    "createBudget": "Create your first budget",
+    "createBudgetDesc": "Set a monthly budget for a specific category",
+    "setGoal": "Set a savings goal",
+    "setGoalDesc": "Create a financial goal and track your progress"
+  },
+  "emailIntegration": {
+    "title": "Email Integration",
+    "tabTitle": "Email",
+    "description": "Connect your email account so the system can find invoices and add them automatically.",
+    "connectEmail": "Connect email",
+    "connectNew": "Connect a new email account",
+    "gmail": "Gmail",
+    "outlook": "Outlook",
+    "imap": "IMAP",
+    "emailAddress": "Email address",
+    "imapHost": "IMAP server",
+    "imapPort": "Port",
+    "gmailNote": "Gmail connection requires OAuth2 setup. Configure GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET on the server.",
+    "connect": "Connect",
+    "disconnect": "Disconnect",
+    "scan": "Scan",
+    "scanning": "Scanning...",
+    "connectedAccounts": "Connected accounts",
+    "invoicesFound": "invoices found",
+    "lastSync": "Last sync",
+    "pendingInvoices": "Pending invoices",
+    "approve": "Approve",
+    "dismiss": "Dismiss",
+    "noConnections": "No email accounts connected",
+    "noConnectionsHint": "Connect your email to automatically import invoices"
   }
 }

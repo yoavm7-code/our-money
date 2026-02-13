@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { goals, type GoalItem } from '@/lib/api';
 import { useTranslation } from '@/i18n/context';
 import HelpTooltip from '@/components/HelpTooltip';
+import PageHeader from '@/components/PageHeader';
+import PageWizard, { type WizardStep } from '@/components/PageWizard';
 import VoiceInputButton from '@/components/VoiceInputButton';
 
 const GOAL_ICONS = ['🎯', '✈️', '🏠', '🚗', '💰', '📚', '🏥', '💍', '🎓', '🛒', '🏖️', '💻', '👶', '🐕', '🎁'];
@@ -122,17 +124,21 @@ export default function GoalsPage() {
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">{t('goals.title')} <HelpTooltip text={t('help.goals')} className="ms-1" /></h1>
-          <p className="text-sm text-slate-500 mt-1">{t('goals.subtitle')}</p>
-        </div>
-        <button type="button" className="btn-primary" onClick={openAdd}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="inline -mt-0.5 me-1"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          {t('goals.addGoal')}
-        </button>
-      </div>
+      <PageHeader
+        title={t('goals.title')}
+        description={t('goals.subtitle')}
+        helpText={t('help.goals')}
+        actions={
+          <button type="button" className="btn-primary" onClick={openAdd}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="inline -mt-0.5 me-1"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            {t('goals.addGoal')}
+          </button>
+        }
+      />
+      <PageWizard pageKey="goals" steps={[
+        { title: t('wizard.goals.step1Title'), description: t('wizard.goals.step1Desc') },
+        { title: t('wizard.goals.step2Title'), description: t('wizard.goals.step2Desc') },
+      ]} />
 
       {msg && <div className="rounded-xl bg-emerald-50 dark:bg-emerald-900/20 p-3 text-sm text-emerald-700 dark:text-emerald-300">{msg}</div>}
 

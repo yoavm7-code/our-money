@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { budgets, categories, type BudgetItem } from '@/lib/api';
 import { useTranslation } from '@/i18n/context';
 import HelpTooltip from '@/components/HelpTooltip';
+import PageHeader from '@/components/PageHeader';
+import PageWizard, { type WizardStep } from '@/components/PageWizard';
 import { useToast } from '@/components/Toast';
 
 type CategoryOption = { id: string; name: string; slug: string; isIncome: boolean };
@@ -111,17 +113,21 @@ export default function BudgetsPage() {
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">{t('budgets.title')} <HelpTooltip text={t('help.budgets')} className="ms-1" /></h1>
-          <p className="text-sm text-slate-500 mt-1">{t('budgets.subtitle')}</p>
-        </div>
-        <button type="button" className="btn-primary" onClick={openAdd}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="inline -mt-0.5 me-1"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          {t('budgets.addBudget')}
-        </button>
-      </div>
+      <PageHeader
+        title={t('budgets.title')}
+        description={t('budgets.subtitle')}
+        helpText={t('help.budgets')}
+        actions={
+          <button type="button" className="btn-primary" onClick={openAdd}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="inline -mt-0.5 me-1"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            {t('budgets.addBudget')}
+          </button>
+        }
+      />
+      <PageWizard pageKey="budgets" steps={[
+        { title: t('wizard.budgets.step1Title'), description: t('wizard.budgets.step1Desc') },
+        { title: t('wizard.budgets.step2Title'), description: t('wizard.budgets.step2Desc') },
+      ]} />
 
       {/* Summary cards */}
       {summary && budgetList.length > 0 && (
