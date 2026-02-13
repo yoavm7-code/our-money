@@ -23,6 +23,7 @@ import { StocksModule } from './stocks/stocks.module';
 import { AlertsModule } from './alerts/alerts.module';
 import { EmailModule } from './email/email.module';
 import { AdminModule } from './admin/admin.module';
+import { EmailIntegrationModule } from './email-integration/email-integration.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { AdminModule } from './admin/admin.module';
     AlertsModule,
     EmailModule,
     AdminModule,
+    EmailIntegrationModule,
   ],
   providers: [],
 })

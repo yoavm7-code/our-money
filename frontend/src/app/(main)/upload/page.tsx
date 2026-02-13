@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { documents, accounts, type ExtractedItem } from '@/lib/api';
 import { useTranslation } from '@/i18n/context';
 import HelpTooltip from '@/components/HelpTooltip';
+import PageHeader from '@/components/PageHeader';
+import PageWizard, { type WizardStep } from '@/components/PageWizard';
 
 const MAX_FILES = 10;
 
@@ -224,10 +226,16 @@ export default function UploadPage() {
 
   return (
     <div className="space-y-8 animate-fadeIn">
-      <h1 className="text-2xl font-bold">{t('upload.title')} <HelpTooltip text={t('help.upload')} className="ms-1" /></h1>
-      <p className="text-slate-600 dark:text-slate-400">
-        {t('upload.description')}
-      </p>
+      <PageHeader
+        title={t('upload.title')}
+        description={t('upload.description')}
+        helpText={t('help.upload')}
+      />
+      <PageWizard pageKey="upload" steps={[
+        { title: t('wizard.upload.step1Title'), description: t('wizard.upload.step1Desc') },
+        { title: t('wizard.upload.step2Title'), description: t('wizard.upload.step2Desc') },
+        { title: t('wizard.upload.step3Title'), description: t('wizard.upload.step3Desc') },
+      ]} />
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {slots.map((slot, idx) => (

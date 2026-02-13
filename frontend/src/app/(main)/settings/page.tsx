@@ -5,7 +5,10 @@ import { users, accounts, categories, twoFactor, type NotificationSettings } fro
 import { COUNTRY_CODES } from '@/lib/countries';
 import { useTranslation } from '@/i18n/context';
 import HelpTooltip from '@/components/HelpTooltip';
+import PageHeader from '@/components/PageHeader';
+import PageWizard, { type WizardStep } from '@/components/PageWizard';
 import AvatarCropper from '@/components/AvatarCropper';
+import EmailIntegrationSettings from '@/components/EmailIntegrationSettings';
 import VoiceInputButton from '@/components/VoiceInputButton';
 
 const KNOWN_CATEGORY_SLUGS = ['groceries', 'transport', 'utilities', 'rent', 'insurance', 'healthcare', 'dining', 'shopping', 'entertainment', 'other', 'salary', 'income', 'credit_charges', 'transfers', 'fees', 'subscriptions', 'education', 'pets', 'gifts', 'childcare', 'savings', 'pension', 'investment', 'bank_fees', 'online_shopping', 'loan_payment', 'loan_interest', 'standing_order', 'finance', 'unknown'];
@@ -64,6 +67,9 @@ export default function SettingsPage() {
   const [twoFASmsCodeSent, setTwoFASmsCodeSent] = useState(false);
   const [twoFAPhoneInput, setTwoFAPhoneInput] = useState('');
   const [userPhone, setUserPhone] = useState<string | null>(null);
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'accounts' | 'categories' | 'email'>('profile');
 
   // Notification settings state
   const [notifSettings, setNotifSettings] = useState<NotificationSettings>({
@@ -465,10 +471,53 @@ export default function SettingsPage() {
     );
   }
 
-  return (
-    <div className="space-y-8 animate-fadeIn">
-      <h1 className="text-2xl font-semibold">{t('settings.title')}</h1>
+  const settingsWizardSteps: WizardStep[] = [
+    { title: t('wizard.settings.step1Title'), description: t('wizard.settings.step1Desc') },
+    { title: t('wizard.settings.step2Title'), description: t('wizard.settings.step2Desc') },
+    { title: t('wizard.settings.step3Title'), description: t('wizard.settings.step3Desc') },
+  ];
 
+  const TABS = [
+    { id: 'profile' as const, label: t('settings.profile'), icon: 'M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2' },
+    { id: 'security' as const, label: t('settings.securityTab'), icon: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z' },
+    { id: 'accounts' as const, label: t('common.accounts'), icon: 'M2 6h20v12H2zM12 12h.01' },
+    { id: 'categories' as const, label: t('common.categories'), icon: 'M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z' },
+    { id: 'email' as const, label: t('emailIntegration.tabTitle'), icon: 'M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z' },
+  ];
+
+  return (
+    <div className="space-y-6 animate-fadeIn">
+      <PageHeader
+        title={t('settings.title')}
+        description={t('settings.pageDescription')}
+      />
+
+      <PageWizard pageKey="settings" steps={settingsWizardSteps} />
+
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-[var(--border)] overflow-x-auto pb-px">
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-lg whitespace-nowrap transition-colors ${
+              activeTab === tab.id
+                ? 'bg-[var(--card)] border border-[var(--border)] border-b-transparent text-primary-600 dark:text-primary-400 -mb-px'
+                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+            }`}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d={tab.icon} />
+            </svg>
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Profile Tab */}
+      {activeTab === 'profile' && (
+      <>
       <div className="card max-w-md">
         <h2 className="font-medium mb-4">{t('settings.profile')}</h2>
         <div className="flex items-center gap-4 mb-3">
@@ -628,7 +677,12 @@ export default function SettingsPage() {
           </div>
         </div>
       )}
+      </>
+      )}
 
+      {/* Security Tab */}
+      {activeTab === 'security' && (
+      <>
       {/* 2FA Section */}
       <div className="card max-w-md">
         <h2 className="font-medium mb-2">{t('settings.twoFactorAuth')} <HelpTooltip text={t('help.twoFactor')} className="ms-1" /></h2>
@@ -1036,7 +1090,11 @@ export default function SettingsPage() {
           </div>
         )}
       </div>
+      </>
+      )}
 
+      {/* Accounts Tab */}
+      {activeTab === 'accounts' && (
       <div className="card max-w-lg">
         <h2 className="font-medium mb-4">{t('settings.accounts')} <HelpTooltip text={t('help.addAccount')} className="ms-1" /></h2>
         <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
@@ -1256,16 +1314,10 @@ export default function SettingsPage() {
           </div>
         )}
       </div>
-
-      {/* Avatar cropper modal */}
-      {avatarCropFile && (
-        <AvatarCropper
-          file={avatarCropFile}
-          onCrop={handleAvatarCrop}
-          onCancel={() => setAvatarCropFile(null)}
-        />
       )}
 
+      {/* Categories Tab */}
+      {activeTab === 'categories' && (
       <div className="card max-w-lg">
         <h2 className="font-medium mb-4">{t('common.categories')} <HelpTooltip text={t('help.addCategory')} className="ms-1" /></h2>
         <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
@@ -1358,6 +1410,23 @@ export default function SettingsPage() {
           })}
         </ul>
       </div>
+      )}
+
+      {/* Email Integration Tab */}
+      {activeTab === 'email' && (
+      <div className="card max-w-lg">
+        <EmailIntegrationSettings />
+      </div>
+      )}
+
+      {/* Avatar cropper modal - always available */}
+      {avatarCropFile && (
+        <AvatarCropper
+          file={avatarCropFile}
+          onCrop={handleAvatarCrop}
+          onCancel={() => setAvatarCropFile(null)}
+        />
+      )}
     </div>
   );
 }

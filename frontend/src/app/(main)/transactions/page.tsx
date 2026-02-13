@@ -5,6 +5,8 @@ import { transactions as txApi, accounts, categories } from '@/lib/api';
 import { useTranslation } from '@/i18n/context';
 import DateRangePicker from '@/components/DateRangePicker';
 import HelpTooltip from '@/components/HelpTooltip';
+import PageHeader from '@/components/PageHeader';
+import PageWizard, { type WizardStep } from '@/components/PageWizard';
 
 function formatCurrency(n: number, locale: string) {
   return new Intl.NumberFormat(locale === 'he' ? 'he-IL' : 'en-IL', { style: 'currency', currency: 'ILS' }).format(n);
@@ -520,15 +522,21 @@ export default function TransactionsPage() {
 
   return (
     <div className="space-y-6 animate-fadeIn">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-2xl font-semibold">{t('transactions.title')} <HelpTooltip text={t('help.transactions')} className="ms-1" /></h1>
-        <div className="flex items-center gap-2">
+      <PageHeader
+        title={t('transactions.title')}
+        description={t('transactions.pageDescription')}
+        helpText={t('help.transactions')}
+        actions={
           <button type="button" className="btn-primary" onClick={() => { setShowAddTx(true); if (accountsList.length > 0 && !addTxForm.accountId) setAddTxForm((f) => ({ ...f, accountId: accountsList[0].id })); }}>
             {t('transactionsPage.addTransaction')}
           </button>
-          <HelpTooltip text={t('help.addTransaction')} className="ms-1" />
-        </div>
-      </div>
+        }
+      />
+      <PageWizard pageKey="transactions" steps={[
+        { title: t('wizard.transactions.step1Title'), description: t('wizard.transactions.step1Desc') },
+        { title: t('wizard.transactions.step2Title'), description: t('wizard.transactions.step2Desc') },
+        { title: t('wizard.transactions.step3Title'), description: t('wizard.transactions.step3Desc') },
+      ]} />
       <div className="card p-4 space-y-4">
         {/* First row: Date range and search */}
         <div className="flex flex-wrap gap-4 items-center">

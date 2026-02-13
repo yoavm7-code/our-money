@@ -153,7 +153,7 @@ export default function TipsPanel() {
         <button
           type="button"
           onClick={handleShow}
-          className="fixed bottom-6 end-0 z-30 px-1.5 py-3 rounded-s-lg bg-gradient-to-b from-primary-500 to-emerald-500 text-white shadow-md hover:shadow-lg hover:px-2 transition-all duration-200 flex flex-col items-center gap-1 opacity-70 hover:opacity-100"
+          className="fixed bottom-44 end-0 z-30 px-1.5 py-3 rounded-s-lg bg-gradient-to-b from-primary-500 to-emerald-500 text-white shadow-md hover:shadow-lg hover:px-2 transition-all duration-200 flex flex-col items-center gap-1 opacity-70 hover:opacity-100"
           title={t('tips.show')}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -166,7 +166,7 @@ export default function TipsPanel() {
           )}
         </button>
       ) : (
-        <div className="fixed bottom-6 end-6 z-30 flex items-center gap-1 group">
+        <div className="fixed bottom-44 end-6 z-30 flex items-center gap-1 group">
           <button
             type="button"
             onClick={handleOpen}
