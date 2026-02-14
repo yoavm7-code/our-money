@@ -145,25 +145,22 @@ export default function DateRangePicker({ from, to, onChange, className = '' }: 
 
   return (
     <div className={`relative ${className}`} ref={dropdownRef}>
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-2 min-w-0 flex-1 sm:flex-initial">
-          <input
-            type="date"
-            className="input min-w-0 flex-1 sm:flex-initial sm:w-auto sm:min-w-[130px]"
-            value={from}
-            onChange={(e) => onChange(e.target.value, to)}
-          />
-          <span className="text-slate-400 flex-shrink-0">–</span>
-          <input
-            type="date"
-            className="input min-w-0 flex-1 sm:flex-initial sm:w-auto sm:min-w-[130px]"
-            value={to}
-            onChange={(e) => onChange(from, e.target.value)}
-          />
-        </div>
+      <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 w-full sm:w-auto">
+        <input
+          type="date"
+          className="input w-full sm:w-auto sm:min-w-[130px]"
+          value={from}
+          onChange={(e) => onChange(e.target.value, to)}
+        />
+        <input
+          type="date"
+          className="input w-full sm:w-auto sm:min-w-[130px]"
+          value={to}
+          onChange={(e) => onChange(from, e.target.value)}
+        />
         <button
           type="button"
-          className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg border border-[var(--border)] hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          className="flex items-center justify-center gap-1.5 text-sm px-3 py-2.5 rounded-xl border border-[var(--border)] hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors w-full sm:w-auto"
           onClick={() => setShowDropdown(!showDropdown)}
         >
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
