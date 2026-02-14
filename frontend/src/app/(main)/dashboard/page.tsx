@@ -93,7 +93,7 @@ function SortableWidget({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const colSpan = size === 'lg' ? 'col-span-full' : size === 'md' ? 'sm:col-span-2 lg:col-span-1' : '';
-  const statBgClass = widgetType === 'stat' ? getStatCardClass(statMetric) : '';
+  const statBgClass = (widgetType === 'stat' || widgetType === 'fixed-list') ? getStatCardClass(statMetric) : '';
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -551,22 +551,34 @@ export default function DashboardPage() {
         const list = isExpenses ? fixedExpensesList : fixedIncomeList;
         const label = w.title || (isExpenses ? t('dashboard.fixedExpenses') : t('dashboard.fixedIncome'));
         const sumValue = isExpenses ? (summary?.fixedExpensesSum ?? 0) : (summary?.fixedIncomeSum ?? 0);
-        const valueColor = isExpenses ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400';
+        const valueColor = isExpenses ? 'text-slate-800 dark:text-slate-200' : 'text-emerald-700 dark:text-emerald-400';
+        const trendColor = isExpenses ? 'text-rose-500' : 'text-teal-500';
         return (
           <>
             <button
               type="button"
-              className="w-full flex items-center justify-between text-end"
+              className="w-full text-end"
               onClick={() => setOpen((o: boolean) => !o)}
               aria-expanded={isOpen}
             >
-              <div>
-                <p className="text-sm text-slate-500 dark:text-slate-400">{label}</p>
-                <p className={`text-xl font-bold mt-1 ${valueColor}`}>{formatCurrency(sumValue, locale)}</p>
+              <div className="pt-1">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</p>
+                  <span className={`${trendColor} opacity-70`}>
+                    {isExpenses ? (
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>
+                    ) : (
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                    )}
+                  </span>
+                </div>
+                <p className={`text-3xl font-extrabold mt-2 tracking-tight ${valueColor}`}>{formatCurrency(sumValue, locale)}</p>
               </div>
-              <span className={`shrink-0 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>
-              </span>
+              <div className="flex items-center justify-start mt-2">
+                <span className={`shrink-0 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </span>
+              </div>
             </button>
             {isOpen && (
               <div className="mt-4 pt-4 border-t border-[var(--border)] animate-slideDown">
@@ -969,7 +981,7 @@ export default function DashboardPage() {
                   editMode={editMode}
                   onEdit={() => setEditingWidget(w)}
                   size={w.size}
-                  statMetric={w.metric}
+                  statMetric={w.type === 'fixed-list' ? (w.variant === 'income' ? 'fixedIncomeSum' : 'fixedExpensesSum') : w.metric}
                   widgetType={w.type}
                 >
                   {renderWidget(w)}
