@@ -103,26 +103,31 @@ export default function EmailIntegrationSettings() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="font-medium text-lg flex items-center gap-2">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary-500">
-              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-              <polyline points="22,6 12,13 2,6"/>
+      {/* Header - show compact version when accounts exist */}
+      {integrations.length > 0 && (
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="font-medium text-lg flex items-center gap-2">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary-500">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                <polyline points="22,6 12,13 2,6"/>
+              </svg>
+              {t('emailIntegration.title')}
+            </h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{t('emailIntegration.description')}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowConnect(true)}
+            className="inline-flex items-center gap-2 text-sm px-4 py-2 rounded-xl bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400 hover:bg-primary-100 dark:hover:bg-primary-900/30 border border-primary-200 dark:border-primary-800 transition-colors"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
             </svg>
-            {t('emailIntegration.title')}
-          </h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">{t('emailIntegration.description')}</p>
+            {t('emailIntegration.connectEmail')}
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowConnect(true)}
-          className="btn-primary text-sm"
-        >
-          {t('emailIntegration.connectEmail')}
-        </button>
-      </div>
+      )}
 
       {/* Connect form */}
       {showConnect && (
@@ -322,15 +327,38 @@ export default function EmailIntegrationSettings() {
         </div>
       )}
 
-      {/* Empty state */}
+      {/* Empty state - inviting hero */}
       {integrations.length === 0 && !showConnect && (
-        <div className="text-center py-8">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mx-auto mb-3 text-slate-300 dark:text-slate-600">
-            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-            <polyline points="22,6 12,13 2,6"/>
-          </svg>
-          <p className="text-sm text-slate-500">{t('emailIntegration.noConnections')}</p>
-          <p className="text-xs text-slate-400 mt-1">{t('emailIntegration.noConnectionsHint')}</p>
+        <div className="text-center py-10 px-6">
+          <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-primary-100 to-primary-50 dark:from-primary-900/30 dark:to-primary-900/10 flex items-center justify-center shadow-sm">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-primary-500">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+              <polyline points="22,6 12,13 2,6"/>
+            </svg>
+          </div>
+          <h3 className="text-lg font-semibold mb-2">{t('emailIntegration.noConnections')}</h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 max-w-xs mx-auto leading-relaxed">{t('emailIntegration.noConnectionsHint')}</p>
+          <button
+            type="button"
+            onClick={() => setShowConnect(true)}
+            className="btn-primary inline-flex items-center gap-2 px-5 py-2.5"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+              <polyline points="22,6 12,13 2,6"/>
+            </svg>
+            {t('emailIntegration.connectEmail')}
+          </button>
+          <div className="mt-8 flex items-center justify-center gap-6 text-xs text-slate-400 dark:text-slate-500">
+            <span className="flex items-center gap-1.5">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              {t('emailIntegration.secureConnection')}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              {t('emailIntegration.autoImport')}
+            </span>
+          </div>
         </div>
       )}
     </div>
