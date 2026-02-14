@@ -335,17 +335,23 @@ export default function UploadPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">{t('upload.fileLabel')}</label>
-                <input
-                  type="file"
-                  multiple
-                  accept="image/jpeg,image/png,image/webp,application/pdf,text/csv,application/csv,.csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                  className="input"
-                  onChange={(e) => {
-                    const chosen = Array.from(e.target.files ?? []);
-                    updateSlot(slot.id, { files: [...slot.files, ...chosen].slice(0, MAX_FILES) });
-                    e.target.value = '';
-                  }}
-                />
+                <label
+                  className="group flex flex-col items-center justify-center w-full h-32 rounded-2xl border-2 border-dashed border-teal-300 dark:border-teal-700 bg-teal-50/30 dark:bg-teal-900/5 hover:bg-teal-50/60 dark:hover:bg-teal-900/10 hover:border-teal-400 dark:hover:border-teal-600 transition-all duration-200 cursor-pointer"
+                >
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-teal-400 dark:text-teal-500 mb-2 group-hover:text-teal-500 dark:group-hover:text-teal-400 transition-colors"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  <span className="text-sm text-slate-500 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">{t('upload.dragAndDrop') || t('upload.fileLabel')}</span>
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/jpeg,image/png,image/webp,application/pdf,text/csv,application/csv,.csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    className="hidden"
+                    onChange={(e) => {
+                      const chosen = Array.from(e.target.files ?? []);
+                      updateSlot(slot.id, { files: [...slot.files, ...chosen].slice(0, MAX_FILES) });
+                      e.target.value = '';
+                    }}
+                  />
+                </label>
                 <p className="text-xs text-slate-500 mt-1.5">{t('upload.fileTypesHint')}</p>
                 {slot.files.length > 0 && (
                   <ul className="mt-2 space-y-1 max-h-40 overflow-y-auto">
@@ -373,7 +379,7 @@ export default function UploadPage() {
         <button
           type="button"
           onClick={addSlot}
-          className="flex items-center gap-2 mx-auto px-5 py-3 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-primary-400 hover:text-primary-600 dark:hover:border-primary-500 dark:hover:text-primary-400 transition-all duration-200 hover:shadow-sm"
+          className="flex items-center gap-2 mx-auto px-5 py-3 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-teal-400 hover:text-teal-600 dark:hover:border-teal-500 dark:hover:text-teal-400 transition-all duration-200 hover:shadow-sm"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           <span className="text-sm font-medium">{t('upload.addUploadSlot')}</span>

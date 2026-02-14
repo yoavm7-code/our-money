@@ -424,15 +424,15 @@ export default function DashboardPage() {
         const label = w.title || getMetricLabel(metric);
         const isCurrency = metric !== 'transactionCount';
         const colorClass =
-          metric === 'income' || metric === 'fixedIncomeSum' ? 'text-green-700 dark:text-green-400'
-          : metric === 'expenses' || metric === 'fixedExpensesSum' || metric === 'creditCardCharges' ? 'text-red-700 dark:text-red-400'
-          : metric === 'netSavings' ? (value >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400')
-          : metric === 'currentBalance' ? 'text-sky-700 dark:text-sky-400'
-          : metric === 'totalBalance' ? 'text-blue-700 dark:text-blue-400'
-          : 'text-amber-700 dark:text-amber-400';
+          metric === 'income' || metric === 'fixedIncomeSum' ? 'text-emerald-700 dark:text-emerald-400'
+          : metric === 'expenses' || metric === 'fixedExpensesSum' || metric === 'creditCardCharges' ? 'text-slate-800 dark:text-slate-200'
+          : metric === 'netSavings' ? (value >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400')
+          : metric === 'currentBalance' ? 'text-slate-900 dark:text-slate-100'
+          : metric === 'totalBalance' ? 'text-slate-900 dark:text-slate-100'
+          : 'text-slate-800 dark:text-slate-200';
         const isClickable = !isBalanceMetric && ['income', 'expenses', 'netSavings', 'transactionCount', 'fixedExpensesSum', 'fixedIncomeSum', 'creditCardCharges'].includes(metric);
         const isUp = metric === 'income' || metric === 'fixedIncomeSum' || metric === 'totalBalance' || metric === 'currentBalance' || (metric === 'netSavings' && value >= 0);
-        const trendColor = isUp ? 'text-green-600' : 'text-red-600';
+        const trendColor = isUp ? 'text-teal-500' : 'text-rose-500';
 
         // Subtitle: show "as of" date for period balance, "not affected" for current
         const asOfDate = metric === 'totalBalance' && to
@@ -447,8 +447,8 @@ export default function DashboardPage() {
         return (
           <div className="pt-1 w-full text-start">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-slate-600 dark:text-slate-400">{label}</p>
-              <span className={`${trendColor}`}>
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</p>
+              <span className={`${trendColor} opacity-70`}>
                 {isUp ? (
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
                 ) : (
@@ -463,12 +463,12 @@ export default function DashboardPage() {
                 onClick={!editMode ? () => openStatDetail(metric) : undefined}
                 title={t('dashboard.clickToShowDetails')}
               >
-                <p className={`text-2xl font-bold mt-2 ${colorClass}`}>
+                <p className={`text-3xl font-extrabold mt-2 tracking-tight ${colorClass}`}>
                   {isCurrency ? formatCurrency(value, locale) : value.toLocaleString()}
                 </p>
               </button>
             ) : (
-              <p className={`text-2xl font-bold mt-2 ${colorClass}`}>
+              <p className={`text-3xl font-extrabold mt-2 tracking-tight ${colorClass}`}>
                 {isCurrency ? formatCurrency(value, locale) : value.toLocaleString()}
               </p>
             )}
@@ -496,19 +496,19 @@ export default function DashboardPage() {
         const barData = trends ?? [];
         return (
           <>
-            <h2 className="font-semibold mb-4">{w.title || t('dashboard.trendsOverTime')}</h2>
+            <h2 className="font-semibold mb-4 text-slate-800 dark:text-slate-200">{w.title || t('dashboard.trendsOverTime')}</h2>
             {barData.length > 0 ? (
               <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={barData} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
-                  <XAxis dataKey="period" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `${v / 1000}k`} />
+                <BarChart data={barData} margin={{ top: 8, right: 8, left: 8, bottom: 8 }} barCategoryGap="30%">
+                  <XAxis dataKey="period" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} tickFormatter={(v) => `${v / 1000}k`} axisLine={false} tickLine={false} />
                   <Tooltip
                     formatter={(v: number) => formatCurrency(v, locale)}
                     labelFormatter={(l) => l}
-                    contentStyle={{ borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--card)' }}
+                    contentStyle={{ borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--card)', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
                   />
-                  <Bar dataKey="income" fill="#22c55e" name={t('dashboard.income')} radius={[6, 6, 0, 0]} />
-                  <Bar dataKey="expenses" fill="#ef4444" name={t('dashboard.expenses')} radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="income" fill="#14b8a6" name={t('dashboard.income')} radius={[8, 8, 0, 0]} maxBarSize={32} />
+                  <Bar dataKey="expenses" fill="#94a3b8" name={t('dashboard.expenses')} radius={[8, 8, 0, 0]} maxBarSize={32} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -525,7 +525,7 @@ export default function DashboardPage() {
         const noDataKey = variant === 'income' ? 'dashboard.noIncomeData' : 'dashboard.noSpendingData';
         return (
           <>
-            <h2 className="font-semibold mb-4">{title}</h2>
+            <h2 className="font-semibold mb-4 text-slate-800 dark:text-slate-200">{title}</h2>
             {data.length > 0 ? (
               <ResponsiveContainer width="100%" height={320}>
                 <PieChart>
@@ -627,7 +627,7 @@ export default function DashboardPage() {
                           {tx.accountName && <span> · {tx.accountName}</span>}
                         </p>
                       </div>
-                      <span className={`text-sm font-semibold whitespace-nowrap ${isIncome ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                      <span className={`text-sm font-semibold whitespace-nowrap ${isIncome ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-300'}`}>
                         {isIncome ? '+' : ''}{formatCurrency(tx.amount, locale)}
                       </span>
                     </li>
@@ -887,7 +887,7 @@ export default function DashboardPage() {
                 <>
                   <button
                     type="button"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-900/20 hover:bg-teal-100 dark:hover:bg-teal-900/30 transition-colors"
                     onClick={() => setEditingWidget('new')}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
