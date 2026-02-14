@@ -241,10 +241,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <img
                 src={userInfo.avatarUrl}
                 alt=""
-                className="w-9 h-9 rounded-full object-cover ring-2 ring-teal-500/50"
+                className="w-9 h-9 rounded-full object-cover ring-2 ring-emerald-500/50"
               />
             ) : (
-              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center text-white text-sm font-bold ring-2 ring-teal-500/50">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-sm font-bold ring-2 ring-emerald-500/50">
                 {userInitial}
               </div>
             )}
@@ -297,7 +297,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               href={item.href}
               className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150 ${
                 isActive
-                  ? 'bg-teal-500/15 text-teal-400'
+                  ? 'bg-emerald-500/15 text-emerald-400'
                   : 'text-[#a0a3bd] hover:bg-white/5 hover:text-white'
               }`}
             >
@@ -311,7 +311,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <button
           type="button"
           onClick={() => setShowQuickAdd(true)}
-          className="flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-sm font-medium text-teal-400 hover:bg-teal-500/15 transition-all duration-150 mt-2"
+          className="flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-sm font-medium text-emerald-400 hover:bg-emerald-500/15 transition-all duration-150 mt-2"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
           <span>{t('quickAdd.title')}</span>
@@ -345,7 +345,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   href={item.href}
                   className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150 ${
                     isActive
-                      ? 'bg-teal-500/15 text-teal-400'
+                      ? 'bg-emerald-500/15 text-emerald-400'
                       : 'text-[#a0a3bd] hover:bg-white/5 hover:text-white'
                   }`}
                 >
@@ -366,7 +366,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               href={item.href}
               className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-150 mt-4 ${
                 isActive
-                  ? 'bg-teal-500/15 text-teal-400'
+                  ? 'bg-emerald-500/15 text-emerald-400'
                   : 'text-[#a0a3bd] hover:bg-white/5 hover:text-white'
               }`}
             >
@@ -477,7 +477,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {sidebarContent}
       </aside>
 
-      <main className="flex-1 p-4 md:p-8 overflow-x-hidden min-h-0 bg-[var(--background)]">
+      <main className="flex-1 p-4 md:p-6 overflow-x-hidden min-h-0">
         {/* Desktop top bar with alerts */}
         <div className="hidden md:flex items-center justify-end gap-2 mb-4">
           <AlertsBell />

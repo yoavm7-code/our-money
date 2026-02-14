@@ -484,7 +484,7 @@ export default function StocksPage() {
       )}
 
       {/* ── Stock Explorer ── */}
-      <div className="card bg-white dark:bg-slate-800/50 border-teal-200 dark:border-teal-800 border-t-2 border-t-teal-500">
+      <div className="card bg-gradient-to-br from-primary-50/50 to-blue-50/50 dark:from-primary-900/10 dark:to-blue-900/10 border-primary-200 dark:border-primary-800">
         <div className="flex items-center gap-2 mb-3">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-primary-500 shrink-0"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
           <h2 className="font-semibold">{t('stocks.exploreTitle')}</h2>
@@ -651,22 +651,22 @@ export default function StocksPage() {
       {/* ── Summary cards ── */}
       {allHoldings.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="card text-center border-t-2 border-t-teal-500">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('stocks.totalValue')}</p>
-            <p className="text-3xl font-extrabold mt-2 tracking-tight text-slate-900 dark:text-slate-100">
+          <div className="card text-center">
+            <p className="text-sm text-slate-500">{t('stocks.totalValue')}</p>
+            <p className="text-2xl font-bold mt-1">
               {fmtCurrency(totalPortfolioValue, 'ILS', locale)}
             </p>
           </div>
-          <div className="card text-center border-t-2" style={{ borderTopColor: totalGainLoss >= 0 ? '#14b8a6' : '#f43f5e' }}>
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('stocks.gainLoss')}</p>
-            <p className={`text-3xl font-extrabold mt-2 tracking-tight ${gainColor(totalGainLoss)}`}>
+          <div className="card text-center">
+            <p className="text-sm text-slate-500">{t('stocks.gainLoss')}</p>
+            <p className={`text-2xl font-bold mt-1 ${gainColor(totalGainLoss)}`}>
               {fmtCurrency(totalGainLoss, 'ILS', locale)}
+              <span className="text-sm font-medium ms-1">({fmtPercent(totalGainLossPercent)})</span>
             </p>
-            <p className={`text-sm font-medium mt-1 ${gainColor(totalGainLossPercent)}`}>{fmtPercent(totalGainLossPercent)}</p>
           </div>
-          <div className="card text-center border-t-2 border-t-slate-400">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('stocks.summaryCount')}</p>
-            <p className="text-3xl font-extrabold mt-2 tracking-tight text-slate-900 dark:text-slate-100">{allHoldings.length}</p>
+          <div className="card text-center">
+            <p className="text-sm text-slate-500">{t('stocks.summaryCount')}</p>
+            <p className="text-2xl font-bold mt-1">{allHoldings.length}</p>
           </div>
         </div>
       )}
@@ -753,18 +753,18 @@ export default function StocksPage() {
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
-                          <tr className="border-b border-[var(--border)] bg-slate-50/80 dark:bg-slate-800/30">
-                            <th className="text-start py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">{t('stocks.ticker')}</th>
-                            <th className="text-start py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">{t('stocks.companyName')}</th>
-                            <th className="text-start py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">{t('stocks.exchange')}</th>
-                            <th className="text-start py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">{t('stocks.sector')}</th>
-                            <th className="text-start py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">{t('stocks.shares')}</th>
-                            <th className="text-start py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">{t('stocks.avgBuyPrice')}</th>
-                            <th className="text-start py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">{t('stocks.currentPrice')}</th>
-                            <th className="text-start py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">{t('stocks.totalValue')}</th>
-                            <th className="text-start py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">{t('stocks.gainLoss')}</th>
-                            <th className="text-start py-3 px-4 text-xs font-semibold uppercase tracking-wider text-slate-500">{t('stocks.lastUpdate')}</th>
-                            <th className="py-3 px-4"></th>
+                          <tr className="border-b border-[var(--border)] bg-slate-50/50 dark:bg-slate-800/30">
+                            <th className="text-start py-2.5 px-4 font-medium">{t('stocks.ticker')}</th>
+                            <th className="text-start py-2.5 px-4 font-medium">{t('stocks.companyName')}</th>
+                            <th className="text-start py-2.5 px-4 font-medium">{t('stocks.exchange')}</th>
+                            <th className="text-start py-2.5 px-4 font-medium">{t('stocks.sector')}</th>
+                            <th className="text-start py-2.5 px-4 font-medium">{t('stocks.shares')}</th>
+                            <th className="text-start py-2.5 px-4 font-medium">{t('stocks.avgBuyPrice')}</th>
+                            <th className="text-start py-2.5 px-4 font-medium">{t('stocks.currentPrice')}</th>
+                            <th className="text-start py-2.5 px-4 font-medium">{t('stocks.totalValue')}</th>
+                            <th className="text-start py-2.5 px-4 font-medium">{t('stocks.gainLoss')}</th>
+                            <th className="text-start py-2.5 px-4 font-medium">{t('stocks.lastUpdate')}</th>
+                            <th className="py-2.5 px-4"></th>
                           </tr>
                         </thead>
                         <tbody>
@@ -778,15 +778,10 @@ export default function StocksPage() {
 
                             return (
                               <tr key={h.id} className="border-b border-[var(--border)] last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                <td className="py-3 px-4">
-                                  <span className="font-extrabold text-base font-mono text-slate-900 dark:text-slate-100">
+                                <td className="py-2.5 px-4">
+                                  <span className={`font-bold ${h.currentPrice !== null ? (priceGain >= 0 ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400') : 'text-primary-600 dark:text-primary-400'}`}>
                                     {h.ticker}
                                   </span>
-                                  {h.currentPrice !== null && (
-                                    <span className={`inline-block ms-1.5 text-[10px] font-semibold ${priceGain >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>
-                                      {priceGain >= 0 ? '▲' : '▼'}
-                                    </span>
-                                  )}
                                 </td>
                                 <td className="py-2.5 px-4 text-slate-700 dark:text-slate-300 max-w-[180px] truncate">{h.name}</td>
                                 <td className="py-2.5 px-4 text-slate-500 text-xs">{h.exchange || '-'}</td>

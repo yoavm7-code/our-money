@@ -213,44 +213,39 @@ export default function LoansSavingsPage() {
       <h1 className="text-2xl font-bold">{t('loansSavings.title')} <HelpTooltip text={t('help.loansSavings')} className="ms-1" /></h1>
       <p className="text-slate-600 dark:text-slate-400">{t('loansSavings.description')}</p>
 
-      {/* Net Worth highlight + Summary cards */}
-      <div className="card bg-gradient-to-r from-teal-600 to-emerald-600 text-white p-6 text-center">
-        <p className="text-sm font-semibold uppercase tracking-wider opacity-80">{t('loansSavings.netWorth') || 'Net Worth'}</p>
-        <p className="text-4xl font-extrabold mt-2 tracking-tight">{formatCurrency(totalSaved - totalDebt, locale)}</p>
-        <p className="text-sm opacity-70 mt-1">{t('loansSavings.totalSaved')}: {formatCurrency(totalSaved, locale)} &mdash; {t('loansSavings.totalDebt')}: {formatCurrency(totalDebt, locale)}</p>
-      </div>
+      {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="card border-inline-start-[3px] border-s-rose-500">
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('loansSavings.totalDebt')}</p>
-          <p className="text-2xl font-extrabold text-slate-800 dark:text-slate-200 mt-2">{formatCurrency(totalDebt, locale)}</p>
+        <div className="card">
+          <p className="text-sm text-slate-500">{t('loansSavings.totalDebt')}</p>
+          <p className="text-xl font-bold text-red-600 dark:text-red-400 mt-1">{formatCurrency(totalDebt, locale)}</p>
         </div>
-        <div className="card border-inline-start-[3px] border-s-amber-500">
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('loansSavings.monthlyPayments')}</p>
-          <p className="text-2xl font-extrabold text-slate-800 dark:text-slate-200 mt-2">{formatCurrency(totalMonthlyPayments, locale)}</p>
+        <div className="card">
+          <p className="text-sm text-slate-500">{t('loansSavings.monthlyPayments')}</p>
+          <p className="text-xl font-bold text-orange-600 dark:text-orange-400 mt-1">{formatCurrency(totalMonthlyPayments, locale)}</p>
         </div>
-        <div className="card border-inline-start-[3px] border-s-emerald-500">
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('loansSavings.totalSaved')}</p>
-          <p className="text-2xl font-extrabold text-emerald-700 dark:text-emerald-400 mt-2">{formatCurrency(totalSaved, locale)}</p>
+        <div className="card">
+          <p className="text-sm text-slate-500">{t('loansSavings.totalSaved')}</p>
+          <p className="text-xl font-bold text-green-600 dark:text-green-400 mt-1">{formatCurrency(totalSaved, locale)}</p>
         </div>
-        <div className="card border-inline-start-[3px] border-s-blue-500">
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{t('loansSavings.savingsTarget')}</p>
-          <p className="text-2xl font-extrabold text-slate-800 dark:text-slate-200 mt-2">{totalTarget > 0 ? formatCurrency(totalTarget, locale) : '–'}</p>
+        <div className="card">
+          <p className="text-sm text-slate-500">{t('loansSavings.savingsTarget')}</p>
+          <p className="text-xl font-bold text-blue-600 dark:text-blue-400 mt-1">{totalTarget > 0 ? formatCurrency(totalTarget, locale) : '–'}</p>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 w-fit">
+      <div className="flex gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800 w-fit">
         <button
           type="button"
           onClick={() => setTab('loans')}
-          className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${tab === 'loans' ? 'bg-white dark:bg-slate-700 shadow-md text-teal-700 dark:text-teal-300' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}`}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === 'loans' ? 'bg-white dark:bg-slate-700 shadow-sm text-primary-700 dark:text-primary-300' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}`}
         >
           {t('loansSavings.loans')} ({loans.length})
         </button>
         <button
           type="button"
           onClick={() => setTab('savings')}
-          className={`px-5 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${tab === 'savings' ? 'bg-white dark:bg-slate-700 shadow-md text-teal-700 dark:text-teal-300' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}`}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === 'savings' ? 'bg-white dark:bg-slate-700 shadow-sm text-primary-700 dark:text-primary-300' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'}`}
         >
           {t('loansSavings.savingsGoals')} ({savings.length})
         </button>
@@ -283,7 +278,7 @@ export default function LoansSavingsPage() {
                 const progress = loan.originalAmount > 0 ? ((loan.originalAmount - loan.remainingAmount) / loan.originalAmount) * 100 : 0;
                 return (
                   <div key={loan.id} className="card relative group">
-                    <div className="absolute inset-x-0 top-0 h-1 bg-rose-400 rounded-t-2xl" />
+                    <div className="absolute inset-x-0 top-0 h-1 bg-red-500 rounded-t-2xl" />
                     <div className="flex items-center justify-between mb-2 pt-1">
                       <h3 className="font-semibold">{loan.name}</h3>
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -296,7 +291,7 @@ export default function LoansSavingsPage() {
                       </div>
                     </div>
                     {loan.lender && <p className="text-xs text-slate-500 mb-2">{loan.lender}</p>}
-                    <p className="text-lg font-bold text-slate-800 dark:text-slate-200">{formatCurrency(loan.remainingAmount, locale)}</p>
+                    <p className="text-lg font-bold text-red-600 dark:text-red-400">{formatCurrency(loan.remainingAmount, locale)}</p>
                     <p className="text-xs text-slate-500">{t('loansSavings.of')} {formatCurrency(loan.originalAmount, locale)}</p>
                     <div className="mt-3 h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
                       <div className="h-full bg-green-500 transition-all" style={{ width: `${Math.min(progress, 100)}%` }} />
