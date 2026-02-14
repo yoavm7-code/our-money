@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { dashboard, accounts, categories, users, transactions as txApi, forex, goals as goalsApi, budgets as budgetsApi, recurring as recurringApi, type FixedItem, type WidgetConfig, type ForexAccountItem, type GoalItem, type BudgetItem, type RecurringPatternItem } from '@/lib/api';
 import { useTranslation } from '@/i18n/context';
 import DateRangePicker from '@/components/DateRangePicker';
@@ -11,6 +11,8 @@ import { useOnboarding } from '@/components/OnboardingProvider';
 import WidgetSettings from '@/components/dashboard/WidgetSettings';
 import { DEFAULT_WIDGETS } from '@/components/dashboard/defaults';
 import { getQuickRangeDates } from '@/components/DateRangePicker';
+import AnimatedCounter from '@/components/AnimatedCounter';
+import AnimatedProgressBar from '@/components/AnimatedProgressBar';
 import {
   DndContext,
   closestCenter,
@@ -39,6 +41,8 @@ import {
   Pie,
   Cell,
   Legend,
+  AreaChart,
+  Area,
 } from 'recharts';
 
 /* ─── constants ─── */
@@ -93,7 +97,7 @@ function SortableWidget({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const colSpan = size === 'lg' ? 'col-span-full' : size === 'md' ? 'sm:col-span-2 lg:col-span-1' : '';
-  const statBgClass = widgetType === 'stat' ? getStatCardClass(statMetric) : '';
+  const statBgClass = (widgetType === 'stat' || widgetType === 'fixed-list') ? getStatCardClass(statMetric) : '';
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -135,6 +139,8 @@ function SortableWidget({
 export default function DashboardPage() {
   const { t, locale } = useTranslation();
   const { startTour } = useOnboarding();
+  const fmtCurrency = useMemo(() => (n: number) => formatCurrency(n, locale), [locale]);
+  const fmtNumber = useMemo(() => (n: number) => Math.round(n).toLocaleString(), []);
   const [summary, setSummary] = useState<SummaryData | null>(null);
   const [trends, setTrends] = useState<TrendsData | null>(null);
   const [from, setFrom] = useState('');
@@ -464,12 +470,12 @@ export default function DashboardPage() {
                 title={t('dashboard.clickToShowDetails')}
               >
                 <p className={`text-3xl font-extrabold mt-2 tracking-tight ${colorClass}`}>
-                  {isCurrency ? formatCurrency(value, locale) : value.toLocaleString()}
+                  <AnimatedCounter value={value} formatFn={isCurrency ? fmtCurrency : fmtNumber} />
                 </p>
               </button>
             ) : (
               <p className={`text-3xl font-extrabold mt-2 tracking-tight ${colorClass}`}>
-                {isCurrency ? formatCurrency(value, locale) : value.toLocaleString()}
+                <AnimatedCounter value={value} formatFn={isCurrency ? fmtCurrency : fmtNumber} />
               </p>
             )}
             {subtitle && (
@@ -499,7 +505,17 @@ export default function DashboardPage() {
             <h2 className="font-semibold mb-4 text-slate-800 dark:text-slate-200">{w.title || t('dashboard.trendsOverTime')}</h2>
             {barData.length > 0 ? (
               <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={barData} margin={{ top: 8, right: 8, left: 8, bottom: 8 }} barCategoryGap="30%">
+                <AreaChart data={barData} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
+                  <defs>
+                    <linearGradient id="gradientIncome" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#14b8a6" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="#14b8a6" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="gradientExpenses" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#94a3b8" stopOpacity={0.25} />
+                      <stop offset="95%" stopColor="#94a3b8" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
                   <XAxis dataKey="period" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} tickFormatter={(v) => `${v / 1000}k`} axisLine={false} tickLine={false} />
                   <Tooltip
@@ -507,9 +523,28 @@ export default function DashboardPage() {
                     labelFormatter={(l) => l}
                     contentStyle={{ borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--card)', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
                   />
-                  <Bar dataKey="income" fill="#14b8a6" name={t('dashboard.income')} radius={[8, 8, 0, 0]} maxBarSize={32} />
-                  <Bar dataKey="expenses" fill="#94a3b8" name={t('dashboard.expenses')} radius={[8, 8, 0, 0]} maxBarSize={32} />
-                </BarChart>
+                  <Area
+                    type="monotone"
+                    dataKey="income"
+                    stroke="#14b8a6"
+                    strokeWidth={2.5}
+                    fill="url(#gradientIncome)"
+                    name={t('dashboard.income')}
+                    animationDuration={1200}
+                    animationEasing="ease-out"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="expenses"
+                    stroke="#94a3b8"
+                    strokeWidth={2.5}
+                    fill="url(#gradientExpenses)"
+                    name={t('dashboard.expenses')}
+                    animationDuration={1200}
+                    animationEasing="ease-out"
+                    animationBegin={300}
+                  />
+                </AreaChart>
               </ResponsiveContainer>
             ) : (
               <p className="text-slate-500 py-8 text-center">{t('dashboard.noTrendData')}</p>
@@ -551,22 +586,36 @@ export default function DashboardPage() {
         const list = isExpenses ? fixedExpensesList : fixedIncomeList;
         const label = w.title || (isExpenses ? t('dashboard.fixedExpenses') : t('dashboard.fixedIncome'));
         const sumValue = isExpenses ? (summary?.fixedExpensesSum ?? 0) : (summary?.fixedIncomeSum ?? 0);
-        const valueColor = isExpenses ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400';
+        const valueColor = isExpenses ? 'text-slate-800 dark:text-slate-200' : 'text-emerald-700 dark:text-emerald-400';
+        const trendColor = isExpenses ? 'text-rose-500' : 'text-teal-500';
         return (
           <>
             <button
               type="button"
-              className="w-full flex items-center justify-between text-end"
+              className="w-full text-end"
               onClick={() => setOpen((o: boolean) => !o)}
               aria-expanded={isOpen}
             >
-              <div>
-                <p className="text-sm text-slate-500 dark:text-slate-400">{label}</p>
-                <p className={`text-xl font-bold mt-1 ${valueColor}`}>{formatCurrency(sumValue, locale)}</p>
+              <div className="pt-1">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</p>
+                  <span className={`${trendColor} opacity-70`}>
+                    {isExpenses ? (
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>
+                    ) : (
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                    )}
+                  </span>
+                </div>
+                <p className={`text-3xl font-extrabold mt-2 tracking-tight ${valueColor}`}>
+                  <AnimatedCounter value={sumValue} formatFn={fmtCurrency} />
+                </p>
               </div>
-              <span className={`shrink-0 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>
-              </span>
+              <div className="flex items-center justify-start mt-2">
+                <span className={`shrink-0 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>
+                </span>
+              </div>
             </button>
             {isOpen && (
               <div className="mt-4 pt-4 border-t border-[var(--border)] animate-slideDown">
@@ -720,11 +769,8 @@ export default function DashboardPage() {
                         </span>
                         <span className="text-xs text-slate-500">{pct}%</span>
                       </div>
-                      <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden mb-1.5">
-                        <div
-                          className="h-full rounded-full transition-all duration-500"
-                          style={{ width: `${pct}%`, backgroundColor: g.color || '#22c55e' }}
-                        />
+                      <div className="mb-1.5">
+                        <AnimatedProgressBar percent={pct} color={g.color || '#22c55e'} />
                       </div>
                       <div className="flex items-center justify-between text-xs text-slate-500">
                         <span>{t('goals.remaining')}: {formatCurrency(remaining, locale)}</span>
@@ -770,11 +816,8 @@ export default function DashboardPage() {
                           {b.isOver ? t('budgets.overBudget') : `${pct}%`}
                         </span>
                       </div>
-                      <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden mb-1.5">
-                        <div
-                          className={`h-full rounded-full transition-all duration-500 ${b.isOver ? 'bg-red-500' : 'bg-emerald-500'}`}
-                          style={{ width: `${Math.min(pct, 100)}%` }}
-                        />
+                      <div className="mb-1.5">
+                        <AnimatedProgressBar percent={Math.min(pct, 100)} className={b.isOver ? 'bg-red-500' : 'bg-emerald-500'} />
                       </div>
                       <div className="flex items-center justify-between text-xs text-slate-500">
                         <span>{formatCurrency(b.spent, locale)} / {formatCurrency(b.amount, locale)}</span>
@@ -969,7 +1012,7 @@ export default function DashboardPage() {
                   editMode={editMode}
                   onEdit={() => setEditingWidget(w)}
                   size={w.size}
-                  statMetric={w.metric}
+                  statMetric={w.type === 'fixed-list' ? (w.variant === 'income' ? 'fixedIncomeSum' : 'fixedExpensesSum') : w.metric}
                   widgetType={w.type}
                 >
                   {renderWidget(w)}
