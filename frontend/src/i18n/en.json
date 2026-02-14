@@ -1485,7 +1485,7 @@
   },
   "emailIntegration": {
     "title": "Email Integration",
-    "tabTitle": "Email",
+    "tabTitle": "Invoice Import",
     "description": "Connect your email account so the system can find invoices and add them automatically.",
     "connectEmail": "Connect email",
     "connectNew": "Connect a new email account",

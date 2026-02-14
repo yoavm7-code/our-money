@@ -103,6 +103,13 @@ export default function SettingsPage() {
       .finally(() => setNotifLoading(false));
   }, []);
 
+  // Keep profile form in sync with user data
+  useEffect(() => {
+    if (user) {
+      setProfileForm({ name: user.name ?? '', email: user.email ?? '', password: '', countryCode: user.countryCode ?? '' });
+    }
+  }, [user?.name, user?.email, user?.countryCode]);
+
   async function handleAddAccount(e: React.FormEvent) {
     e.preventDefault();
     if (!newAccount.name.trim()) return;
@@ -221,8 +228,7 @@ export default function SettingsPage() {
         email: profileForm.email.trim() || u.email,
         countryCode: profileForm.countryCode || null,
       } : null));
-      setProfileForm({ name: '', email: '', password: '', countryCode: '' });
-      setEditingProfile(false);
+      setProfileForm((f) => ({ ...f, password: '' }));
       setMsg(t('settings.profileUpdated'));
     } catch (err) {
       const msgText = err instanceof Error ? err.message : t('common.failedToLoad');
@@ -478,7 +484,7 @@ export default function SettingsPage() {
   ];
 
   const TABS = [
-    { id: 'profile' as const, label: t('settings.profile'), icon: 'M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2' },
+    { id: 'profile' as const, label: t('settings.profile'), icon: 'M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 3a4 4 0 10 0 8 4 4 0 10 0-8z' },
     { id: 'security' as const, label: t('settings.securityTab'), icon: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z' },
     { id: 'accounts' as const, label: t('common.accounts'), icon: 'M2 6h20v12H2zM12 12h.01' },
     { id: 'categories' as const, label: t('common.categories'), icon: 'M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z' },
@@ -517,167 +523,131 @@ export default function SettingsPage() {
 
       {/* Profile Tab */}
       {activeTab === 'profile' && (
-      <>
       <div className="card max-w-md">
         <h2 className="font-medium mb-4">{t('settings.profile')}</h2>
-        <div className="flex items-center gap-4 mb-3">
-          <div className="relative group">
-            {user?.avatarUrl ? (
-              <img
-                src={user.avatarUrl}
-                alt=""
-                className="w-16 h-16 rounded-full object-cover ring-2 ring-primary-500/30"
-              />
-            ) : (
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-xl font-bold ring-2 ring-primary-500/30">
-                {user?.name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || '?'}
-              </div>
-            )}
-            <button
-              type="button"
-              onClick={() => avatarInputRef.current?.click()}
-              disabled={avatarUploading}
-              className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-              title={t('profile.uploadAvatar')}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-            </button>
-          </div>
-          <div>
-            <p className="font-medium">{user?.name || user?.email?.split('@')[0]}</p>
-            <p className="text-sm text-slate-500">{user?.email}</p>
-            {user?.countryCode && (
-              <p className="text-xs text-slate-500 mt-0.5">
-                {t('settings.country')}: {t(`countries.${user.countryCode}`)}
-              </p>
-            )}
-            {user?.avatarUrl && (
+        <form onSubmit={handleUpdateProfile} className="space-y-4">
+          {/* Avatar */}
+          <div className="flex items-center gap-4">
+            <div className="relative group">
+              {user?.avatarUrl ? (
+                <img
+                  src={user.avatarUrl}
+                  alt=""
+                  className="w-16 h-16 rounded-full object-cover ring-2 ring-primary-500/30"
+                />
+              ) : (
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-xl font-bold ring-2 ring-primary-500/30">
+                  {user?.name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || '?'}
+                </div>
+              )}
               <button
                 type="button"
-                className="text-xs text-red-500 hover:text-red-700 mt-1"
-                onClick={async () => {
-                  try {
-                    await users.deleteAvatar();
-                    setUser((u) => u ? { ...u, avatarUrl: null } : u);
-                    window.dispatchEvent(new CustomEvent('avatar-changed', { detail: { avatarUrl: null } }));
-                  } catch {}
-                }}
+                onClick={() => avatarInputRef.current?.click()}
+                disabled={avatarUploading}
+                className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                title={t('profile.uploadAvatar')}
               >
-                {t('profile.deleteAvatar')}
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
               </button>
-            )}
-          </div>
-        </div>
-        <input
-          ref={avatarInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp,image/gif"
-          className="hidden"
-          onChange={handleAvatarFileSelect}
-        />
-        <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">{t('settings.countryWhy')}</p>
-        <button
-          type="button"
-          className="text-sm text-primary-600 hover:underline"
-          onClick={openEditProfile}
-        >
-          {t('settings.editProfile')}
-        </button>
-      </div>
-
-      {editingProfile && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => setEditingProfile(false)}>
-          <div className="bg-[var(--card)] rounded-xl shadow-xl max-w-sm w-full p-6" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-medium mb-4">{t('settings.editProfile')}</h3>
-            <form onSubmit={handleUpdateProfile} className="space-y-4">
-              {/* Avatar upload in edit modal */}
-              <div className="flex items-center gap-4">
-                <div className="relative group">
-                  {user?.avatarUrl ? (
-                    <img
-                      src={user.avatarUrl}
-                      alt=""
-                      className="w-14 h-14 rounded-full object-cover ring-2 ring-primary-500/30"
-                    />
-                  ) : (
-                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-lg font-bold ring-2 ring-primary-500/30">
-                      {user?.name?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || '?'}
-                    </div>
-                  )}
-                </div>
+            </div>
+            <div>
+              <button
+                type="button"
+                onClick={() => avatarInputRef.current?.click()}
+                disabled={avatarUploading}
+                className="text-sm text-primary-600 hover:underline flex items-center gap-1.5"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                {avatarUploading ? t('common.loading') : t('profile.uploadAvatar')}
+              </button>
+              {user?.avatarUrl && (
                 <button
                   type="button"
-                  onClick={() => avatarInputRef.current?.click()}
-                  disabled={avatarUploading}
-                  className="text-sm text-primary-600 hover:underline flex items-center gap-1.5"
+                  className="text-xs text-red-500 hover:text-red-700 mt-1 block"
+                  onClick={async () => {
+                    try {
+                      await users.deleteAvatar();
+                      setUser((u) => u ? { ...u, avatarUrl: null } : u);
+                      window.dispatchEvent(new CustomEvent('avatar-changed', { detail: { avatarUrl: null } }));
+                    } catch {}
+                  }}
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-                  {avatarUploading ? t('common.loading') : t('profile.uploadAvatar')}
-                  <span className="text-xs text-slate-400">{t('profile.avatarMaxSize')}</span>
+                  {t('profile.deleteAvatar')}
                 </button>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">{t('settings.displayName')}</label>
-                <div className="relative flex items-center">
-                  <input
-                    type="text"
-                    className="input w-full pe-9"
-                    value={profileForm.name}
-                    onChange={(e) => setProfileForm((f) => ({ ...f, name: e.target.value }))}
-                    placeholder={user?.name ?? user?.email ?? ''}
-                  />
-                  <div className="absolute end-2 top-1/2 -translate-y-1/2"><VoiceInputButton onResult={(text) => setProfileForm((f) => ({ ...f, name: text }))} /></div>
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">{t('settings.email')}</label>
-                <input
-                  type="email"
-                  className="input w-full"
-                  value={profileForm.email}
-                  onChange={(e) => setProfileForm((f) => ({ ...f, email: e.target.value }))}
-                  placeholder="user@example.com"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">{t('settings.country')}</label>
-                <select
-                  className="input w-full"
-                  value={profileForm.countryCode}
-                  onChange={(e) => setProfileForm((f) => ({ ...f, countryCode: e.target.value }))}
-                >
-                  <option value="">–</option>
-                  {COUNTRY_CODES.map((code) => (
-                    <option key={code} value={code}>{t(`countries.${code}`)}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">{t('settings.newPassword')}</label>
-                <input
-                  type="password"
-                  className="input w-full"
-                  value={profileForm.password}
-                  onChange={(e) => setProfileForm((f) => ({ ...f, password: e.target.value }))}
-                  placeholder="••••••••"
-                  autoComplete="new-password"
-                />
-                <p className="text-xs text-slate-500 mt-1">{t('settings.newPasswordHint')}</p>
-              </div>
-              <div className="flex gap-2">
-                <button type="submit" className="btn-primary" disabled={updatingProfile}>
-                  {updatingProfile ? t('common.loading') : t('common.save')}
-                </button>
-                <button type="button" className="btn-secondary" onClick={() => setEditingProfile(false)}>
-                  {t('common.cancel')}
-                </button>
-              </div>
-            </form>
+              )}
+            </div>
           </div>
-        </div>
-      )}
-      </>
+          <input
+            ref={avatarInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            className="hidden"
+            onChange={handleAvatarFileSelect}
+          />
+
+          {/* Display Name */}
+          <div>
+            <label className="block text-sm font-medium mb-1">{t('settings.displayName')}</label>
+            <div className="relative flex items-center">
+              <input
+                type="text"
+                className="input w-full pe-9"
+                value={profileForm.name}
+                onChange={(e) => setProfileForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder={user?.name ?? user?.email ?? ''}
+              />
+              <div className="absolute end-2 top-1/2 -translate-y-1/2"><VoiceInputButton onResult={(text) => setProfileForm((f) => ({ ...f, name: text }))} /></div>
+            </div>
+          </div>
+
+          {/* Email */}
+          <div>
+            <label className="block text-sm font-medium mb-1">{t('settings.email')}</label>
+            <input
+              type="email"
+              className="input w-full"
+              value={profileForm.email}
+              onChange={(e) => setProfileForm((f) => ({ ...f, email: e.target.value }))}
+              placeholder="user@example.com"
+              required
+            />
+          </div>
+
+          {/* Country */}
+          <div>
+            <label className="block text-sm font-medium mb-1">{t('settings.country')}</label>
+            <select
+              className="input w-full"
+              value={profileForm.countryCode}
+              onChange={(e) => setProfileForm((f) => ({ ...f, countryCode: e.target.value }))}
+            >
+              <option value="">–</option>
+              {COUNTRY_CODES.map((code) => (
+                <option key={code} value={code}>{t(`countries.${code}`)}</option>
+              ))}
+            </select>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{t('settings.countryWhy')}</p>
+          </div>
+
+          {/* New Password */}
+          <div>
+            <label className="block text-sm font-medium mb-1">{t('settings.newPassword')}</label>
+            <input
+              type="password"
+              className="input w-full"
+              value={profileForm.password}
+              onChange={(e) => setProfileForm((f) => ({ ...f, password: e.target.value }))}
+              placeholder="••••••••"
+              autoComplete="new-password"
+            />
+            <p className="text-xs text-slate-500 mt-1">{t('settings.newPasswordHint')}</p>
+          </div>
+
+          <button type="submit" className="btn-primary" disabled={updatingProfile}>
+            {updatingProfile ? t('common.loading') : t('common.save')}
+          </button>
+        </form>
+      </div>
       )}
 
       {/* Security Tab */}
@@ -905,7 +875,7 @@ export default function SettingsPage() {
               {/* TOTP option */}
               <button
                 type="button"
-                className="w-full text-left border border-[var(--border)] rounded-lg p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                className="w-full text-start border border-[var(--border)] rounded-lg p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
                 onClick={() => handleSelectTwoFAMethod('totp')}
                 disabled={twoFALoading}
               >
@@ -922,7 +892,7 @@ export default function SettingsPage() {
               {/* Email option */}
               <button
                 type="button"
-                className="w-full text-left border border-[var(--border)] rounded-lg p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                className="w-full text-start border border-[var(--border)] rounded-lg p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
                 onClick={() => handleSelectTwoFAMethod('email')}
                 disabled={twoFALoading}
               >
@@ -939,7 +909,7 @@ export default function SettingsPage() {
               {/* SMS option */}
               <button
                 type="button"
-                className="w-full text-left border border-[var(--border)] rounded-lg p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                className="w-full text-start border border-[var(--border)] rounded-lg p-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
                 onClick={() => handleSelectTwoFAMethod('sms')}
                 disabled={twoFALoading}
               >
@@ -1398,7 +1368,7 @@ export default function SettingsPage() {
                 )}
                 <button
                     type="button"
-                    className="text-red-600 hover:underline text-xs -mr-1"
+                    className="text-red-600 hover:underline text-xs -me-1"
                     onClick={() => handleRemoveCategory(c.id)}
                     disabled={removingCategoryId === c.id}
                     title={t('settings.removeCategory')}

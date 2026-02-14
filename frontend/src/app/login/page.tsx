@@ -23,7 +23,7 @@ const TOTAL_STEPS = 3;
 function StepIndicator({ currentStep, t }: { currentStep: number; t: (key: string) => string }) {
   const labels = [t('login.stepBasicInfo'), t('login.stepProfile'), t('login.stepWelcome')];
   return (
-    <div className="flex items-center justify-center gap-0 mb-8">
+    <div className="flex items-center justify-center gap-0 mb-8 px-2">
       {labels.map((label, i) => {
         const step = i + 1;
         const isCompleted = currentStep > step;
@@ -32,14 +32,14 @@ function StepIndicator({ currentStep, t }: { currentStep: number; t: (key: strin
           <div key={step} className="flex items-center">
             {i > 0 && (
               <div
-                className={`w-10 h-0.5 mx-1 transition-colors duration-300 ${
+                className={`w-6 sm:w-10 h-0.5 mx-0.5 sm:mx-1 transition-colors duration-300 ${
                   isCompleted ? 'bg-primary-500' : 'bg-slate-200 dark:bg-slate-700'
                 }`}
               />
             )}
             <div className="flex flex-col items-center gap-1.5">
               <div
-                className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold transition-all duration-300 ${
+                className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-xs sm:text-sm font-semibold transition-all duration-300 ${
                   isCompleted
                     ? 'bg-primary-500 text-white'
                     : isCurrent
@@ -56,7 +56,7 @@ function StepIndicator({ currentStep, t }: { currentStep: number; t: (key: strin
                 )}
               </div>
               <span
-                className={`text-xs font-medium whitespace-nowrap ${
+                className={`text-xs font-medium text-center max-w-[70px] sm:max-w-none sm:whitespace-nowrap ${
                   isCurrent ? 'text-primary-600 dark:text-primary-400' : isCompleted ? 'text-slate-600 dark:text-slate-300' : 'text-slate-400'
                 }`}
               >
@@ -524,24 +524,24 @@ export default function LoginPage() {
               <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 space-y-3">
                 <p className="text-sm font-medium text-slate-600 dark:text-slate-300">{t('login.welcomeSummary')}</p>
                 <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
+                  <div className="flex flex-col sm:flex-row sm:justify-between gap-0.5 sm:gap-2">
                     <span className="text-slate-500">{t('login.email')}</span>
-                    <span className="font-medium">{email}</span>
+                    <span className="font-medium break-all sm:break-normal">{email}</span>
                   </div>
                   {name && (
-                    <div className="flex justify-between">
+                    <div className="flex flex-col sm:flex-row sm:justify-between gap-0.5 sm:gap-2">
                       <span className="text-slate-500">{t('login.yourName')}</span>
                       <span className="font-medium">{name}</span>
                     </div>
                   )}
                   {countryCode && (
-                    <div className="flex justify-between">
+                    <div className="flex flex-col sm:flex-row sm:justify-between gap-0.5 sm:gap-2">
                       <span className="text-slate-500">{t('login.country')}</span>
                       <span className="font-medium">{t(`countries.${countryCode}`)}</span>
                     </div>
                   )}
                   {phone && (
-                    <div className="flex justify-between">
+                    <div className="flex flex-col sm:flex-row sm:justify-between gap-0.5 sm:gap-2">
                       <span className="text-slate-500">{t('login.phone')}</span>
                       <span className="font-medium">{phone}</span>
                     </div>
