@@ -537,66 +537,62 @@ export default function TransactionsPage() {
         { title: t('wizard.transactions.step2Title'), description: t('wizard.transactions.step2Desc') },
         { title: t('wizard.transactions.step3Title'), description: t('wizard.transactions.step3Desc') },
       ]} />
-      <div className="card p-4 space-y-4">
-        {/* First row: Date range and search */}
-        <div className="flex flex-wrap gap-4 items-center">
-          <DateRangePicker from={from} to={to} onChange={handleDateRangeChange} />
-          <div className="relative flex-1 min-w-[200px] max-w-[300px]">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute start-3 top-1/2 -translate-y-1/2 text-slate-400">
-              <circle cx="11" cy="11" r="8"/>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-            </svg>
-            <input
-              type="search"
-              className="input w-full ps-10"
-              placeholder={t('transactionsPage.search')}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+      <div className="card p-4 space-y-3">
+        {/* Date range - stacks vertically on mobile */}
+        <DateRangePicker from={from} to={to} onChange={handleDateRangeChange} />
+
+        {/* Search - full width on mobile */}
+        <div className="relative w-full sm:max-w-[300px]">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute start-3 top-1/2 -translate-y-1/2 text-slate-400">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input
+            type="search"
+            className="input w-full ps-10"
+            placeholder={t('transactionsPage.search')}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
-        
-        {/* Second row: Dropdowns */}
-        <div className="flex flex-wrap gap-3 items-center pt-2 border-t border-[var(--border)]">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-slate-500">{t('common.account')}:</span>
-            <select
-              className="input w-auto min-w-[140px] py-1.5 text-sm"
-              value={accountId}
-              onChange={(e) => { setAccountId(e.target.value); setPage(1); }}
-            >
-              <option value="">{t('common.allAccounts')}</option>
-              {accountsList.map((a) => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-slate-500">{t('common.category')}:</span>
-            <select
-              className="input w-auto min-w-[140px] py-1.5 text-sm"
-              value={categoryId}
-              onChange={(e) => { setCategoryId(e.target.value); setPage(1); }}
-            >
-              <option value="">{t('common.allCategories')}</option>
-              {categoriesList.map((c) => (
-                <option key={c.id} value={c.id}>{getCategoryDisplayName(c.name, c.slug, t)}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex items-center gap-2 ms-auto">
-            <span className="text-sm text-slate-500">{t('common.rowsPerPage')}:</span>
-            <select
-              className="input w-auto min-w-[70px] py-1.5 text-sm"
-              value={limit}
-              onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
-            >
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </select>
-          </div>
+
+        {/* Account + Category side by side */}
+        <div className="grid grid-cols-2 gap-3">
+          <select
+            className="input py-2.5 text-sm"
+            value={accountId}
+            onChange={(e) => { setAccountId(e.target.value); setPage(1); }}
+          >
+            <option value="">{t('common.allAccounts')}</option>
+            {accountsList.map((a) => (
+              <option key={a.id} value={a.id}>{a.name}</option>
+            ))}
+          </select>
+          <select
+            className="input py-2.5 text-sm"
+            value={categoryId}
+            onChange={(e) => { setCategoryId(e.target.value); setPage(1); }}
+          >
+            <option value="">{t('common.allCategories')}</option>
+            {categoriesList.map((c) => (
+              <option key={c.id} value={c.id}>{getCategoryDisplayName(c.name, c.slug, t)}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Rows per page */}
+        <div className="flex items-center gap-2 justify-end">
+          <span className="text-sm text-slate-500">{t('common.rowsPerPage')}:</span>
+          <select
+            className="input w-auto min-w-[70px] py-1.5 text-sm"
+            value={limit}
+            onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
+          >
+            <option value={10}>10</option>
+            <option value={20}>20</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
         </div>
       </div>
       {error && (
