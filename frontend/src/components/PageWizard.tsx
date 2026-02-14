@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from '@/i18n/context';
+import { useOnboarding } from '@/components/OnboardingProvider';
 
 export interface WizardStep {
   title: string;
@@ -17,6 +18,7 @@ const STORAGE_PREFIX = 'our-money-wizard-';
 
 export default function PageWizard({ pageKey, steps }: PageWizardProps) {
   const { t } = useTranslation();
+  const { isTouring } = useOnboarding();
   const [currentStep, setCurrentStep] = useState(0);
   const [dismissed, setDismissed] = useState(true);
   const [showButton, setShowButton] = useState(false);
@@ -62,7 +64,7 @@ export default function PageWizard({ pageKey, steps }: PageWizardProps) {
     if (currentStep > 0) setCurrentStep((s) => s - 1);
   };
 
-  if (steps.length === 0) return null;
+  if (steps.length === 0 || isTouring) return null;
 
   // Show "?" button to reopen wizard
   if (dismissed && showButton) {

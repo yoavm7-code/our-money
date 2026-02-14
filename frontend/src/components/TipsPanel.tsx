@@ -153,43 +153,43 @@ export default function TipsPanel() {
         <button
           type="button"
           onClick={handleShow}
-          className="fixed bottom-44 end-0 z-30 px-1.5 py-3 rounded-s-lg bg-gradient-to-b from-primary-500 to-emerald-500 text-white shadow-md hover:shadow-lg hover:px-2 transition-all duration-200 flex flex-col items-center gap-1 opacity-70 hover:opacity-100"
+          className="fixed bottom-36 md:bottom-44 end-0 z-30 px-1 md:px-1.5 py-2 md:py-3 rounded-s-lg bg-gradient-to-b from-primary-500 to-emerald-500 text-white shadow-md hover:shadow-lg hover:px-1.5 md:hover:px-2 transition-all duration-200 flex flex-col items-center gap-1 opacity-70 hover:opacity-100"
           title={t('tips.show')}
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="md:w-4 md:h-4">
             <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
           </svg>
           {unreadCount > 0 && (
-            <span className="w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+            <span className="w-3.5 h-3.5 md:w-4 md:h-4 rounded-full bg-red-500 text-white text-[9px] md:text-[10px] font-bold flex items-center justify-center">
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
         </button>
       ) : (
-        <div className="fixed bottom-44 end-6 z-30 flex items-center gap-1 group">
+        <div className="fixed bottom-36 end-4 md:bottom-44 md:end-6 z-30 flex items-center gap-1 group">
           <button
             type="button"
             onClick={handleOpen}
-            className="w-14 h-14 rounded-full bg-gradient-to-br from-primary-500 to-emerald-500 text-white shadow-glow-lg hover:shadow-glow-xl hover:scale-105 transition-all duration-200 flex items-center justify-center"
+            className="w-10 h-10 md:w-14 md:h-14 rounded-full bg-gradient-to-br from-primary-500 to-emerald-500 text-white shadow-glow-lg hover:shadow-glow-xl hover:scale-105 transition-all duration-200 flex items-center justify-center"
             title={t('tips.title')}
           >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="md:w-6 md:h-6">
               <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
             </svg>
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -end-1 w-5 h-5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center animate-bounce">
+              <span className="absolute -top-1 -end-1 w-4 h-4 md:w-5 md:h-5 rounded-full bg-red-500 text-white text-[10px] md:text-xs font-bold flex items-center justify-center animate-bounce">
                 {unreadCount > 9 ? '9+' : unreadCount}
               </span>
             )}
           </button>
-          {/* Hide button - appears on hover */}
+          {/* Hide button - always visible on mobile, hover on desktop */}
           <button
             type="button"
             onClick={handleHide}
-            className="absolute -top-2 -start-2 w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center hover:bg-slate-300 dark:hover:bg-slate-600"
+            className="absolute -top-2 -start-2 w-5 h-5 md:w-6 md:h-6 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 shadow-sm md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center hover:bg-slate-300 dark:hover:bg-slate-600"
             title={t('tips.hide')}
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="md:w-3 md:h-3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
       )}
