@@ -429,8 +429,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <OnboardingProvider>
     <div className="min-h-screen flex flex-col md:flex-row">
-      {/* Mobile top bar */}
-      <div className="md:hidden flex items-center justify-between px-4 py-3 border-b border-[var(--border)] bg-[var(--card)] sticky top-0 z-30">
+      {/* Mobile top bar – glassmorphism */}
+      <div className="md:hidden flex items-center justify-between px-4 py-3 border-b border-[var(--border)] bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0 z-30">
         <button
           type="button"
           onClick={() => setDrawerOpen(true)}
@@ -477,12 +477,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         {sidebarContent}
       </aside>
 
-      <main className="flex-1 p-4 md:p-8 overflow-x-hidden min-h-0 bg-[var(--background)]">
-        {/* Desktop top bar with alerts */}
-        <div className="hidden md:flex items-center justify-end gap-2 mb-4">
+      <main className="flex-1 overflow-x-hidden min-h-0 bg-[var(--background)]">
+        {/* Desktop top bar – glassmorphism sticky */}
+        <div className="hidden md:flex items-center justify-end gap-2 px-8 py-3 sticky top-0 z-20 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-[var(--border)]/50">
           <AlertsBell />
         </div>
-        {children}
+        <div className="p-4 md:p-8">
+          {children}
+        </div>
       </main>
 
       <TipsPanel />
