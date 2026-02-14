@@ -857,11 +857,11 @@ export default function DashboardPage() {
         <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
           <DateRangePicker from={from} to={to} onChange={handleDateRangeChange} />
           <div className="grid grid-cols-2 gap-3 sm:contents">
-            <select className="input sm:min-w-[140px]" value={accountId} onChange={(e) => setAccountId(e.target.value)} title={t('common.accounts')}>
+            <select className="input sm:w-auto sm:min-w-[140px]" value={accountId} onChange={(e) => setAccountId(e.target.value)} title={t('common.accounts')}>
               <option value="">{t('common.allAccounts')}</option>
               {accountsList.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
-            <select className="input sm:min-w-[130px]" value={categoryId} onChange={(e) => setCategoryId(e.target.value)} title={t('common.categories')}>
+            <select className="input sm:w-auto sm:min-w-[130px]" value={categoryId} onChange={(e) => setCategoryId(e.target.value)} title={t('common.categories')}>
               <option value="">{t('common.allCategories')}</option>
               {categoriesList.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
