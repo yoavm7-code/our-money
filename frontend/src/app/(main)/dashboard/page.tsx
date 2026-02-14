@@ -556,7 +556,7 @@ export default function DashboardPage() {
           <>
             <button
               type="button"
-              className="w-full flex items-center justify-between text-right"
+              className="w-full flex items-center justify-between text-end"
               onClick={() => setOpen((o: boolean) => !o)}
               aria-expanded={isOpen}
             >
@@ -856,11 +856,11 @@ export default function DashboardPage() {
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <DateRangePicker from={from} to={to} onChange={handleDateRangeChange} />
-          <select className="input w-auto min-w-[140px]" value={accountId} onChange={(e) => setAccountId(e.target.value)} title={t('common.accounts')}>
+          <select className="input w-full sm:w-auto sm:min-w-[140px]" value={accountId} onChange={(e) => setAccountId(e.target.value)} title={t('common.accounts')}>
             <option value="">{t('common.allAccounts')}</option>
             {accountsList.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
-          <select className="input w-auto min-w-[130px]" value={categoryId} onChange={(e) => setCategoryId(e.target.value)} title={t('common.categories')}>
+          <select className="input w-full sm:w-auto sm:min-w-[130px]" value={categoryId} onChange={(e) => setCategoryId(e.target.value)} title={t('common.categories')}>
             <option value="">{t('common.allCategories')}</option>
             {categoriesList.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>

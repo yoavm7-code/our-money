@@ -696,7 +696,7 @@ export default function QuickAdd({ open, onClose }: QuickAddProps) {
           {showMore && (
             <div className="space-y-3 pt-2 border-t border-[var(--border)]">
               <p className="text-xs text-[var(--muted)]">{t('quickAdd.installments')}</p>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <div>
                   <label className="block text-xs text-[var(--muted)] mb-1">{t('quickAdd.installmentCurrent')}</label>
                   <input
@@ -929,7 +929,7 @@ export default function QuickAdd({ open, onClose }: QuickAddProps) {
                   </div>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium mb-1">{t('quickAdd.startDate')}</label>
                   <input
@@ -1030,7 +1030,7 @@ export default function QuickAdd({ open, onClose }: QuickAddProps) {
                   placeholder="%"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium mb-1">{t('quickAdd.startDate')}</label>
                   <input
@@ -1204,7 +1204,7 @@ export default function QuickAdd({ open, onClose }: QuickAddProps) {
               <option value="SELL">{t('quickAdd.fxSell')}</option>
             </select>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium mb-1">{t('quickAdd.fromCurrency')} *</label>
               <input
@@ -1229,7 +1229,7 @@ export default function QuickAdd({ open, onClose }: QuickAddProps) {
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-sm font-medium mb-1">{t('quickAdd.fromAmount')} *</label>
               <input
