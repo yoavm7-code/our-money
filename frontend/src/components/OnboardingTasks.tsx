@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useTranslation } from '@/i18n/context';
 import { accounts, categories, budgets as budgetsApi, goals as goalsApi, transactions } from '@/lib/api';
+import { useOnboarding } from '@/components/OnboardingProvider';
 
 interface TaskDef {
   id: string;
@@ -18,6 +19,7 @@ const DISMISSED_KEY = 'our-money-onboarding-tasks-dismissed';
 
 export default function OnboardingTasks() {
   const { t } = useTranslation();
+  const { isTouring } = useOnboarding();
   const [visible, setVisible] = useState(false);
   const [completed, setCompleted] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -55,7 +57,7 @@ export default function OnboardingTasks() {
       icon: 'tag',
       check: async () => {
         const list = await categories.list();
-        return list.length > 5;
+        return list.some((c) => !c.isDefault);
       },
     },
     {
@@ -127,7 +129,7 @@ export default function OnboardingTasks() {
     }
   };
 
-  if (loading || !visible) return null;
+  if (loading || !visible || isTouring) return null;
 
   const completedCount = completed.size;
   const totalCount = TASKS.length;

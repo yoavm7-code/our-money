@@ -142,7 +142,7 @@ export const accounts = {
 
 export const categories = {
   list: (incomeOnly?: boolean) =>
-    api<Array<{ id: string; name: string; slug: string; icon: string | null; color: string | null; isIncome: boolean; excludeFromExpenseTotal?: boolean }>>(
+    api<Array<{ id: string; name: string; slug: string; icon: string | null; color: string | null; isIncome: boolean; isDefault?: boolean; excludeFromExpenseTotal?: boolean }>>(
       '/api/categories' + (incomeOnly !== undefined ? `?incomeOnly=${incomeOnly}` : ''),
     ),
   create: (body: { name: string; slug?: string; icon?: string; color?: string; isIncome?: boolean; excludeFromExpenseTotal?: boolean }) =>

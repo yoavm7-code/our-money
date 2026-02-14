@@ -647,10 +647,10 @@ export default function VoiceTransaction() {
         <button
           type="button"
           onClick={handleShowVoice}
-          className="fixed bottom-24 end-0 z-40 px-1.5 py-3 rounded-s-lg bg-gradient-to-b from-primary-500 to-primary-600 text-white shadow-md hover:shadow-lg hover:px-2 transition-all duration-200 flex flex-col items-center gap-1 opacity-70 hover:opacity-100"
+          className="fixed bottom-20 md:bottom-24 end-0 z-40 px-1 md:px-1.5 py-2 md:py-3 rounded-s-lg bg-gradient-to-b from-primary-500 to-primary-600 text-white shadow-md hover:shadow-lg hover:px-1.5 md:hover:px-2 transition-all duration-200 flex flex-col items-center gap-1 opacity-70 hover:opacity-100"
           title={t('voice.show')}
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="md:w-4 md:h-4">
             <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
             <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
             <line x1="12" y1="19" x2="12" y2="23" />
@@ -658,28 +658,28 @@ export default function VoiceTransaction() {
           </svg>
         </button>
       ) : (
-        <div className="fixed bottom-6 end-6 z-40 flex items-center gap-1 group">
+        <div className="fixed bottom-4 end-4 md:bottom-6 md:end-6 z-40 flex items-center gap-1 group">
           <button
             type="button"
             onClick={handleOpen}
-            className="w-14 h-14 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 text-white shadow-lg shadow-primary-500/30 hover:shadow-xl hover:shadow-primary-500/40 hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center"
+            className="w-10 h-10 md:w-14 md:h-14 rounded-full bg-gradient-to-br from-primary-500 to-primary-600 text-white shadow-lg shadow-primary-500/30 hover:shadow-xl hover:shadow-primary-500/40 hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center"
             title={t('voice.title')}
           >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="md:w-6 md:h-6">
               <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
               <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
               <line x1="12" y1="19" x2="12" y2="23" />
               <line x1="8" y1="23" x2="16" y2="23" />
             </svg>
           </button>
-          {/* Hide button - appears on hover */}
+          {/* Hide button - appears on hover / always visible on mobile */}
           <button
             type="button"
             onClick={handleHide}
-            className="absolute -top-2 -start-2 w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center hover:bg-slate-300 dark:hover:bg-slate-600"
+            className="absolute -top-2 -start-2 w-5 h-5 md:w-6 md:h-6 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 shadow-sm md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center hover:bg-slate-300 dark:hover:bg-slate-600"
             title={t('voice.hide')}
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="md:w-3 md:h-3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
       )}
