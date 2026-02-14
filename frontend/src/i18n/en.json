@@ -431,6 +431,7 @@
     "addWidget": "Add widget",
     "editWidget": "Edit widget",
     "resetLayout": "Reset layout",
+    "siteTour": "Site tour",
     "widgetType": "Widget type",
     "widgetSize": "Size",
     "customTitle": "Custom title",
@@ -1478,7 +1479,9 @@
     "createBudget": "Create your first budget",
     "createBudgetDesc": "Set a monthly budget for a specific category",
     "setGoal": "Set a savings goal",
-    "setGoalDesc": "Create a financial goal and track your progress"
+    "setGoalDesc": "Create a financial goal and track your progress",
+    "completedOf": "of",
+    "completedSuffix": "completed"
   },
   "emailIntegration": {
     "title": "Email Integration",

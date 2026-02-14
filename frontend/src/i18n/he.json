@@ -431,6 +431,7 @@
     "addWidget": "הוסף ווידג'ט",
     "editWidget": "עריכת ווידג'ט",
     "resetLayout": "איפוס פריסה",
+    "siteTour": "סיור באתר",
     "widgetType": "סוג ווידג'ט",
     "widgetSize": "גודל",
     "customTitle": "כותרת מותאמת",
@@ -1476,7 +1477,9 @@
     "createBudget": "צור תקציב ראשון",
     "createBudgetDesc": "הגדר תקציב חודשי לקטגוריה מסוימת",
     "setGoal": "הגדר יעד חיסכון",
-    "setGoalDesc": "צור יעד פיננסי ועקוב אחרי ההתקדמות"
+    "setGoalDesc": "צור יעד פיננסי ועקוב אחרי ההתקדמות",
+    "completedOf": "מתוך",
+    "completedSuffix": "הושלמו"
   },
   "emailIntegration": {
     "title": "חיבור מייל",
