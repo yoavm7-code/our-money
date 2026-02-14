@@ -145,20 +145,22 @@ export default function DateRangePicker({ from, to, onChange, className = '' }: 
 
   return (
     <div className={`relative ${className}`} ref={dropdownRef}>
-      <div className="flex items-center gap-2">
-        <input
-          type="date"
-          className="input w-auto min-w-[130px]"
-          value={from}
-          onChange={(e) => onChange(e.target.value, to)}
-        />
-        <span className="text-slate-400">–</span>
-        <input
-          type="date"
-          className="input w-auto min-w-[130px]"
-          value={to}
-          onChange={(e) => onChange(from, e.target.value)}
-        />
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0 flex-1 sm:flex-initial">
+          <input
+            type="date"
+            className="input min-w-0 flex-1 sm:flex-initial sm:w-auto sm:min-w-[130px]"
+            value={from}
+            onChange={(e) => onChange(e.target.value, to)}
+          />
+          <span className="text-slate-400 flex-shrink-0">–</span>
+          <input
+            type="date"
+            className="input min-w-0 flex-1 sm:flex-initial sm:w-auto sm:min-w-[130px]"
+            value={to}
+            onChange={(e) => onChange(from, e.target.value)}
+          />
+        </div>
         <button
           type="button"
           className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg border border-[var(--border)] hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
@@ -178,7 +180,7 @@ export default function DateRangePicker({ from, to, onChange, className = '' }: 
       </div>
 
       {showDropdown && (
-        <div className="absolute top-full mt-2 end-0 z-40 bg-[var(--card)] border border-[var(--border)] rounded-xl shadow-xl p-4 min-w-[320px]">
+        <div className="absolute top-full mt-2 end-0 z-40 bg-[var(--card)] border border-[var(--border)] rounded-xl shadow-xl p-4 w-[calc(100vw-2rem)] sm:w-auto sm:min-w-[320px] max-w-[360px]">
           {/* Recent */}
           <div className="mb-4">
             <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">{t('dateRange.recent')}</p>
