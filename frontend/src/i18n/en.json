@@ -1507,6 +1507,9 @@
     "approve": "Approve",
     "dismiss": "Dismiss",
     "noConnections": "No email accounts connected",
-    "noConnectionsHint": "Connect your email to automatically import invoices"
+    "noConnectionsHint": "Connect your email to automatically import invoices",
+    "secureConnection": "Secure connection",
+    "autoImport": "Auto import",
+    "importInvoices": "Import invoices"
   }
 }

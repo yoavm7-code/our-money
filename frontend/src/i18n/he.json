@@ -1505,6 +1505,9 @@
     "approve": "אשר",
     "dismiss": "התעלם",
     "noConnections": "אין חשבונות מייל מחוברים",
-    "noConnectionsHint": "חבר את המייל שלך כדי לייבא חשבוניות אוטומטית"
+    "noConnectionsHint": "חבר את המייל שלך כדי לייבא חשבוניות אוטומטית",
+    "secureConnection": "חיבור מאובטח",
+    "autoImport": "ייבוא אוטומטי",
+    "importInvoices": "ייבוא חשבוניות"
   }
 }

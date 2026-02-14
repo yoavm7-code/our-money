@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { transactions as txApi, accounts, categories } from '@/lib/api';
 import { useTranslation } from '@/i18n/context';
 import DateRangePicker from '@/components/DateRangePicker';
@@ -68,6 +69,7 @@ function getCategoryDisplayName(name: string, slug: string | undefined, t: (k: s
 
 export default function TransactionsPage() {
   const { t, locale } = useTranslation();
+  const router = useRouter();
   const [items, setItems] = useState<Tx[]>([]);
   const [total, setTotal] = useState(0);
   const [accountsList, setAccountsList] = useState<Array<{ id: string; name: string }>>([]);
@@ -527,9 +529,22 @@ export default function TransactionsPage() {
         description={t('transactions.pageDescription')}
         helpText={t('help.transactions')}
         actions={
-          <button type="button" className="btn-primary" onClick={() => { setShowAddTx(true); if (accountsList.length > 0 && !addTxForm.accountId) setAddTxForm((f) => ({ ...f, accountId: accountsList[0].id })); }}>
-            {t('transactionsPage.addTransaction')}
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => router.push('/settings?tab=email')}
+              className="inline-flex items-center gap-2 text-sm px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 transition-colors"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                <polyline points="22,6 12,13 2,6"/>
+              </svg>
+              {t('emailIntegration.importInvoices')}
+            </button>
+            <button type="button" className="btn-primary" onClick={() => { setShowAddTx(true); if (accountsList.length > 0 && !addTxForm.accountId) setAddTxForm((f) => ({ ...f, accountId: accountsList[0].id })); }}>
+              {t('transactionsPage.addTransaction')}
+            </button>
+          </>
         }
       />
       <PageWizard pageKey="transactions" steps={[

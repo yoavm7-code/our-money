@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { users, accounts, categories, twoFactor, type NotificationSettings } from '@/lib/api';
 import { COUNTRY_CODES } from '@/lib/countries';
 import { useTranslation } from '@/i18n/context';
@@ -26,6 +27,7 @@ const BALANCE_TYPES = ['BANK', 'INVESTMENT', 'PENSION', 'INSURANCE', 'CASH'];
 
 export default function SettingsPage() {
   const { t } = useTranslation();
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<{ email: string; name: string | null; countryCode?: string | null; avatarUrl?: string | null } | null>(null);
   const [accountsList, setAccountsList] = useState<Array<{ id: string; name: string; type: string; balance: string | null; balanceDate?: string | null }>>([]);
   const [categoriesList, setCategoriesList] = useState<Array<{ id: string; name: string; slug?: string; isIncome: boolean; isDefault?: boolean; excludeFromExpenseTotal?: boolean }>>([]);
@@ -68,8 +70,12 @@ export default function SettingsPage() {
   const [twoFAPhoneInput, setTwoFAPhoneInput] = useState('');
   const [userPhone, setUserPhone] = useState<string | null>(null);
 
-  // Tab state
-  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'accounts' | 'categories' | 'email'>('profile');
+  // Tab state - support ?tab= URL param
+  const validTabs = ['profile', 'security', 'accounts', 'categories', 'email'] as const;
+  const tabParam = searchParams.get('tab') as typeof validTabs[number] | null;
+  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'accounts' | 'categories' | 'email'>(
+    tabParam && validTabs.includes(tabParam) ? tabParam : 'profile'
+  );
 
   // Notification settings state
   const [notifSettings, setNotifSettings] = useState<NotificationSettings>({
