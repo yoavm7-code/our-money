@@ -848,13 +848,13 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-5 animate-fadeIn">
-      {/* Header - clean title + filters row */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      {/* Header - title + filters */}
+      <div className="space-y-3">
         <div className="flex items-center gap-2">
           <h1 className="text-2xl font-bold">{t('dashboard.title')}</h1>
           <HelpTooltip text={t('help.dashboardTitle')} className="ms-1" />
         </div>
-        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3 w-full sm:w-auto">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
           <DateRangePicker from={from} to={to} onChange={handleDateRangeChange} />
           <div className="grid grid-cols-2 gap-3 sm:contents">
             <select className="input sm:min-w-[140px]" value={accountId} onChange={(e) => setAccountId(e.target.value)} title={t('common.accounts')}>
